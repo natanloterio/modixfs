@@ -24,15 +24,16 @@ const USAGE: &str = "\
 Usage: modixfs <command> [options]
 
 Commands:
-  init              Create a starter tools.yaml in the current directory
-  mount [path]      Mount the filesystem (path overrides tools.yaml)
-  help              Show this help
+  init                   Create a starter tools.yaml in the current directory
+  mount [path]           Mount the filesystem (path overrides tools.yaml)
+  install <url>          Install a tool from GitHub
+  help                   Show this help
 
 Options:
   --config, -c <file>   Path to tools.yaml (default: ./tools.yaml)
 
 Environment:
-  GITHUB_TOKEN      GitHub personal access token (for github tool)
+  GITHUB_TOKEN      GitHub personal access token (for github tool and install)
 ";
 
 fn main() -> Result<()> {
@@ -49,6 +50,16 @@ fn main() -> Result<()> {
     match cmd {
         "init" => cmd_init(),
         "mount" => cmd_mount(&args),
+        "install" => {
+            let url = args.get(2).map(|s| s.as_str()).unwrap_or("");
+            if url.is_empty() {
+                eprintln!("Usage: modixfs install <github-url>");
+                eprintln!("Example: modixfs install github.com/owner/repo");
+                std::process::exit(1);
+            }
+            let cfg = load_config_for_install(&args);
+            installer::install(url, &cfg)
+        }
         "help" | "--help" | "-h" => {
             print!("{}", USAGE);
             Ok(())
@@ -87,7 +98,24 @@ tools:
     Ok(())
 }
 
+fn load_config_for_install(args: &[String]) -> Config {
+    let config_path = parse_mount_args(args).1;
+    match config_path {
+        Some(p) => Config::load(&p).unwrap_or_else(|_| Config::default_config()),
+        None => {
+            let default = PathBuf::from("tools.yaml");
+            if default.exists() {
+                Config::load(&default).unwrap_or_else(|_| Config::default_config())
+            } else {
+                Config::default_config()
+            }
+        }
+    }
+}
+
 fn cmd_mount(args: &[String]) -> Result<()> {
+    secrets::load_secrets_env()
+        .unwrap_or_else(|e| tracing::warn!("could not load secrets.env: {}", e));
     let (cli_mount, config_path) = parse_mount_args(args);
 
     let cfg = match config_path {
