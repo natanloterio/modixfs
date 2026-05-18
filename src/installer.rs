@@ -37,8 +37,141 @@ pub fn parse_github_url(url: &str) -> Result<GithubUrl> {
     }
 }
 
-pub fn install(_url: &str, _cfg: &crate::config::Config) -> Result<()> {
-    todo!("implemented in Task 5")
+pub fn install(url: &str, cfg: &crate::config::Config) -> Result<()> {
+    use std::io::Write;
+
+    let tools_dir = cfg.resolved_tools_dir()?.ok_or_else(|| {
+        anyhow::anyhow!(
+            "tools_dir is not configured in tools.yaml. Add:\n  tools_dir: ~/.config/modixfs/tools"
+        )
+    })?;
+
+    let gh = parse_github_url(url)?;
+
+    println!("Downloading {}/{}...", gh.owner, gh.repo);
+
+    let tarball_url = format!(
+        "https://api.github.com/repos/{}/{}/tarball/{}",
+        gh.owner, gh.repo, gh.branch
+    );
+
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("modixfs")
+        .redirect(reqwest::redirect::Policy::limited(10))
+        .build()?;
+
+    let mut req = client
+        .get(&tarball_url)
+        .header("Accept", "application/vnd.github+json");
+
+    if let Ok(token) = std::env::var("GITHUB_TOKEN") {
+        req = req.header("Authorization", format!("Bearer {}", token));
+    } else {
+        tracing::warn!("GITHUB_TOKEN not set — GitHub rate limits apply (60 req/hr unauthenticated)");
+    }
+
+    let bytes = req
+        .send()
+        .context("downloading tarball")?
+        .error_for_status()
+        .context("GitHub API returned an error")?
+        .bytes()
+        .context("reading response body")?;
+
+    println!("Extracting...");
+
+    let tmp = tempfile::tempdir()?;
+    let gz = flate2::read::GzDecoder::new(bytes.as_ref());
+    let mut archive = tar::Archive::new(gz);
+    archive.unpack(tmp.path())?;
+
+    // GitHub tarballs contain one top-level directory (owner-repo-SHA/).
+    let top_level = std::fs::read_dir(tmp.path())?
+        .flatten()
+        .find(|e| e.path().is_dir())
+        .context("unexpected tarball structure: no top-level directory")?
+        .path();
+
+    let tool_src = match &gh.subdir {
+        Some(sub) => {
+            let p = top_level.join(sub);
+            if !p.is_dir() {
+                bail!("subdir '{}' not found in repository", sub);
+            }
+            p
+        }
+        None => top_level,
+    };
+
+    let manifest = match crate::manifest::Manifest::load(&tool_src)? {
+        Some(m) => {
+            if let Some(desc) = &m.description {
+                println!("  {}", desc);
+            }
+            m
+        }
+        None => {
+            tracing::warn!("no modix.yaml found — installing without manifest");
+            crate::manifest::Manifest::default()
+        }
+    };
+
+    let tool_name = manifest
+        .name
+        .clone()
+        .unwrap_or_else(|| gh.subdir.clone().unwrap_or_else(|| gh.repo.clone()));
+
+    // Prompt for missing required env vars.
+    for decl in &manifest.env {
+        if !decl.required || crate::secrets::has_secret(&decl.name) {
+            continue;
+        }
+        let desc = decl.description.as_deref().unwrap_or(&decl.name);
+        print!("{} ({}): ", decl.name, desc);
+        std::io::stdout().flush()?;
+        let mut value = String::new();
+        std::io::stdin().read_line(&mut value)?;
+        let value = value.trim().to_string();
+        if !value.is_empty() {
+            crate::secrets::append_secret(&decl.name, &value)?;
+            unsafe { std::env::set_var(&decl.name, &value); }
+        }
+    }
+
+    std::fs::create_dir_all(&tools_dir)?;
+    let dest = tools_dir.join(&tool_name);
+
+    if dest.exists() {
+        print!("Tool '{}' already exists. Overwrite? [y/N]: ", tool_name);
+        std::io::stdout().flush()?;
+        let mut ans = String::new();
+        std::io::stdin().read_line(&mut ans)?;
+        if !ans.trim().eq_ignore_ascii_case("y") {
+            println!("Aborted.");
+            return Ok(());
+        }
+        std::fs::remove_dir_all(&dest)?;
+    }
+
+    copy_dir_all(&tool_src, &dest)?;
+
+    println!("Installed {} → {}", tool_name, dest.display());
+    println!("Run `modixfs mount` to start using it (or it will appear automatically if already mounted).");
+
+    Ok(())
+}
+
+fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)?.flatten() {
+        let dst_path = dst.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir_all(&entry.path(), &dst_path)?;
+        } else {
+            std::fs::copy(entry.path(), &dst_path)?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
