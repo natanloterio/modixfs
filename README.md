@@ -87,8 +87,7 @@ ls /tmp/modixfs/tools/          # see all tools
 cat /tmp/modixfs/tools/index.md # read tool descriptions
 
 cat /tmp/modixfs/tools/github/how_to.md
-echo "tokio stars:>1000" > /tmp/modixfs/tools/github/search_repos
-sleep 2
+echo "tokio stars:>1000" > /tmp/modixfs/tools/github/search_repos  # blocks until done
 cat /tmp/modixfs/tools/github/search_repos
 ```
 
@@ -139,8 +138,10 @@ Every tool appears as a directory under `/tools/<name>/`. Writing to an endpoint
 State machine per endpoint:
 
 ```
-IDLE → write(input) → invoke() → COMPLETE → read() → IDLE
+IDLE → write(input) → invoke() [blocks] → COMPLETE → read() → IDLE
 ```
+
+The write call blocks the caller until the tool finishes — result is always ready by the time `cat` runs.
 
 **vs MCP**
 

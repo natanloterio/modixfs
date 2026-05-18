@@ -507,29 +507,27 @@ impl Filesystem for ModixFS {
                 reply.ok();
                 return;
             }
-            // Executable external file: derive tool/endpoint from path and invoke subprocess.
+            // Executable external file: invoke subprocess, block until done.
             let input = self.write_buf.lock().unwrap().remove(&ino).unwrap_or_default();
             if !input.is_empty() {
                 if let Some(tools_dir) = self.tools_dir.clone() {
                     if let Ok(rel) = disk_path.strip_prefix(&tools_dir) {
                         let parts: Vec<_> = rel.components().collect();
                         if parts.len() >= 2 {
-                            use std::ffi::OsStr;
                             let tool_name = parts[0].as_os_str().to_string_lossy().to_string();
                             let ep_name = parts[1].as_os_str().to_string_lossy().to_string();
                             let tool = self.registry.read().unwrap().get(&tool_name);
                             if let Some(tool) = tool {
                                 let session = self.session.clone();
-                                let result_buf = self.result_buf.clone();
-                                self.rt.spawn(async move {
+                                let output = self.rt.block_on(async move {
                                     let result = tool.invoke(&ep_name, &input, &session).await;
-                                    let output = if result.is_error() {
+                                    if result.is_error() {
                                         format!("ERROR: {}\n", result.error.unwrap()).into_bytes()
                                     } else {
                                         result.output
-                                    };
-                                    result_buf.lock().unwrap().insert(ino, output);
+                                    }
                                 });
+                                self.result_buf.lock().unwrap().insert(ino, output);
                             }
                         }
                     }
@@ -570,17 +568,17 @@ impl Filesystem for ModixFS {
 
         tracing::debug!("invoking tool={} endpoint={} input_len={}", tool_name, endpoint, input.len());
 
-        self.rt.spawn(async move {
-            tracing::debug!("async invoke start: tool={} endpoint={}", tool_name, endpoint);
+        let output = self.rt.block_on(async move {
+            tracing::debug!("invoke start: tool={} endpoint={}", tool_name, endpoint);
             let result = tool.invoke(&endpoint, &input, &session).await;
-            let output = if result.is_error() {
+            tracing::debug!("invoke done: ino={}", ino);
+            if result.is_error() {
                 format!("ERROR: {}\n", result.error.unwrap()).into_bytes()
             } else {
                 result.output
-            };
-            tracing::debug!("async invoke done: ino={} output_len={}", ino, output.len());
-            result_buf.lock().unwrap().insert(ino, output);
+            }
         });
+        result_buf.lock().unwrap().insert(ino, output);
 
         reply.ok();
     }

@@ -14,12 +14,18 @@ cat /tools/<name>/how_to.md  # read detailed usage for a specific tool
 
 ## Invoke a tool
 
-Write your input to an endpoint file, wait a moment, then read the result:
+Write your input to an endpoint file. The write blocks until the tool finishes.
+Read the result immediately after — no sleep needed.
 
 ```
 echo \"<your input>\" > /tools/<name>/<endpoint>
-sleep 2
 cat /tools/<name>/<endpoint>
+```
+
+Or chain them:
+
+```
+echo \"<your input>\" > /tools/<name>/<endpoint> && cat /tools/<name>/<endpoint>
 ```
 
 The result is cleared after you read it — the file resets to empty, ready for the next invocation.
