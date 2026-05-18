@@ -171,4 +171,4 @@ IDLE → write(input) → invoke() → COMPLETE → read() → IDLE
 
 ## License
 
-MIT
+Apache 2.0 — see [LICENSE](LICENSE).
