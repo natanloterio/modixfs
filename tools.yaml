@@ -1,0 +1,11 @@
+# ModixFS configuration
+# Run: modixfs [mountpoint] [--config path]
+# Mountpoint defaults to /tmp/modixfs if not set here or via CLI.
+
+mount: /tmp/modixfs
+
+tools:
+  - name: echo
+
+  - name: github
+    # token_env: GITHUB_TOKEN   # default; uncomment to override env var name
