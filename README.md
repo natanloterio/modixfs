@@ -14,20 +14,27 @@ cat /tools/github/search_repos
 
 ### 1. Install
 
-**Linux**
-
 ```bash
-sudo apt-get install fuse3
-curl -L https://github.com/natanloterio/modixfs/releases/latest/download/modixfs-linux-x86_64 -o modixfs
-chmod +x modixfs && sudo mv modixfs /usr/local/bin/
+curl -fsSL https://raw.githubusercontent.com/natanloterio/modixfs/master/install.sh | bash
 ```
 
-**macOS** — install [macFUSE](https://osxfuse.github.io) first, then:
+Detects your OS and architecture, downloads the right binary, and installs it to `/usr/local/bin`. Warns if FUSE is missing.
+
+**Prerequisites**
+
+- Linux: `sudo apt-get install fuse3` (or `dnf install fuse3`)
+- macOS: install [macFUSE](https://osxfuse.github.io) first
+
+**Manual install**
 
 ```bash
-# Apple Silicon
+# Linux x86_64
+curl -L https://github.com/natanloterio/modixfs/releases/latest/download/modixfs-linux-x86_64 -o modixfs
+# Linux ARM64
+curl -L https://github.com/natanloterio/modixfs/releases/latest/download/modixfs-linux-aarch64 -o modixfs
+# macOS Apple Silicon
 curl -L https://github.com/natanloterio/modixfs/releases/latest/download/modixfs-macos-aarch64 -o modixfs
-# Intel
+# macOS Intel
 curl -L https://github.com/natanloterio/modixfs/releases/latest/download/modixfs-macos-x86_64 -o modixfs
 
 chmod +x modixfs && sudo mv modixfs /usr/local/bin/
