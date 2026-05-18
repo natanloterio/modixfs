@@ -8,6 +8,3 @@ timeout: 30
 
 tools:
   - name: echo
-
-  - name: github
-    # token_env: GITHUB_TOKEN   # default; uncomment to override env var name

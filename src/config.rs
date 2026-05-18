@@ -21,20 +21,6 @@ fn default_timeout() -> u64 { 30 }
 #[derive(Debug, Deserialize)]
 pub struct ToolConfig {
     pub name: String,
-
-    /// Name of the environment variable holding the API token.
-    /// Defaults to "<NAME>_TOKEN" (uppercased tool name).
-    pub token_env: Option<String>,
-}
-
-impl ToolConfig {
-    pub fn resolve_token(&self) -> Option<String> {
-        let env_var = self
-            .token_env
-            .clone()
-            .unwrap_or_else(|| format!("{}_TOKEN", self.name.to_uppercase()));
-        std::env::var(&env_var).ok()
-    }
 }
 
 impl Config {
@@ -50,7 +36,7 @@ impl Config {
             mount: None,
             tools_dir: None,
             timeout_secs: default_timeout(),
-            tools: vec![ToolConfig { name: "echo".to_string(), token_env: None }],
+            tools: vec![ToolConfig { name: "echo".to_string() }],
         }
     }
 

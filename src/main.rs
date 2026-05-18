@@ -18,7 +18,7 @@ use tracing::{info, warn};
 use config::Config;
 use fs::LiveFolders;
 use registry::{Session, ToolRegistry};
-use tools::{EchoTool, ExternalTool, GitHubTool};
+use tools::{EchoTool, ExternalTool};
 
 const USAGE: &str = "\
 Usage: livefolders <command> [options]
@@ -33,7 +33,7 @@ Options:
   --config, -c <file>   Path to tools.yaml (default: ./tools.yaml)
 
 Environment:
-  GITHUB_TOKEN      GitHub personal access token (for github tool and install)
+  GITHUB_TOKEN      GitHub personal access token (for livefolders install)
 ";
 
 fn main() -> Result<()> {
@@ -88,12 +88,10 @@ fn cmd_init() -> Result<()> {
 
 mount: /tmp/livefolders
 
+# tools_dir: ~/.config/livefolders/tools   # external tools are loaded from here
+
 tools:
   - name: echo
-
-  # Uncomment and set GITHUB_TOKEN to enable GitHub search:
-  # - name: github
-  #   token_env: GITHUB_TOKEN
 "#,
     )?;
     println!("Created tools.yaml");
@@ -209,20 +207,7 @@ fn build_registry(cfg: &Config) -> ToolRegistry {
                 registry.register(Arc::new(EchoTool));
                 info!("registered tool: echo");
             }
-            "github" => match tool_cfg.resolve_token() {
-                Some(token) => {
-                    registry.register(Arc::new(GitHubTool::new(token)));
-                    info!("registered tool: github");
-                }
-                None => {
-                    let env_var = tool_cfg
-                        .token_env
-                        .clone()
-                        .unwrap_or_else(|| "GITHUB_TOKEN".to_string());
-                    warn!("github tool skipped: ${} not set", env_var);
-                }
-            },
-            other => warn!("unknown tool in config: {}", other),
+            other => warn!("unknown built-in tool in config: {}", other),
         }
     }
 
