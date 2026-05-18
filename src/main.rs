@@ -169,7 +169,7 @@ fn cmd_mount(args: &[String]) -> Result<()> {
         }
     }
 
-    let fs = LiveFolders::new(registry, tools_dir, session, handle);
+    let fs = LiveFolders::new(registry, tools_dir, session, handle, cfg.timeout_secs);
     fuser::mount2(fs, &mountpoint, &options)?;
 
     Ok(())

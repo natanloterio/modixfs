@@ -42,6 +42,7 @@ pub struct LiveFolders {
     inode_table: InodeTable,
     path_table: PathTable,
     next_ino: Arc<Mutex<u64>>,
+    timeout_secs: u64,
 }
 
 impl LiveFolders {
@@ -50,6 +51,7 @@ impl LiveFolders {
         tools_dir: Option<PathBuf>,
         session: Session,
         rt: Handle,
+        timeout_secs: u64,
     ) -> Self {
         Self {
             registry,
@@ -61,6 +63,7 @@ impl LiveFolders {
             inode_table: Arc::new(Mutex::new(HashMap::new())),
             path_table: Arc::new(Mutex::new(HashMap::new())),
             next_ino: Arc::new(Mutex::new(100_000)),
+            timeout_secs,
         }
     }
 
@@ -267,9 +270,48 @@ impl LiveFolders {
         Some(Self::file_attr(ino, size, 0o644))
     }
 
+    fn manifest_for_tool(&self, tool_name: &str) -> Option<crate::manifest::Manifest> {
+        let tools_dir = self.tools_dir.as_ref()?;
+        crate::manifest::Manifest::load(&tools_dir.join(tool_name)).ok().flatten()
+    }
+
+    /// Given an external inode (>= 100_000), return (tool_name, file_name, FileSpec)
+    /// if the file is declared in the tool's livefolders.yaml.
+    fn file_spec_for_ino(&self, ino: u64) -> Option<(String, String, crate::manifest::FileSpec)> {
+        let tools_dir = self.tools_dir.as_ref()?;
+        let disk_path = self.path_for_ino(ino)?;
+        let rel = disk_path.strip_prefix(tools_dir).ok()?;
+        let mut parts = rel.components();
+        let tool_name = parts.next()?.as_os_str().to_str()?.to_string();
+        let file_name = parts.next()?.as_os_str().to_str()?.to_string();
+        let manifest = self.manifest_for_tool(&tool_name)?;
+        let spec = manifest.spec_for(&file_name)?.clone();
+        Some((tool_name, file_name, spec))
+    }
+
     fn lookup_external_file(&self, tool_name: &str, name: &str) -> Option<FileAttr> {
+        use crate::manifest::FileKind;
         let tools_dir = self.tools_dir.as_ref()?;
         let disk_path = tools_dir.join(tool_name).join(name);
+
+        // For virtual files (write_invoke / read_invoke) declared in the manifest,
+        // synthesize an attr without requiring a disk file.
+        if let Some(manifest) = self.manifest_for_tool(tool_name) {
+            if let Some(spec) = manifest.spec_for(name) {
+                match spec.kind {
+                    FileKind::WriteInvoke | FileKind::ReadInvoke => {
+                        let ino = self.ino_for_path(&disk_path);
+                        let result_size = self.result_buf.lock().unwrap()
+                            .get(&ino).map(|r| r.len()).unwrap_or(0) as u64;
+                        return Some(Self::file_attr(ino, result_size, 0o644));
+                    }
+                    FileKind::Passthrough | FileKind::Readonly => {
+                        // Fall through to disk stat.
+                    }
+                }
+            }
+        }
+
         let meta = std::fs::metadata(&disk_path).ok()?;
         let ino = self.ino_for_path(&disk_path);
         use std::os::unix::fs::PermissionsExt;
@@ -724,6 +766,17 @@ impl Filesystem for LiveFolders {
                                         let child_ino = self.ino_for_path(&fpath);
                                         let kind = if fpath.is_dir() { FileType::Directory } else { FileType::RegularFile };
                                         entries.push((child_ino, kind, fname));
+                                    }
+                                }
+                                // Merge manifest-declared virtual files (may not exist on disk).
+                                if let Some(manifest) = self.manifest_for_tool(&tool_name) {
+                                    for spec in &manifest.files {
+                                        if entries.iter().any(|(_, _, n)| n == &spec.name) {
+                                            continue;
+                                        }
+                                        let virtual_path = tool_path.join(&spec.name);
+                                        let child_ino = self.ino_for_path(&virtual_path);
+                                        entries.push((child_ino, fuser::FileType::RegularFile, spec.name.clone()));
                                     }
                                 }
                                 // Skip built-in endpoint enumeration for external tools
