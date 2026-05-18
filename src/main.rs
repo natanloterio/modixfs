@@ -14,7 +14,7 @@ use tracing::{info, warn};
 use config::Config;
 use fs::ModixFS;
 use registry::{Session, ToolRegistry};
-use tools::{EchoTool, GitHubTool};
+use tools::{EchoTool, ExternalTool, GitHubTool};
 
 const USAGE: &str = "\
 Usage: modixfs <command> [options]
@@ -105,7 +105,9 @@ fn cmd_mount(args: &[String]) -> Result<()> {
     std::fs::create_dir_all(&mountpoint)
         .with_context(|| format!("creating mountpoint {}", mountpoint.display()))?;
 
-    let registry = Arc::new(RwLock::new(build_registry(&cfg)));
+    let mut registry = build_registry(&cfg);
+    load_external_tools(&cfg, &mut registry)?;
+    let registry = Arc::new(RwLock::new(registry));
 
     let session = Session::new();
     let rt = Runtime::new()?;
@@ -124,6 +126,31 @@ fn cmd_mount(args: &[String]) -> Result<()> {
     let fs = ModixFS::new(registry, session, handle);
     fuser::mount2(fs, &mountpoint, &options)?;
 
+    Ok(())
+}
+
+fn load_external_tools(cfg: &Config, registry: &mut ToolRegistry) -> Result<()> {
+    let tools_dir = match cfg.resolved_tools_dir()? {
+        Some(p) => p,
+        None => return Ok(()),
+    };
+    if !tools_dir.exists() {
+        warn!("tools_dir does not exist: {}", tools_dir.display());
+        return Ok(());
+    }
+    let entries = std::fs::read_dir(&tools_dir)
+        .with_context(|| format!("reading tools_dir {}", tools_dir.display()))?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() { continue; }
+        let name = entry.file_name().to_string_lossy().to_string();
+        if registry.get(&name).is_some() {
+            info!("skipping external tool '{}': shadowed by built-in", name);
+            continue;
+        }
+        registry.register(Arc::new(ExternalTool::new(&name, path, cfg.timeout_secs)));
+        info!("registered external tool: {}", name);
+    }
     Ok(())
 }
 
