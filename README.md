@@ -129,6 +129,55 @@ Searches GitHub using the [GitHub Search API](https://docs.github.com/en/search-
 
 Requires `GITHUB_TOKEN`.
 
+## External tools
+
+Any developer can build a ModixFS tool without writing Rust. Create a directory
+in your `tools_dir` and add scripts — no recompile, no restart required.
+
+### Directory convention
+
+```
+~/.config/modixfs/tools/
+└── mytool/
+    ├── how_to.md        ← LLM reads this to learn the tool
+    ├── search           ← executable: write to invoke, read for result
+    ├── output.csv       ← passthrough: LLM reads this file directly
+    └── config.json      ← passthrough: LLM can write to configure the tool
+```
+
+### File behavior
+
+| File | Behavior |
+|---|---|
+| `how_to.md` | Read-only docs served directly from disk |
+| Executable (`chmod +x`) | Write → stdin. Stdout → result on next read. |
+| Regular file | Passthrough to disk. Reads and writes go directly to the file. |
+
+### Subprocess environment
+
+Scripts receive:
+- `stdin` — what the LLM wrote to the endpoint
+- `MODIXFS_TOOL` — tool name
+- `MODIXFS_ENDPOINT` — endpoint name
+- All env vars set when `modixfs` was launched
+
+### Enable in tools.yaml
+
+```yaml
+tools_dir: ~/.config/modixfs/tools
+timeout: 30
+```
+
+### The LLM can create tools too
+
+```bash
+mkdir /tools/mytool
+echo "# My Tool" > /tools/mytool/how_to.md
+printf '#!/bin/bash\ncurl -s https://api.example.com -d "$(cat -)"\n' > /tools/mytool/fetch
+chmod +x /tools/mytool/fetch
+# tool is immediately live — no restart needed
+```
+
 ## Adding tools
 
 Implement the `Tool` trait:
