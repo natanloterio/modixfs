@@ -1,5 +1,6 @@
 mod config;
 mod fs;
+mod installer;
 mod manifest;
 mod registry;
 mod secrets;
