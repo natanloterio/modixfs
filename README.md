@@ -3,10 +3,11 @@
 Expose any tool to an LLM as plain files. The LLM uses `cat` and `echo` — no JSON, no protocol, no SDK.
 
 ```bash
-echo "language:rust fuse stars:>100" > /tools/github/search_repos
-cat /tools/github/search_repos
-# → # GitHub Repository Search
-# → Found 23 results
+cat .livefolders/tools/users/list
+# → # Users
+# →
+# → ## Mr. Rudolph Robel-Fay
+# → ID: 1
 # → ...
 ```
 
@@ -41,20 +42,19 @@ cargo install --git https://github.com/natanloterio/LiveFolders
 ## Quick start
 
 ```bash
-# 1. Create a config file
+# 1. Create a config file (prompts for mount directory, default: .livefolders)
 livefolders init
 
 # 2. Install a tool from GitHub
-livefolders install github.com/natanloterio/LiveFolders/tree/master/examples/demo
+livefolders install github.com/natanloterio/LiveFolders/tree/master/examples/users
 
 # 3. Mount
 livefolders mount
 
 # 4. Use it
-ls /tmp/livefolders/tools/
-cat /tmp/livefolders/tools/demo/how_to.md
-echo "hello world" > /tmp/livefolders/tools/demo/shout
-cat /tmp/livefolders/tools/demo/shout   # → HELLO WORLD
+cat .livefolders/tools/users/list      # fetches users from the API
+echo "hello world" > .livefolders/tools/demo/shout
+cat .livefolders/tools/demo/shout      # → HELLO WORLD
 ```
 
 ---
@@ -67,12 +67,15 @@ Every tool is a directory under `/tools/<name>/`. Each file inside is an **endpo
 - **Read** from an endpoint → gets the result
 
 ```
-/tmp/livefolders/tools/
+.livefolders/tools/
 ├── index.md            ← all tools and descriptions
-└── demo/
-    ├── how_to.md       ← LLM reads this to understand the tool
-    ├── shout           ← write text, read it back uppercased
-    └── status          ← read to get current status
+├── demo/
+│   ├── how_to.md       ← LLM reads this to understand the tool
+│   ├── shout           ← write text, read it back uppercased
+│   └── status          ← read to get current status
+└── users/
+    ├── how_to.md
+    └── list            ← read to fetch users from the API
 ```
 
 The write call **blocks until the tool finishes** — by the time `cat` runs, the result is ready.
@@ -89,6 +92,17 @@ livefolders install github.com/owner/repo/tree/main/mytool
 ```
 
 If the tool declares required secrets in its `livefolders.yaml`, you'll be prompted for them on install. Secrets are stored in `~/.config/livefolders/secrets.env` and loaded automatically on every mount.
+
+---
+
+## Example tools
+
+Ready-to-install tools in this repo:
+
+| Tool | Install | What it does |
+|------|---------|--------------|
+| `demo` | `livefolders install github.com/natanloterio/LiveFolders/tree/master/examples/demo` | Demonstrates all four file types |
+| `users` | `livefolders install github.com/natanloterio/LiveFolders/tree/master/examples/users` | Fetches users from a REST API via GET |
 
 ---
 
@@ -180,12 +194,12 @@ env:
 ## `tools.yaml` reference
 
 ```yaml
-mount: /tmp/livefolders             # where to mount (default: /tmp/livefolders)
+mount: .livefolders                     # where to mount (set by `livefolders init`)
 tools_dir: ~/.config/livefolders/tools  # where installed tools live
-timeout: 30                         # seconds before a handler is killed
+timeout: 30                             # seconds before a handler is killed
 
 tools:
-  - name: echo                      # built-in smoke-test tool
+  - name: echo                          # built-in smoke-test tool
 ```
 
 ---
