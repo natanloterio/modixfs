@@ -1,0 +1,17 @@
+name: demo
+description: Demonstrates all four LiveFolders file behavior types.
+
+files:
+  - name: shout
+    type: write_invoke
+    handler: "tr '[:lower:]' '[:upper:]'"
+
+  - name: status
+    type: read_invoke
+    handler: "echo \"livefolders demo is running on $(hostname) at $(date)\""
+
+  - name: notes.txt
+    type: passthrough
+
+  - name: how_to.md
+    type: readonly
