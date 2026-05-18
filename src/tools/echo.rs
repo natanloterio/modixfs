@@ -38,3 +38,30 @@ cat /tools/echo/send
         ToolResult::ok(input.to_vec())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn echoes_input_back() {
+        let session = Session::new();
+        let result = EchoTool.invoke("send", b"hello livefolders", &session).await;
+        assert!(!result.is_error());
+        assert_eq!(result.output, b"hello livefolders");
+    }
+
+    #[tokio::test]
+    async fn echoes_empty_input() {
+        let session = Session::new();
+        let result = EchoTool.invoke("send", b"", &session).await;
+        assert!(!result.is_error());
+        assert_eq!(result.output, b"");
+    }
+
+    #[tokio::test]
+    async fn name_and_endpoints() {
+        assert_eq!(EchoTool.name(), "echo");
+        assert_eq!(EchoTool.endpoints(), vec!["send"]);
+    }
+}

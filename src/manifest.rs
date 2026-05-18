@@ -181,4 +181,38 @@ env:
         let m = Manifest::load(tmp.path()).unwrap().unwrap();
         assert_eq!(m.name.as_deref(), Some("testpkg"));
     }
+
+    #[test]
+    fn validate_rejects_missing_handler_on_read_invoke() {
+        let yaml = "files:\n  - name: status\n    type: read_invoke\n";
+        let m: Manifest = serde_yaml::from_str(yaml).unwrap();
+        assert!(m.validate().is_err());
+    }
+
+    #[test]
+    fn validate_rejects_handler_on_readonly() {
+        let yaml = "files:\n  - name: readme.md\n    type: readonly\n    handler: ./something\n";
+        let m: Manifest = serde_yaml::from_str(yaml).unwrap();
+        assert!(m.validate().is_err());
+    }
+
+    #[test]
+    fn validate_accepts_read_invoke_with_handler() {
+        let yaml = "files:\n  - name: status\n    type: read_invoke\n    handler: date\n";
+        let m: Manifest = serde_yaml::from_str(yaml).unwrap();
+        assert!(m.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_accepts_readonly_without_handler() {
+        let yaml = "files:\n  - name: readme.md\n    type: readonly\n";
+        let m: Manifest = serde_yaml::from_str(yaml).unwrap();
+        assert!(m.validate().is_ok());
+    }
+
+    #[test]
+    fn spec_for_returns_none_on_empty_files() {
+        let m: Manifest = serde_yaml::from_str("name: empty\n").unwrap();
+        assert!(m.spec_for("anything").is_none());
+    }
 }
