@@ -5,8 +5,8 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, UNIX_EPOCH};
 
 use fuser::{
-    FileAttr, FileType, Filesystem, ReplyAttr, ReplyData, ReplyDirectory, ReplyEntry, ReplyWrite,
-    Request,
+    FileAttr, FileType, Filesystem, ReplyAttr, ReplyData, ReplyDirectory, ReplyEntry, ReplyOpen,
+    ReplyWrite, Request,
 };
 use libc::{ENOENT, ENOTDIR};
 use tokio::runtime::Handle;
@@ -453,6 +453,17 @@ impl Filesystem for LiveFolders {
             Some(a) => reply.attr(&TTL, &a),
             None => reply.error(ENOENT),
         }
+    }
+
+    fn open(&mut self, _req: &Request, ino: u64, _flags: i32, reply: ReplyOpen) {
+        if let Some((_, _, spec)) = self.file_spec_for_ino(ino) {
+            if matches!(spec.kind, FileKind::ReadInvoke) {
+                // Bypass kernel page cache so read() is always called even when reported size=0.
+                reply.opened(0, fuser::consts::FOPEN_DIRECT_IO);
+                return;
+            }
+        }
+        reply.opened(0, 0);
     }
 
     fn read(
