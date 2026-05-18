@@ -2,6 +2,7 @@ mod config;
 mod fs;
 mod manifest;
 mod registry;
+mod secrets;
 mod tools;
 mod watcher;
 
