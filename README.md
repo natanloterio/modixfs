@@ -69,6 +69,26 @@ modixfs mount
 
 The filesystem is now live. Point your LLM agent at it.
 
+## Installing tools
+
+```bash
+modixfs install github.com/someone/their-modixfs-tool
+```
+
+The installer will:
+1. Download the tool from GitHub (no `git` required)
+2. Read its `modix.yaml` to find required env vars
+3. Prompt you for any missing secrets and store them in `~/.config/modixfs/secrets.env`
+4. Copy the tool into your `tools_dir`
+
+`modixfs mount` loads secrets automatically at startup — no manual `export` needed.
+
+For tools in a subdirectory of a repo:
+
+```bash
+modixfs install github.com/owner/repo/tree/main/mytool
+```
+
 ## Configuration
 
 `tools.yaml` (created by `modixfs init`):
@@ -176,6 +196,32 @@ echo "# My Tool" > /tools/mytool/how_to.md
 printf '#!/bin/bash\ncurl -s https://api.example.com -d "$(cat -)"\n' > /tools/mytool/fetch
 chmod +x /tools/mytool/fetch
 # tool is immediately live — no restart needed
+```
+
+## Publishing a tool (`modix.yaml`)
+
+To make your tool installable, add a `modix.yaml` to its directory:
+
+```yaml
+name: mytool
+description: One-line description shown during install
+version: 0.1.0
+env:
+  - name: MYTOOL_API_KEY
+    description: API key from https://example.com/settings
+    required: true
+  - name: MYTOOL_TIMEOUT
+    description: Request timeout in seconds
+    required: false
+    default: "30"
+```
+
+All fields are optional — a tool without `modix.yaml` installs fine, just without prompts. The `env` list is the most useful part: `required: true` vars trigger an interactive prompt at install time so users don't have to discover them from the README.
+
+Push your tool directory to a public GitHub repo and share:
+
+```
+modixfs install github.com/you/your-tool
 ```
 
 ## Adding tools
