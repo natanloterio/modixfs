@@ -1,5 +1,6 @@
 mod config;
 mod fs;
+mod manifest;
 mod registry;
 mod tools;
 mod watcher;
