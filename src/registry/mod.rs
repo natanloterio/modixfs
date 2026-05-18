@@ -26,6 +26,10 @@ impl ToolRegistry {
         self.tools.get(name).cloned()
     }
 
+    pub fn unregister(&mut self, name: &str) {
+        self.tools.remove(name);
+    }
+
     pub fn list(&self) -> Vec<&str> {
         let mut names: Vec<&str> = self.tools.keys().map(|s| s.as_str()).collect();
         names.sort();

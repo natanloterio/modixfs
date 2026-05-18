@@ -4,7 +4,7 @@ mod registry;
 mod tools;
 
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use anyhow::{bail, Context, Result};
 use fuser::MountOption;
@@ -105,8 +105,7 @@ fn cmd_mount(args: &[String]) -> Result<()> {
     std::fs::create_dir_all(&mountpoint)
         .with_context(|| format!("creating mountpoint {}", mountpoint.display()))?;
 
-    let registry = build_registry(&cfg);
-    let registry = Arc::new(registry);
+    let registry = Arc::new(RwLock::new(build_registry(&cfg)));
 
     let session = Session::new();
     let rt = Runtime::new()?;
