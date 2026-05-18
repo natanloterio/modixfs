@@ -49,20 +49,24 @@ impl Config {
         Self {
             mount: None,
             tools_dir: None,
-            timeout_secs: 30,
+            timeout_secs: default_timeout(),
             tools: vec![ToolConfig { name: "echo".to_string(), token_env: None }],
         }
     }
 
-    pub fn resolved_tools_dir(&self) -> Option<PathBuf> {
-        self.tools_dir.as_ref().map(|p| {
-            let s = p.to_string_lossy();
-            if s.starts_with("~/") {
-                let home = std::env::var("HOME").unwrap_or_default();
-                PathBuf::from(format!("{}/{}", home, &s[2..]))
-            } else {
-                p.clone()
+    pub fn resolved_tools_dir(&self) -> anyhow::Result<Option<PathBuf>> {
+        match &self.tools_dir {
+            None => Ok(None),
+            Some(p) => {
+                let s = p.to_string_lossy();
+                if s.starts_with("~/") {
+                    let home = std::env::var("HOME")
+                        .context("tools_dir starts with '~/' but $HOME is not set")?;
+                    Ok(Some(PathBuf::from(home).join(&s[2..])))
+                } else {
+                    Ok(Some(p.clone()))
+                }
             }
-        })
+        }
     }
 }
