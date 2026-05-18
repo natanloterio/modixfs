@@ -42,6 +42,7 @@ pub struct LiveFolders {
     inode_table: InodeTable,
     path_table: PathTable,
     next_ino: Arc<Mutex<u64>>,
+    #[allow(dead_code)]
     timeout_secs: u64,
 }
 
@@ -277,6 +278,7 @@ impl LiveFolders {
 
     /// Given an external inode (>= 100_000), return (tool_name, file_name, FileSpec)
     /// if the file is declared in the tool's livefolders.yaml.
+    #[allow(dead_code)]
     fn file_spec_for_ino(&self, ino: u64) -> Option<(String, String, crate::manifest::FileSpec)> {
         let tools_dir = self.tools_dir.as_ref()?;
         let disk_path = self.path_for_ino(ino)?;
@@ -776,7 +778,7 @@ impl Filesystem for LiveFolders {
                                         }
                                         let virtual_path = tool_path.join(&spec.name);
                                         let child_ino = self.ino_for_path(&virtual_path);
-                                        entries.push((child_ino, fuser::FileType::RegularFile, spec.name.clone()));
+                                        entries.push((child_ino, FileType::RegularFile, spec.name.clone()));
                                     }
                                 }
                                 // Skip built-in endpoint enumeration for external tools
