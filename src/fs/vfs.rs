@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, UNIX_EPOCH};
 
 use fuser::{
@@ -25,7 +25,7 @@ type WriteBuf = Arc<Mutex<HashMap<u64, Vec<u8>>>>;
 type ResultBuf = Arc<Mutex<HashMap<u64, Vec<u8>>>>;
 
 pub struct ModixFS {
-    registry: Arc<ToolRegistry>,
+    registry: Arc<RwLock<ToolRegistry>>,
     session: Session,
     write_buf: WriteBuf,
     result_buf: ResultBuf,
@@ -33,7 +33,7 @@ pub struct ModixFS {
 }
 
 impl ModixFS {
-    pub fn new(registry: Arc<ToolRegistry>, session: Session, rt: Handle) -> Self {
+    pub fn new(registry: Arc<RwLock<ToolRegistry>>, session: Session, rt: Handle) -> Self {
         Self {
             registry,
             session,
@@ -44,7 +44,7 @@ impl ModixFS {
     }
 
     fn tool_index_by_name(&self, name: &str) -> Option<usize> {
-        self.registry.list().iter().position(|&n| n == name)
+        self.registry.read().unwrap().list().iter().position(|&n| n == name)
     }
 
     fn tool_index_for_ino(&self, ino: u64) -> Option<usize> {
@@ -52,7 +52,7 @@ impl ModixFS {
             return None;
         }
         let idx = ((ino - 1000) / 100) as usize;
-        if idx < self.registry.list().len() {
+        if idx < self.registry.read().unwrap().list().len() {
             Some(idx)
         } else {
             None
@@ -66,8 +66,9 @@ impl ModixFS {
             return None; // how_to or dir itself
         }
         let ep_idx = (ino - base - 10) as usize;
-        let tool_name = self.registry.list()[tool_idx];
-        let tool = self.registry.get(tool_name)?;
+        let registry = self.registry.read().unwrap();
+        let tool_name = registry.list()[tool_idx];
+        let tool = registry.get(tool_name)?;
         if ep_idx < tool.endpoints().len() {
             Some((tool_idx, ep_idx))
         } else {
@@ -120,7 +121,7 @@ impl ModixFS {
             ROOT_INO => Some(Self::dir_attr(ROOT_INO)),
             TOOLS_DIR_INO => Some(Self::dir_attr(TOOLS_DIR_INO)),
             ROOT_INDEX_INO => {
-                let content = self.registry.root_index();
+                let content = self.registry.read().unwrap().root_index();
                 Some(Self::file_attr(ROOT_INDEX_INO, content.len() as u64, 0o444))
             }
             _ => {
@@ -132,8 +133,9 @@ impl ModixFS {
                     }
                     // how_to?
                     if ino == how_to_ino(idx) {
-                        let name = self.registry.list()[idx];
-                        let tool = self.registry.get(name)?;
+                        let registry = self.registry.read().unwrap();
+                        let name = registry.list()[idx];
+                        let tool = registry.get(name)?;
                         let size = tool.how_to().len() as u64;
                         return Some(Self::file_attr(ino, size, 0o444));
                     }
@@ -153,7 +155,7 @@ impl ModixFS {
         let s = name.to_str()?;
         match s {
             "index.md" => {
-                let content = self.registry.root_index();
+                let content = self.registry.read().unwrap().root_index();
                 Some(Self::file_attr(ROOT_INDEX_INO, content.len() as u64, 0o444))
             }
             "tools" => Some(Self::dir_attr(TOOLS_DIR_INO)),
@@ -170,8 +172,9 @@ impl ModixFS {
     fn lookup_in_tool_dir(&self, tool_ino: u64, name: &OsStr) -> Option<FileAttr> {
         let s = name.to_str()?;
         let idx = self.tool_index_for_ino(tool_ino)?;
-        let tool_name = self.registry.list()[idx];
-        let tool = self.registry.get(tool_name)?;
+        let registry = self.registry.read().unwrap();
+        let tool_name = registry.list()[idx];
+        let tool = registry.get(tool_name)?;
 
         if s == "how_to.md" {
             let size = tool.how_to().len() as u64;
@@ -263,12 +266,13 @@ impl Filesystem for ModixFS {
         reply: ReplyData,
     ) {
         let data: Option<Vec<u8>> = match ino {
-            ROOT_INDEX_INO => Some(self.registry.root_index().into_bytes()),
+            ROOT_INDEX_INO => Some(self.registry.read().unwrap().root_index().into_bytes()),
             _ => {
                 if let Some(idx) = self.tool_index_for_ino(ino) {
                     if ino == how_to_ino(idx) {
-                        let name = self.registry.list()[idx];
-                        self.registry.get(name).map(|t| t.how_to().as_bytes().to_vec())
+                        let registry = self.registry.read().unwrap();
+                        let name = registry.list()[idx];
+                        registry.get(name).map(|t| t.how_to().as_bytes().to_vec())
                     } else if self.ep_index_for_ino(ino).is_some() {
                         // reading an endpoint returns last result, then clears it
                         let result = self.result_buf.lock().unwrap().remove(&ino);
@@ -349,12 +353,13 @@ impl Filesystem for ModixFS {
             }
         };
 
-        let tool_name = self.registry.list()[tool_idx].to_string();
-        let endpoint = {
-            let tool = self.registry.get(&tool_name).unwrap();
-            tool.endpoints()[ep_idx].to_string()
+        let (tool_name, endpoint, tool) = {
+            let registry = self.registry.read().unwrap();
+            let tool_name = registry.list()[tool_idx].to_string();
+            let tool = registry.get(&tool_name).unwrap();
+            let endpoint = tool.endpoints()[ep_idx].to_string();
+            (tool_name, endpoint, tool)
         };
-        let tool = self.registry.get(&tool_name).unwrap();
         let session = self.session.clone();
         let result_buf = self.result_buf.clone();
 
@@ -394,7 +399,7 @@ impl Filesystem for ModixFS {
                 entries.push((TOOLS_DIR_INO, FileType::Directory, "tools".to_string()));
             }
             TOOLS_DIR_INO => {
-                for (i, name) in self.registry.list().iter().enumerate() {
+                for (i, name) in self.registry.read().unwrap().list().iter().enumerate() {
                     entries.push((tool_dir_ino(i), FileType::Directory, name.to_string()));
                 }
             }
@@ -402,8 +407,9 @@ impl Filesystem for ModixFS {
                 if let Some(idx) = self.tool_index_for_ino(ino) {
                     let base = tool_dir_ino(idx);
                     if ino == base {
-                        let tool_name = self.registry.list()[idx];
-                        let tool = self.registry.get(tool_name).unwrap();
+                        let registry = self.registry.read().unwrap();
+                        let tool_name = registry.list()[idx];
+                        let tool = registry.get(tool_name).unwrap();
                         entries.push((how_to_ino(idx), FileType::RegularFile, "how_to.md".to_string()));
                         for (ei, ep) in tool.endpoints().iter().enumerate() {
                             entries.push((endpoint_ino(idx, ei), FileType::RegularFile, ep.to_string()));
