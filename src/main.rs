@@ -129,8 +129,11 @@ fn cmd_mount(args: &[String]) -> Result<()> {
     if let Some(ref td) = tools_dir {
         if td.exists() {
             let _guard = rt.enter();
-            watcher::spawn_watcher(td.clone(), Arc::clone(&registry), cfg.timeout_secs);
-            info!("hot-reload watcher started");
+            if let Err(e) = watcher::spawn_watcher(td.clone(), Arc::clone(&registry), cfg.timeout_secs) {
+                warn!("hot-reload watcher failed to start: {}", e);
+            } else {
+                info!("hot-reload watcher started");
+            }
         }
     }
 

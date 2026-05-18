@@ -1,7 +1,7 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
-use std::time::Duration;
 
+use anyhow::Result;
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::mpsc;
 use tracing::{info, warn};
@@ -13,20 +13,17 @@ pub fn spawn_watcher(
     tools_dir: PathBuf,
     registry: Arc<RwLock<ToolRegistry>>,
     timeout_secs: u64,
-) {
+) -> Result<()> {
     let (tx, mut rx) = mpsc::unbounded_channel::<notify::Result<Event>>();
 
     let mut watcher = RecommendedWatcher::new(
         move |res| {
             let _ = tx.send(res);
         },
-        notify::Config::default().with_poll_interval(Duration::from_secs(1)),
-    )
-    .expect("failed to create watcher");
+        notify::Config::default(),
+    )?;
 
-    watcher
-        .watch(&tools_dir, RecursiveMode::NonRecursive)
-        .expect("failed to watch tools_dir");
+    watcher.watch(&tools_dir, RecursiveMode::NonRecursive)?;
 
     tokio::spawn(async move {
         let _watcher = watcher;
@@ -37,38 +34,42 @@ pub fn spawn_watcher(
             }
         }
     });
+
+    Ok(())
 }
 
 fn handle_event(
     event: Event,
-    tools_dir: &PathBuf,
+    tools_dir: &Path,
     registry: &Arc<RwLock<ToolRegistry>>,
     timeout_secs: u64,
 ) {
     for path in &event.paths {
         let parent = path.parent();
-        if parent != Some(tools_dir.as_path()) {
+        if parent != Some(tools_dir) {
             continue;
         }
-        if !path.is_dir() {
-            continue;
-        }
-
-        let name = match path.file_name() {
-            Some(n) => n.to_string_lossy().to_string(),
-            None => continue,
-        };
 
         match event.kind {
-            EventKind::Create(_) => {
-                let mut reg = registry.write().unwrap();
+            EventKind::Create(_) if path.is_dir() => {
+                let name = match path.file_name() {
+                    Some(n) => n.to_string_lossy().to_string(),
+                    None => continue,
+                };
+                let mut reg = registry.write().unwrap_or_else(|e| e.into_inner());
                 if reg.get(&name).is_none() {
-                    reg.register(Arc::new(ExternalTool::new(&name, path.clone(), timeout_secs)));
+                    reg.register(Arc::new(
+                        ExternalTool::new(&name, path.clone(), timeout_secs)
+                    ));
                     info!("hot-reload: registered tool '{}'", name);
                 }
             }
             EventKind::Remove(_) => {
-                let mut reg = registry.write().unwrap();
+                let name = match path.file_name() {
+                    Some(n) => n.to_string_lossy().to_string(),
+                    None => continue,
+                };
+                let mut reg = registry.write().unwrap_or_else(|e| e.into_inner());
                 reg.unregister(&name);
                 info!("hot-reload: unregistered tool '{}'", name);
             }
