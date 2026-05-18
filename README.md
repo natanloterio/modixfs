@@ -171,13 +171,43 @@ Build a LiveFolders tool without writing Rust — any language, any script.
     └── config.json   ← regular file: LLM can write config directly
 ```
 
-**File behavior**
+**Declaring file behavior in `livefolders.yaml`**
 
-| File type | Behavior |
-|---|---|
-| `how_to.md` | Served read-only from disk |
-| Executable (`chmod +x`) | Write triggers invocation. Stdout becomes the next read result. |
-| Regular file | Passthrough — reads and writes go directly to disk |
+Add a `files` section to declare how each virtual file behaves:
+
+```yaml
+files:
+  - name: forecast
+    type: read_invoke
+    handler: ./bin/forecast         # read triggers handler; write optionally sets params
+
+  - name: search
+    type: write_invoke
+    handler: "curl -s -X POST -d @- https://api.example.com/search"
+
+  - name: config.json
+    type: passthrough               # reads and writes go directly to disk; no handler
+
+  - name: how_to.md
+    type: readonly                  # served from disk; writes return error; no handler
+```
+
+| Type | Write | Read |
+|---|---|---|
+| `write_invoke` | Invokes handler (blocks), stores result | Returns last result |
+| `read_invoke` | Stores params (non-blocking) | Invokes handler with stored params (blocks) |
+| `passthrough` | Writes to disk | Reads from disk |
+| `readonly` | Returns error | Reads from disk |
+
+The `handler` is any shell command. LiveFolders passes input via stdin and reads output from stdout:
+
+```bash
+handler: ./bin/forecast                                              # local script
+handler: python3 ./scripts/search.py                                # interpreter (no chmod +x needed)
+handler: "curl -s -X POST -d @- https://api.example.com/search"     # HTTP via curl
+```
+
+Without a `files` section, LiveFolders falls back to the current heuristic: executable files (`chmod +x`) behave as `write_invoke`, regular files behave as `passthrough`.
 
 **Script environment**
 
