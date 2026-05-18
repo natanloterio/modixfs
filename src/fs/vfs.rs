@@ -12,7 +12,9 @@ use libc::{ENOENT, ENOTDIR};
 use tokio::runtime::Handle;
 use tracing::debug;
 
+use crate::manifest::FileKind;
 use crate::registry::{Session, ToolRegistry};
+use crate::tools::invoke_command;
 
 use super::inode::*;
 use super::root_doc::ROOT_HOW_TO;
@@ -42,7 +44,6 @@ pub struct LiveFolders {
     inode_table: InodeTable,
     path_table: PathTable,
     next_ino: Arc<Mutex<u64>>,
-    #[allow(dead_code)]
     timeout_secs: u64,
 }
 
@@ -278,7 +279,6 @@ impl LiveFolders {
 
     /// Given an external inode (>= 100_000), return (tool_name, file_name, FileSpec)
     /// if the file is declared in the tool's livefolders.yaml.
-    #[allow(dead_code)]
     fn file_spec_for_ino(&self, ino: u64) -> Option<(String, String, crate::manifest::FileSpec)> {
         let tools_dir = self.tools_dir.as_ref()?;
         let disk_path = self.path_for_ino(ino)?;
@@ -409,9 +409,17 @@ impl Filesystem for LiveFolders {
 
         // Handle truncation on O_TRUNC open (e.g. shell `>` redirect)
         if let Some(new_size) = size {
-            if self.ep_index_for_ino(ino).is_some() {
+            let is_virtual_endpoint = self.ep_index_for_ino(ino).is_some()
+                || self.file_spec_for_ino(ino)
+                    .map(|(_, _, s)| matches!(s.kind, FileKind::WriteInvoke | FileKind::ReadInvoke))
+                    .unwrap_or(false);
+            if is_virtual_endpoint {
                 self.write_buf.lock().unwrap().entry(ino).or_default().truncate(new_size as usize);
                 self.result_buf.lock().unwrap().remove(&ino);
+            } else if let Some(disk_path) = self.path_for_ino(ino) {
+                if new_size == 0 {
+                    let _ = std::fs::write(&disk_path, b"");
+                }
             }
         }
         match self.resolve_ino_attr(ino) {
@@ -431,15 +439,28 @@ impl Filesystem for LiveFolders {
         _lock: Option<u64>,
         reply: ReplyData,
     ) {
-        // External file on disk: passthrough read (non-exec) or return invoke result (exec).
+        // External file on disk: dispatch on manifest FileSpec or fall back to disk read.
         if let Some(disk_path) = self.path_for_ino(ino) {
-            use std::os::unix::fs::PermissionsExt;
-            let is_exec = std::fs::metadata(&disk_path)
-                .map(|m| m.permissions().mode() & 0o111 != 0)
-                .unwrap_or(false);
-            if !is_exec {
-                match std::fs::read(&disk_path) {
-                    Ok(bytes) => {
+            // Manifest-declared file: dispatch on declared type.
+            if let Some((tool_name, file_name, spec)) = self.file_spec_for_ino(ino) {
+                match spec.kind {
+                    FileKind::ReadInvoke => {
+                        let handler = spec.handler.clone().unwrap_or_default();
+                        let input = self.write_buf.lock().unwrap().remove(&ino).unwrap_or_default();
+                        let cwd = self.tools_dir.as_ref()
+                            .map(|d| d.join(&tool_name))
+                            .unwrap_or_else(|| {
+                                disk_path.parent().unwrap_or(Path::new(".")).to_path_buf()
+                            });
+                        let timeout = self.timeout_secs;
+                        let bytes = self.rt.block_on(async move {
+                            let result = invoke_command(&handler, &input, &tool_name, &file_name, &cwd, timeout).await;
+                            if result.is_error() {
+                                format!("ERROR: {}\n", result.error.unwrap()).into_bytes()
+                            } else {
+                                result.output
+                            }
+                        });
                         let start = offset as usize;
                         if start >= bytes.len() {
                             reply.data(&[]);
@@ -447,20 +468,39 @@ impl Filesystem for LiveFolders {
                             let end = (start + size as usize).min(bytes.len());
                             reply.data(&bytes[start..end]);
                         }
+                        return;
                     }
-                    Err(e) => reply.error(e.raw_os_error().unwrap_or(libc::EIO)),
+                    FileKind::WriteInvoke => {
+                        // Return last invocation result.
+                        let result = self.result_buf.lock().unwrap().remove(&ino);
+                        let bytes = result.unwrap_or_default();
+                        let start = offset as usize;
+                        if start >= bytes.len() {
+                            reply.data(&[]);
+                        } else {
+                            let end = (start + size as usize).min(bytes.len());
+                            reply.data(&bytes[start..end]);
+                        }
+                        return;
+                    }
+                    FileKind::Passthrough | FileKind::Readonly => {
+                        // Fall through to disk read.
+                    }
                 }
-            } else {
-                // Executable external file: return the last invocation result.
-                let result = self.result_buf.lock().unwrap().remove(&ino);
-                let bytes = result.unwrap_or_default();
-                let start = offset as usize;
-                if start >= bytes.len() {
-                    reply.data(&[]);
-                } else {
-                    let end = (start + size as usize).min(bytes.len());
-                    reply.data(&bytes[start..end]);
+            }
+
+            // No manifest entry or passthrough/readonly: read from disk.
+            match std::fs::read(&disk_path) {
+                Ok(bytes) => {
+                    let start = offset as usize;
+                    if start >= bytes.len() {
+                        reply.data(&[]);
+                    } else {
+                        let end = (start + size as usize).min(bytes.len());
+                        reply.data(&bytes[start..end]);
+                    }
                 }
+                Err(e) => reply.error(e.raw_os_error().unwrap_or(libc::EIO)),
             }
             return;
         }
@@ -513,7 +553,12 @@ impl Filesystem for LiveFolders {
         _lock_owner: Option<u64>,
         reply: ReplyWrite,
     ) {
-        if self.ep_index_for_ino(ino).is_none() && self.path_for_ino(ino).is_none() {
+        let is_writable = self.ep_index_for_ino(ino).is_some()
+            || match self.file_spec_for_ino(ino) {
+                Some((_, _, spec)) => !matches!(spec.kind, FileKind::Readonly),
+                None => self.path_for_ino(ino).is_some(),
+            };
+        if !is_writable {
             reply.error(libc::EACCES);
             return;
         }
@@ -538,8 +583,54 @@ impl Filesystem for LiveFolders {
         _flush: bool,
         reply: fuser::ReplyEmpty,
     ) {
-        // External file on disk: flush to disk (non-exec) or invoke subprocess (exec).
+        // External file on disk: dispatch on manifest FileSpec or executable heuristic.
         if let Some(disk_path) = self.path_for_ino(ino) {
+            // Manifest-declared file: dispatch on declared type.
+            if let Some((tool_name, file_name, spec)) = self.file_spec_for_ino(ino) {
+                let cwd = self.tools_dir.as_ref()
+                    .map(|d| d.join(&tool_name))
+                    .unwrap_or_else(|| {
+                        disk_path.parent().unwrap_or(Path::new(".")).to_path_buf()
+                    });
+                match spec.kind {
+                    FileKind::WriteInvoke => {
+                        let input = self.write_buf.lock().unwrap().remove(&ino).unwrap_or_default();
+                        if !input.is_empty() {
+                            let handler = spec.handler.clone().unwrap_or_default();
+                            let timeout = self.timeout_secs;
+                            let output = self.rt.block_on(async move {
+                                invoke_command(&handler, &input, &tool_name, &file_name, &cwd, timeout).await
+                            });
+                            let bytes = if output.is_error() {
+                                format!("ERROR: {}\n", output.error.unwrap()).into_bytes()
+                            } else {
+                                output.output
+                            };
+                            self.result_buf.lock().unwrap().insert(ino, bytes);
+                        }
+                        reply.ok();
+                        return;
+                    }
+                    FileKind::ReadInvoke => {
+                        // Write stores params in write_buf; read() triggers invocation. Nothing to do here.
+                        reply.ok();
+                        return;
+                    }
+                    FileKind::Passthrough => {
+                        if let Some(data) = self.write_buf.lock().unwrap().remove(&ino) {
+                            let _ = std::fs::write(&disk_path, data);
+                        }
+                        reply.ok();
+                        return;
+                    }
+                    FileKind::Readonly => {
+                        reply.error(libc::EACCES);
+                        return;
+                    }
+                }
+            }
+
+            // No manifest entry: fall back to heuristic (executable bit).
             use std::os::unix::fs::PermissionsExt;
             let is_exec = std::fs::metadata(&disk_path)
                 .map(|m| m.permissions().mode() & 0o111 != 0)
@@ -551,7 +642,7 @@ impl Filesystem for LiveFolders {
                 reply.ok();
                 return;
             }
-            // Executable external file: invoke subprocess, block until done.
+            // Executable with no manifest: invoke via ExternalTool (existing behavior).
             let input = self.write_buf.lock().unwrap().remove(&ino).unwrap_or_default();
             if !input.is_empty() {
                 if let Some(tools_dir) = self.tools_dir.clone() {
