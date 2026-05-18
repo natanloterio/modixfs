@@ -326,6 +326,16 @@ impl LiveFolders {
     }
 }
 
+fn reply_bytes(reply: fuser::ReplyData, bytes: &[u8], offset: i64, size: u32) {
+    let start = offset as usize;
+    if start >= bytes.len() {
+        reply.data(&[]);
+    } else {
+        let end = (start + size as usize).min(bytes.len());
+        reply.data(&bytes[start..end]);
+    }
+}
+
 impl Filesystem for LiveFolders {
     fn lookup(&mut self, _req: &Request, parent: u64, name: &OsStr, reply: ReplyEntry) {
         debug!("lookup parent={} name={:?}", parent, name);
@@ -445,24 +455,35 @@ impl Filesystem for LiveFolders {
             if let Some((tool_name, file_name, spec)) = self.file_spec_for_ino(ino) {
                 match spec.kind {
                     FileKind::ReadInvoke => {
-                        let handler = spec.handler.clone().unwrap_or_default();
-                        let input = self.write_buf.lock().unwrap().remove(&ino).unwrap_or_default();
-                        let cwd = self.tools_dir.as_ref()
-                            .map(|d| d.join(&tool_name))
-                            .unwrap_or_else(|| {
-                                disk_path.parent().unwrap_or(Path::new(".")).to_path_buf()
+                        // Use cached result if available (supports multi-read from cat/readers).
+                        let cached = self.result_buf.lock().unwrap().get(&ino).cloned();
+                        let bytes = if let Some(b) = cached {
+                            b
+                        } else {
+                            // First read: invoke handler and cache the full result.
+                            let handler = spec.handler.clone().unwrap_or_default();
+                            let input = self.write_buf.lock().unwrap().remove(&ino).unwrap_or_default();
+                            let cwd = self.tools_dir.as_ref()
+                                .map(|d| d.join(&tool_name))
+                                .unwrap_or_else(|| {
+                                    disk_path.parent().unwrap_or(Path::new(".")).to_path_buf()
+                                });
+                            let timeout = self.timeout_secs;
+                            let result = self.rt.block_on(async move {
+                                invoke_command(&handler, &input, &tool_name, &file_name, &cwd, timeout).await
                             });
-                        let timeout = self.timeout_secs;
-                        let bytes = self.rt.block_on(async move {
-                            let result = invoke_command(&handler, &input, &tool_name, &file_name, &cwd, timeout).await;
-                            if result.is_error() {
+                            let b = if result.is_error() {
                                 format!("ERROR: {}\n", result.error.unwrap()).into_bytes()
                             } else {
                                 result.output
-                            }
-                        });
+                            };
+                            self.result_buf.lock().unwrap().insert(ino, b.clone());
+                            b
+                        };
                         let start = offset as usize;
                         if start >= bytes.len() {
+                            // Past end: clear cache so the next invocation starts fresh.
+                            self.result_buf.lock().unwrap().remove(&ino);
                             reply.data(&[]);
                         } else {
                             let end = (start + size as usize).min(bytes.len());
@@ -474,13 +495,7 @@ impl Filesystem for LiveFolders {
                         // Return last invocation result.
                         let result = self.result_buf.lock().unwrap().remove(&ino);
                         let bytes = result.unwrap_or_default();
-                        let start = offset as usize;
-                        if start >= bytes.len() {
-                            reply.data(&[]);
-                        } else {
-                            let end = (start + size as usize).min(bytes.len());
-                            reply.data(&bytes[start..end]);
-                        }
+                        reply_bytes(reply, &bytes, offset, size);
                         return;
                     }
                     FileKind::Passthrough | FileKind::Readonly => {
@@ -492,13 +507,7 @@ impl Filesystem for LiveFolders {
             // No manifest entry or passthrough/readonly: read from disk.
             match std::fs::read(&disk_path) {
                 Ok(bytes) => {
-                    let start = offset as usize;
-                    if start >= bytes.len() {
-                        reply.data(&[]);
-                    } else {
-                        let end = (start + size as usize).min(bytes.len());
-                        reply.data(&bytes[start..end]);
-                    }
+                    reply_bytes(reply, &bytes, offset, size);
                 }
                 Err(e) => reply.error(e.raw_os_error().unwrap_or(libc::EIO)),
             }
@@ -529,13 +538,7 @@ impl Filesystem for LiveFolders {
 
         match data {
             Some(bytes) => {
-                let start = offset as usize;
-                if start >= bytes.len() {
-                    reply.data(&[]);
-                } else {
-                    let end = (start + size as usize).min(bytes.len());
-                    reply.data(&bytes[start..end]);
-                }
+                reply_bytes(reply, &bytes, offset, size);
             }
             None => reply.error(ENOENT),
         }
