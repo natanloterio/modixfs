@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, UNIX_EPOCH};
 
@@ -24,23 +25,71 @@ type WriteBuf = Arc<Mutex<HashMap<u64, Vec<u8>>>>;
 /// Last result keyed by inode — returned on the next read after invocation.
 type ResultBuf = Arc<Mutex<HashMap<u64, Vec<u8>>>>;
 
+/// Inode → disk path mapping for external tool files (inodes >= 100_000).
+type InodeTable = Arc<Mutex<HashMap<u64, PathBuf>>>;
+
+/// Disk path → inode mapping for external tool files.
+type PathTable = Arc<Mutex<HashMap<PathBuf, u64>>>;
+
 pub struct ModixFS {
     registry: Arc<RwLock<ToolRegistry>>,
+    tools_dir: Option<PathBuf>,
     session: Session,
     write_buf: WriteBuf,
     result_buf: ResultBuf,
     rt: Handle,
+    inode_table: InodeTable,
+    path_table: PathTable,
+    next_ino: Arc<Mutex<u64>>,
 }
 
 impl ModixFS {
-    pub fn new(registry: Arc<RwLock<ToolRegistry>>, session: Session, rt: Handle) -> Self {
+    pub fn new(
+        registry: Arc<RwLock<ToolRegistry>>,
+        tools_dir: Option<PathBuf>,
+        session: Session,
+        rt: Handle,
+    ) -> Self {
         Self {
             registry,
+            tools_dir,
             session,
             write_buf: Arc::new(Mutex::new(HashMap::new())),
             result_buf: Arc::new(Mutex::new(HashMap::new())),
             rt,
+            inode_table: Arc::new(Mutex::new(HashMap::new())),
+            path_table: Arc::new(Mutex::new(HashMap::new())),
+            next_ino: Arc::new(Mutex::new(100_000)),
         }
+    }
+
+    fn alloc_ino(&self) -> u64 {
+        let mut n = self.next_ino.lock().unwrap();
+        *n += 1;
+        *n
+    }
+
+    fn ino_for_path(&self, path: &Path) -> u64 {
+        let mut pt = self.path_table.lock().unwrap();
+        if let Some(&ino) = pt.get(path) {
+            return ino;
+        }
+        let ino = self.alloc_ino();
+        pt.insert(path.to_path_buf(), ino);
+        self.inode_table.lock().unwrap().insert(ino, path.to_path_buf());
+        ino
+    }
+
+    fn path_for_ino(&self, ino: u64) -> Option<PathBuf> {
+        self.inode_table.lock().unwrap().get(&ino).cloned()
+    }
+
+    fn tool_dir_disk_path(&self, ino: u64) -> Option<PathBuf> {
+        let tools_dir = self.tools_dir.as_ref()?;
+        let reg = self.registry.read().unwrap();
+        let idx = self.tool_index_for_ino(ino)?;
+        let name = reg.list()[idx].to_string();
+        Some(tools_dir.join(name))
     }
 
     fn tool_index_by_name(&self, name: &str) -> Option<usize> {
@@ -48,7 +97,7 @@ impl ModixFS {
     }
 
     fn tool_index_for_ino(&self, ino: u64) -> Option<usize> {
-        if ino < 1000 {
+        if ino < 1000 || ino >= 100_000 {
             return None;
         }
         let idx = ((ino - 1000) / 100) as usize;
@@ -125,6 +174,18 @@ impl ModixFS {
                 Some(Self::file_attr(ROOT_INDEX_INO, content.len() as u64, 0o444))
             }
             _ => {
+                // External inode (>= 100_000)?
+                if let Some(disk_path) = self.path_for_ino(ino) {
+                    if let Ok(meta) = std::fs::metadata(&disk_path) {
+                        use std::os::unix::fs::PermissionsExt;
+                        let perm = (meta.permissions().mode() as u16) & 0o777;
+                        if meta.is_dir() {
+                            return Some(Self::dir_attr(ino));
+                        } else {
+                            return Some(Self::file_attr(ino, meta.len(), perm));
+                        }
+                    }
+                }
                 // tool dir?
                 if let Some(idx) = self.tool_index_for_ino(ino) {
                     let base = tool_dir_ino(idx);
@@ -187,6 +248,20 @@ impl ModixFS {
         let size = result.map(|r| r.len()).unwrap_or(0) as u64;
         Some(Self::file_attr(ino, size, 0o644))
     }
+
+    fn lookup_external_file(&self, tool_name: &str, name: &str) -> Option<FileAttr> {
+        let tools_dir = self.tools_dir.as_ref()?;
+        let disk_path = tools_dir.join(tool_name).join(name);
+        let meta = std::fs::metadata(&disk_path).ok()?;
+        let ino = self.ino_for_path(&disk_path);
+        use std::os::unix::fs::PermissionsExt;
+        let perm = (meta.permissions().mode() as u16) & 0o777;
+        if meta.is_dir() {
+            Some(Self::dir_attr(ino))
+        } else {
+            Some(Self::file_attr(ino, meta.len(), perm))
+        }
+    }
 }
 
 impl Filesystem for ModixFS {
@@ -196,16 +271,36 @@ impl Filesystem for ModixFS {
             ROOT_INO => self.lookup_in_root(name),
             TOOLS_DIR_INO => self.lookup_in_tools(name),
             _ => {
-                // parent is a tool dir?
-                if self.tool_index_for_ino(parent).is_some() {
-                    let base = tool_dir_ino(self.tool_index_for_ino(parent).unwrap());
+                if let Some(idx) = self.tool_index_for_ino(parent) {
+                    let base = tool_dir_ino(idx);
                     if parent == base {
+                        let reg = self.registry.read().unwrap();
+                        let tool_name = reg.list()[idx].to_string();
+                        drop(reg);
                         self.lookup_in_tool_dir(parent, name)
+                            .or_else(|| self.lookup_external_file(&tool_name, name.to_str().unwrap_or("")))
                     } else {
                         None
                     }
                 } else {
-                    None
+                    // parent might be an external path (inode_table entry)
+                    if let Some(parent_path) = self.path_for_ino(parent) {
+                        let disk_path = parent_path.join(name.to_str().unwrap_or(""));
+                        if let Ok(meta) = std::fs::metadata(&disk_path) {
+                            let ino = self.ino_for_path(&disk_path);
+                            use std::os::unix::fs::PermissionsExt;
+                            let perm = (meta.permissions().mode() as u16) & 0o777;
+                            if meta.is_dir() {
+                                Some(Self::dir_attr(ino))
+                            } else {
+                                Some(Self::file_attr(ino, meta.len(), perm))
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
                 }
             }
         };
@@ -227,7 +322,7 @@ impl Filesystem for ModixFS {
         &mut self,
         _req: &Request,
         ino: u64,
-        _mode: Option<u32>,
+        mode: Option<u32>,
         _uid: Option<u32>,
         _gid: Option<u32>,
         size: Option<u64>,
@@ -241,6 +336,15 @@ impl Filesystem for ModixFS {
         _flags: Option<u32>,
         reply: ReplyAttr,
     ) {
+        // Write permissions to disk for external files
+        if let Some(mode) = mode {
+            if let Some(disk_path) = self.path_for_ino(ino) {
+                use std::os::unix::fs::PermissionsExt;
+                let perms = std::fs::Permissions::from_mode(mode);
+                let _ = std::fs::set_permissions(&disk_path, perms);
+            }
+        }
+
         // Handle truncation on O_TRUNC open (e.g. shell `>` redirect)
         if let Some(new_size) = size {
             if self.ep_index_for_ino(ino).is_some() {
@@ -265,6 +369,29 @@ impl Filesystem for ModixFS {
         _lock: Option<u64>,
         reply: ReplyData,
     ) {
+        // Passthrough: external file on disk (non-executable = data file, not endpoint)
+        if let Some(disk_path) = self.path_for_ino(ino) {
+            use std::os::unix::fs::PermissionsExt;
+            let is_exec = std::fs::metadata(&disk_path)
+                .map(|m| m.permissions().mode() & 0o111 != 0)
+                .unwrap_or(false);
+            if !is_exec {
+                match std::fs::read(&disk_path) {
+                    Ok(bytes) => {
+                        let start = offset as usize;
+                        if start >= bytes.len() {
+                            reply.data(&[]);
+                        } else {
+                            let end = (start + size as usize).min(bytes.len());
+                            reply.data(&bytes[start..end]);
+                        }
+                    }
+                    Err(e) => reply.error(e.raw_os_error().unwrap_or(libc::EIO)),
+                }
+                return;
+            }
+        }
+
         let data: Option<Vec<u8>> = match ino {
             ROOT_INDEX_INO => Some(self.registry.read().unwrap().root_index().into_bytes()),
             _ => {
@@ -312,7 +439,7 @@ impl Filesystem for ModixFS {
         _lock_owner: Option<u64>,
         reply: ReplyWrite,
     ) {
-        if self.ep_index_for_ino(ino).is_none() {
+        if self.ep_index_for_ino(ino).is_none() && self.path_for_ino(ino).is_none() {
             reply.error(libc::EACCES);
             return;
         }
@@ -337,6 +464,21 @@ impl Filesystem for ModixFS {
         _flush: bool,
         reply: fuser::ReplyEmpty,
     ) {
+        // Passthrough: flush write_buf to disk for external non-executable files
+        if let Some(disk_path) = self.path_for_ino(ino) {
+            use std::os::unix::fs::PermissionsExt;
+            let is_exec = std::fs::metadata(&disk_path)
+                .map(|m| m.permissions().mode() & 0o111 != 0)
+                .unwrap_or(false);
+            if !is_exec {
+                if let Some(data) = self.write_buf.lock().unwrap().remove(&ino) {
+                    let _ = std::fs::write(&disk_path, data);
+                }
+                reply.ok();
+                return;
+            }
+        }
+
         let input = match self.write_buf.lock().unwrap().remove(&ino) {
             Some(b) if !b.is_empty() => b,
             _ => {
@@ -380,6 +522,103 @@ impl Filesystem for ModixFS {
         reply.ok();
     }
 
+    fn create(
+        &mut self,
+        _req: &Request,
+        parent: u64,
+        name: &OsStr,
+        _mode: u32,
+        _umask: u32,
+        _flags: i32,
+        reply: fuser::ReplyCreate,
+    ) {
+        let parent_path = self.path_for_ino(parent)
+            .or_else(|| self.tool_dir_disk_path(parent));
+        if let Some(pp) = parent_path {
+            let disk_path = pp.join(name.to_string_lossy().as_ref());
+            if std::fs::File::create(&disk_path).is_ok() {
+                let ino = self.ino_for_path(&disk_path);
+                let attr = Self::file_attr(ino, 0, 0o644);
+                reply.created(&TTL, &attr, 0, 0, 0);
+                return;
+            }
+        }
+        reply.error(libc::EACCES);
+    }
+
+    fn mkdir(
+        &mut self,
+        _req: &Request,
+        parent: u64,
+        name: &OsStr,
+        _mode: u32,
+        _umask: u32,
+        reply: ReplyEntry,
+    ) {
+        if parent == TOOLS_DIR_INO {
+            let Some(tools_dir) = &self.tools_dir else {
+                reply.error(libc::EACCES);
+                return;
+            };
+            let dir_path = tools_dir.join(name.to_string_lossy().as_ref());
+            if std::fs::create_dir(&dir_path).is_ok() {
+                let ino = self.ino_for_path(&dir_path);
+                reply.entry(&TTL, &Self::dir_attr(ino), 0);
+            } else {
+                reply.error(libc::EIO);
+            }
+        } else if let Some(parent_path) = self.path_for_ino(parent) {
+            let dir_path = parent_path.join(name.to_string_lossy().as_ref());
+            if std::fs::create_dir(&dir_path).is_ok() {
+                let ino = self.ino_for_path(&dir_path);
+                reply.entry(&TTL, &Self::dir_attr(ino), 0);
+            } else {
+                reply.error(libc::EIO);
+            }
+        } else {
+            reply.error(libc::EACCES);
+        }
+    }
+
+    fn unlink(&mut self, _req: &Request, parent: u64, name: &OsStr, reply: fuser::ReplyEmpty) {
+        let parent_path = self.tool_dir_disk_path(parent)
+            .or_else(|| self.path_for_ino(parent));
+        if let Some(pp) = parent_path {
+            let path = pp.join(name.to_string_lossy().as_ref());
+            match std::fs::remove_file(&path) {
+                Ok(_) => reply.ok(),
+                Err(e) => reply.error(e.raw_os_error().unwrap_or(libc::EIO)),
+            }
+        } else {
+            reply.error(libc::EACCES);
+        }
+    }
+
+    fn rename(
+        &mut self,
+        _req: &Request,
+        parent: u64,
+        name: &OsStr,
+        newparent: u64,
+        newname: &OsStr,
+        _flags: u32,
+        reply: fuser::ReplyEmpty,
+    ) {
+        let src = self.tool_dir_disk_path(parent)
+            .or_else(|| self.path_for_ino(parent))
+            .map(|p| p.join(name.to_string_lossy().as_ref()));
+        let dst = self.tool_dir_disk_path(newparent)
+            .or_else(|| self.path_for_ino(newparent))
+            .map(|p| p.join(newname.to_string_lossy().as_ref()));
+        match (src, dst) {
+            (Some(s), Some(d)) => match std::fs::rename(&s, &d) {
+                Ok(_) => reply.ok(),
+                Err(e) => reply.error(e.raw_os_error().unwrap_or(libc::EIO)),
+            },
+            _ => reply.error(libc::EACCES),
+        }
+    }
+
     fn readdir(
         &mut self,
         _req: &Request,
@@ -407,20 +646,63 @@ impl Filesystem for ModixFS {
                 if let Some(idx) = self.tool_index_for_ino(ino) {
                     let base = tool_dir_ino(idx);
                     if ino == base {
-                        let registry = self.registry.read().unwrap();
-                        let tool_name = registry.list()[idx];
-                        let tool = registry.get(tool_name).unwrap();
-                        entries.push((how_to_ino(idx), FileType::RegularFile, "how_to.md".to_string()));
-                        for (ei, ep) in tool.endpoints().iter().enumerate() {
-                            entries.push((endpoint_ino(idx, ei), FileType::RegularFile, ep.to_string()));
+                        let reg = self.registry.read().unwrap();
+                        let tool_name = reg.list()[idx].to_string();
+                        drop(reg);
+
+                        // Try reading from disk (external tool) — covers all files
+                        if let Some(tools_dir) = &self.tools_dir {
+                            let tool_path = tools_dir.join(&tool_name);
+                            if tool_path.is_dir() {
+                                // Use disk as source of truth for external tools
+                                if let Ok(dir_entries) = std::fs::read_dir(&tool_path) {
+                                    for entry in dir_entries.flatten() {
+                                        let fname = entry.file_name().to_string_lossy().to_string();
+                                        let fpath = entry.path();
+                                        let child_ino = self.ino_for_path(&fpath);
+                                        let kind = if fpath.is_dir() { FileType::Directory } else { FileType::RegularFile };
+                                        entries.push((child_ino, kind, fname));
+                                    }
+                                }
+                                // Skip built-in endpoint enumeration for external tools
+                            } else {
+                                // Built-in tool: use existing how_to.md + endpoints logic
+                                let reg = self.registry.read().unwrap();
+                                let tool = reg.get(&tool_name).unwrap();
+                                entries.push((how_to_ino(idx), FileType::RegularFile, "how_to.md".to_string()));
+                                for (ei, ep) in tool.endpoints().iter().enumerate() {
+                                    entries.push((endpoint_ino(idx, ei), FileType::RegularFile, ep.to_string()));
+                                }
+                            }
+                        } else {
+                            // No tools_dir: all tools are built-in
+                            let reg = self.registry.read().unwrap();
+                            let tool = reg.get(&tool_name).unwrap();
+                            entries.push((how_to_ino(idx), FileType::RegularFile, "how_to.md".to_string()));
+                            for (ei, ep) in tool.endpoints().iter().enumerate() {
+                                entries.push((endpoint_ino(idx, ei), FileType::RegularFile, ep.to_string()));
+                            }
                         }
                     } else {
                         reply.error(ENOTDIR);
                         return;
                     }
                 } else {
-                    reply.error(ENOENT);
-                    return;
+                    // External path (subdirectory of a tool dir)
+                    if let Some(dir_path) = self.path_for_ino(ino) {
+                        if let Ok(dir_entries) = std::fs::read_dir(&dir_path) {
+                            for entry in dir_entries.flatten() {
+                                let fname = entry.file_name().to_string_lossy().to_string();
+                                let fpath = entry.path();
+                                let child_ino = self.ino_for_path(&fpath);
+                                let kind = if fpath.is_dir() { FileType::Directory } else { FileType::RegularFile };
+                                entries.push((child_ino, kind, fname));
+                            }
+                        }
+                    } else {
+                        reply.error(ENOENT);
+                        return;
+                    }
                 }
             }
         }

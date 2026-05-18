@@ -123,7 +123,8 @@ fn cmd_mount(args: &[String]) -> Result<()> {
     info!("mounting modixfs at {}", mountpoint.display());
     println!("Mounted at {}  (Ctrl-C or unmount to stop)", mountpoint.display());
 
-    let fs = ModixFS::new(registry, session, handle);
+    let tools_dir = cfg.resolved_tools_dir().unwrap_or(None);
+    let fs = ModixFS::new(registry, tools_dir, session, handle);
     fuser::mount2(fs, &mountpoint, &options)?;
 
     Ok(())
