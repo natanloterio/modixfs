@@ -48,6 +48,12 @@ jobs:
         if: runner.os == 'Linux' && !matrix.cross
         run: sudo apt-get install -y libfuse3-dev pkg-config
 
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew install --cask macfuse
+          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig" >> $GITHUB_ENV
+
       - name: Install cross
         if: matrix.cross
         run: cargo install cross --git https://github.com/cross-rs/cross
