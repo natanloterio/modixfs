@@ -5,12 +5,18 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    /// Default mountpoint; overridden by the CLI argument if provided.
     pub mount: Option<PathBuf>,
+
+    pub tools_dir: Option<PathBuf>,
+
+    #[serde(default = "default_timeout", rename = "timeout")]
+    pub timeout_secs: u64,
 
     #[serde(default)]
     pub tools: Vec<ToolConfig>,
 }
+
+fn default_timeout() -> u64 { 30 }
 
 #[derive(Debug, Deserialize)]
 pub struct ToolConfig {
@@ -39,11 +45,24 @@ impl Config {
             .with_context(|| format!("parsing config file {}", path.display()))
     }
 
-    /// Returns a minimal default config (echo only, no mount override).
     pub fn default_config() -> Self {
         Self {
             mount: None,
+            tools_dir: None,
+            timeout_secs: 30,
             tools: vec![ToolConfig { name: "echo".to_string(), token_env: None }],
         }
+    }
+
+    pub fn resolved_tools_dir(&self) -> Option<PathBuf> {
+        self.tools_dir.as_ref().map(|p| {
+            let s = p.to_string_lossy();
+            if s.starts_with("~/") {
+                let home = std::env::var("HOME").unwrap_or_default();
+                PathBuf::from(format!("{}/{}", home, &s[2..]))
+            } else {
+                p.clone()
+            }
+        })
     }
 }

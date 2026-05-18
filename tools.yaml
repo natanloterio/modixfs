@@ -3,6 +3,8 @@
 # Mountpoint defaults to /tmp/modixfs if not set here or via CLI.
 
 mount: /tmp/modixfs
+tools_dir: ~/.config/modixfs/tools
+timeout: 30
 
 tools:
   - name: echo
