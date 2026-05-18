@@ -77,25 +77,29 @@ fn main() -> Result<()> {
 }
 
 fn cmd_init() -> Result<()> {
+    use std::io::Write as _;
+
     let path = PathBuf::from("tools.yaml");
     if path.exists() {
         bail!("tools.yaml already exists in the current directory");
     }
+
+    print!("Mount directory [.livefolders]: ");
+    std::io::stdout().flush()?;
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+    let mount = input.trim();
+    let mount = if mount.is_empty() { ".livefolders" } else { mount };
+
     std::fs::write(
         &path,
-        r#"# LiveFolders configuration
-# Run `livefolders mount` to start the filesystem.
-
-mount: /tmp/livefolders
-
-# tools_dir: ~/.config/livefolders/tools   # external tools are loaded from here
-
-tools:
-  - name: echo
-"#,
+        format!(
+            "# LiveFolders configuration\n# Run `livefolders mount` to start the filesystem.\n\nmount: {mount}\ntools_dir: ~/.config/livefolders/tools\n\ntools:\n  - name: echo\n"
+        ),
     )?;
+
     println!("Created tools.yaml");
-    println!("Edit it to configure your tools, then run: livefolders mount");
+    println!("Run `livefolders install <github-url>` to add tools, then `livefolders mount`.");
     Ok(())
 }
 
