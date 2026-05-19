@@ -7,6 +7,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 use crate::error::format_error;
+use crate::manifest::{InputKind, InputSchema};
 use crate::registry::{Session, Tool, ToolResult};
 
 pub async fn invoke_command(
@@ -78,6 +79,43 @@ pub async fn invoke_command(
             }
         }
     }
+}
+
+fn validate_input(input: &[u8], schema: &InputSchema) -> Result<(), String> {
+    match schema.kind {
+        InputKind::String => Ok(()),
+        InputKind::None => {
+            if input.is_empty() {
+                Ok(())
+            } else {
+                Err(format_error("INVALID_INPUT", "endpoint takes no input"))
+            }
+        }
+        InputKind::Json => {
+            let s = std::str::from_utf8(input)
+                .map_err(|_| format_error("INVALID_INPUT", "expected valid UTF-8 JSON"))?;
+            serde_json::from_str::<serde_json::Value>(s)
+                .map(|_| ())
+                .map_err(|e| format_error("INVALID_INPUT", &format!("expected valid JSON: {}", e)))
+        }
+    }
+}
+
+pub async fn invoke_command_validated(
+    handler: &str,
+    input: &[u8],
+    tool_name: &str,
+    endpoint: &str,
+    cwd: &std::path::Path,
+    timeout_secs: u64,
+    schema: Option<&InputSchema>,
+) -> ToolResult {
+    if let Some(s) = schema {
+        if let Err(e) = validate_input(input, s) {
+            return ToolResult::err(e);
+        }
+    }
+    invoke_command(handler, input, tool_name, endpoint, cwd, timeout_secs).await
 }
 
 pub struct ExternalTool {
@@ -219,6 +257,76 @@ impl Tool for ExternalTool {
 mod tests {
     use super::*;
     use std::path::Path;
+
+    #[tokio::test]
+    async fn invoke_command_with_json_schema_accepts_valid_json() {
+        use crate::manifest::{InputKind, InputSchema};
+        let schema = InputSchema { kind: InputKind::Json };
+        let result = invoke_command_validated(
+            "cat", b"{\"key\":\"value\"}", "tool", "ep",
+            Path::new("/tmp"), 10, Some(&schema),
+        ).await;
+        assert!(!result.is_error(), "got: {:?}", result.error);
+    }
+
+    #[tokio::test]
+    async fn invoke_command_with_json_schema_rejects_invalid_json() {
+        use crate::manifest::{InputKind, InputSchema};
+        let schema = InputSchema { kind: InputKind::Json };
+        let result = invoke_command_validated(
+            "cat", b"not json", "tool", "ep",
+            Path::new("/tmp"), 10, Some(&schema),
+        ).await;
+        assert!(result.is_error());
+        let err = result.error.unwrap();
+        assert!(err.starts_with("[ERROR:INVALID_INPUT]"), "got: {}", err);
+    }
+
+    #[tokio::test]
+    async fn invoke_command_with_none_schema_rejects_nonempty_input() {
+        use crate::manifest::{InputKind, InputSchema};
+        let schema = InputSchema { kind: InputKind::None };
+        let result = invoke_command_validated(
+            "cat", b"some input", "tool", "ep",
+            Path::new("/tmp"), 10, Some(&schema),
+        ).await;
+        assert!(result.is_error());
+        let err = result.error.unwrap();
+        assert!(err.starts_with("[ERROR:INVALID_INPUT]"), "got: {}", err);
+    }
+
+    #[tokio::test]
+    async fn invoke_command_with_none_schema_accepts_empty_input() {
+        use crate::manifest::{InputKind, InputSchema};
+        let schema = InputSchema { kind: InputKind::None };
+        let result = invoke_command_validated(
+            "echo ok", b"", "tool", "ep",
+            Path::new("/tmp"), 10, Some(&schema),
+        ).await;
+        assert!(!result.is_error());
+    }
+
+    #[tokio::test]
+    async fn invoke_command_with_no_schema_accepts_anything() {
+        let result = invoke_command_validated(
+            "cat", b"anything goes", "tool", "ep",
+            Path::new("/tmp"), 10, None,
+        ).await;
+        assert!(!result.is_error());
+        assert_eq!(result.output, b"anything goes");
+    }
+
+    #[tokio::test]
+    async fn invoke_command_with_string_schema_accepts_anything() {
+        use crate::manifest::{InputKind, InputSchema};
+        let schema = InputSchema { kind: InputKind::String };
+        let result = invoke_command_validated(
+            "cat", b"hello world", "tool", "ep",
+            Path::new("/tmp"), 10, Some(&schema),
+        ).await;
+        assert!(!result.is_error());
+        assert_eq!(result.output, b"hello world");
+    }
 
     #[test]
     fn description_reads_from_folder_yaml() {
