@@ -941,11 +941,63 @@ impl Filesystem for LiveFolders {
         }
     }
 
+    fn rmdir(&mut self, _req: &Request, parent: u64, name: &OsStr, reply: fuser::ReplyEmpty) {
+        if parent == TOOLS_DIR_INO {
+            let Some(tools_dir) = &self.tools_dir else {
+                reply.error(libc::EACCES);
+                return;
+            };
+            let tool_name = name.to_string_lossy().to_string();
+            let dir_path = tools_dir.join(&tool_name);
+            match std::fs::remove_dir_all(&dir_path) {
+                Ok(_) => {
+                    self.registry.write().unwrap_or_else(|e| e.into_inner()).unregister(&tool_name);
+                    reply.ok();
+                }
+                Err(e) => reply.error(e.raw_os_error().unwrap_or(libc::EIO)),
+            }
+        } else if let Some(parent_path) = self.tool_dir_disk_path(parent).or_else(|| self.path_for_ino(parent)) {
+            let dir_path = parent_path.join(name.to_string_lossy().as_ref());
+            match std::fs::remove_dir_all(&dir_path) {
+                Ok(_) => reply.ok(),
+                Err(e) => reply.error(e.raw_os_error().unwrap_or(libc::EIO)),
+            }
+        } else {
+            reply.error(libc::EACCES);
+        }
+    }
+
     fn unlink(&mut self, _req: &Request, parent: u64, name: &OsStr, reply: fuser::ReplyEmpty) {
         let parent_path = self.tool_dir_disk_path(parent)
             .or_else(|| self.path_for_ino(parent));
         if let Some(pp) = parent_path {
-            let path = pp.join(name.to_string_lossy().as_ref());
+            let name_str = name.to_str().unwrap_or("");
+            let path = pp.join(name_str);
+            // Virtual files (write_invoke / read_invoke) have no disk representation.
+            // Treat unlink as clearing buffered state and succeed.
+            if !path.exists() {
+                if let Some(tools_dir) = self.tools_dir.clone() {
+                    if let Ok(rel) = pp.strip_prefix(&tools_dir) {
+                        let mut comps = rel.components();
+                        if let (Some(tc), None) = (comps.next(), comps.next()) {
+                            let tool_name = tc.as_os_str().to_string_lossy().to_string();
+                            if let Some(manifest) = self.manifest_for_tool(&tool_name) {
+                                if let Some(spec) = manifest.spec_for(name_str) {
+                                    if matches!(spec.kind, FileKind::WriteInvoke | FileKind::ReadInvoke) {
+                                        if let Some(&ino) = self.path_table.lock().unwrap().get(&path) {
+                                            self.result_buf.lock().unwrap().remove(&ino);
+                                            self.write_buf.lock().unwrap().remove(&ino);
+                                            self.trace_buf.lock().unwrap().remove(&ino);
+                                        }
+                                        reply.ok();
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             match std::fs::remove_file(&path) {
                 Ok(_) => reply.ok(),
                 Err(e) => reply.error(e.raw_os_error().unwrap_or(libc::EIO)),
