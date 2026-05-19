@@ -154,9 +154,9 @@ ergonomics ceiling while invocation interface predicts safety floor, and
 no current system optimizes both simultaneously. Concretely,
 LiveFoldersFS requires 10 lines of YAML versus MCP's 18 lines of Python
 for an equivalent REST tool --- but MCP enforces schema validation at
-the protocol layer that POSIX-based systems structurally lack. A
-secondary finding is the gap between claimed and implemented behavior:
-ToolFS's documented WASM sandbox is an unimplemented stub. All
+the protocol layer while POSIX-based systems must opt in at the tool
+level. A secondary finding is the gap between claimed and implemented
+behavior: ToolFS's documented WASM sandbox is an unimplemented stub. All
 experiments are reproducible via the public LiveFoldersFS repository.
 \end{abstract}
 
@@ -425,8 +425,8 @@ llm9p (T2) & InferNode (T3) & Quine (T3) \\
 04 I/O expressiveness & \textasciitilde{} & \textasciitilde{} &
 \textasciitilde{} & \textasciitilde{} & \textasciitilde{} &
 \textasciitilde{} & ✓ \\
-05 Security & ✗ & ✓ & \textasciitilde{} & \textasciitilde{} & ✗ & ✓ &
-\textasciitilde{} \\
+05 Security & \textasciitilde{} & ✓ & \textasciitilde{} &
+\textasciitilde{} & ✗ & ✓ & \textasciitilde{} \\
 06 Stateful tools & \textasciitilde{} & \textasciitilde{} & ✓ &
 \textasciitilde{} & \textasciitilde{} & \textasciitilde{} &
 \textasciitilde{} \\
@@ -500,17 +500,24 @@ Inferno's typed channels. InferNode similarly benefits from kernel-level
 data access. No surveyed system simultaneously achieves type safety
 (MCP's strength) and binary transparency (Quine's strength).
 
-\textbf{05 Security.} This criterion reveals the sharpest divergence in
-the survey. MCP rates ✓ (strong): input schemas are enforced before any
+\textbf{05 Security.} This criterion reveals sharp divergence in the
+survey. MCP rates ✓ (strong): input schemas are enforced before any
 handler executes, rejecting malformed inputs before they reach
 application code. InferNode rates ✓ at the kernel level, where namespace
-isolation provides OS-enforced boundaries. LiveFoldersFS rates ✗ (weak):
-shell handlers receive raw input, and injection is possible if the
-handler does not sanitize. llm9p rates ✗ for a distinct and more severe
-reason --- by default, it binds an unauthenticated TCP port, making the
-tool surface accessible to any process on the network. This is the worst
-security finding in the survey and represents a deployment risk in
-multi-tenant or networked environments. ToolFS and AgentFS rate
+isolation provides OS-enforced boundaries. LiveFoldersFS rates
+\textasciitilde{} (partial): v0.6.0 introduced opt-in per-endpoint input
+validation via an \texttt{input:} field in \texttt{folder.yaml} (types:
+\texttt{json}, \texttt{string}, \texttt{none}), which rejects malformed
+input before the handler runs and returns a structured
+\texttt{{[}ERROR:INVALID\_INPUT{]}} response. This closes the validation
+gap for well-authored tools; however, the guarantee is opt-in rather
+than protocol-enforced --- a handler author must declare the schema for
+it to be checked, and shell injection within the handler body remains
+the author's responsibility. llm9p rates ✗ for a distinct and more
+severe reason --- by default, it binds an unauthenticated TCP port,
+making the tool surface accessible to any process on the network. This
+is the worst security finding in the survey and represents a deployment
+risk in multi-tenant or networked environments. ToolFS and AgentFS rate
 \textasciitilde{} (partial); notably, ToolFS's documentation claims WASM
 sandbox isolation, but code inspection (T2) reveals this is implemented
 as \texttt{InMemorySandbox} --- a stub with no actual isolation. The
@@ -549,9 +556,16 @@ observability substrate, providing structured audit logs and execution
 traces as first-class filesystem artifacts. However, 4 of 10 criteria
 rate --- (N/A) for AgentFS because it is a storage and observation
 layer, not a tool-invocation interface in its own right. LiveFoldersFS
-routes stderr to a log file and returns errors as plain text to the LLM
---- functional but unstructured. llm9p rates ✗ (weak): its architectural
-inversion means there is no clear place in its design for tool execution
+rates \textasciitilde{} (partial): v0.6.0 standardized all error returns
+to the format \texttt{{[}ERROR:CODE{]}\ message} with five
+machine-parseable codes (\texttt{HANDLER}, \texttt{TIMEOUT},
+\texttt{SPAWN}, \texttt{PROCESS}, \texttt{INVALID\_INPUT}), and the
+auto-generated \texttt{how\_to.md} now documents each endpoint's
+declared input type. This gives LLMs and scripts a structured signal to
+act on. The gap relative to MCP's ✓ is that LiveFoldersFS does not
+capture stdout/stderr tracing or execution timing --- errors are
+reported, not traced. llm9p rates ✗ (weak): its architectural inversion
+means there is no clear place in its design for tool execution
 observability.
 
 \textbf{09 Hot-reload.} Can a tool author modify a handler and see the
@@ -783,12 +797,18 @@ running on remote hosts to agents anywhere.
 RPC systems enforce input schemas before any handler executes. A poorly
 written MCP tool automatically rejects inputs that do not match its
 declared parameter schema; the validation happens at the protocol layer,
-not the application layer. A poorly written LiveFoldersFS handler may
-execute shell commands with unsanitized input, creating injection
-vulnerabilities. This difference is not a matter of practitioner skill
---- it is structural. The posix invocation model concentrates security
-responsibility entirely on the individual handler author; the rpc
-invocation model distributes it across the protocol and the handler.
+not the application layer. The posix invocation model historically
+concentrated security responsibility entirely on the individual handler
+author. LiveFoldersFS v0.6.0 narrows this gap through opt-in
+per-endpoint validation: adding \texttt{input:\ type:\ json} to a
+\texttt{folder.yaml} endpoint causes the runtime to reject non-JSON
+input before the handler runs, returning
+\texttt{{[}ERROR:INVALID\_INPUT{]}} without executing any shell code.
+This represents a meaningful improvement --- tool authors can now opt
+into schema enforcement without abandoning the posix authoring model.
+The remaining gap is structural: MCP validation is enforced
+unconditionally at the protocol layer, while LiveFoldersFS validation
+requires explicit opt-in per endpoint.
 
 Our survey found the most severe security failure in the
 posix-invocation quadrant: llm9p's unauthenticated TCP port is
@@ -836,12 +856,16 @@ shell-capable agents, providing hot-reload and shell ergonomics at the
 tool-author layer while preserving schema validation at the transport
 layer.
 
-\emph{Schema inference} would automatically derive JSON Schema from
-shell handler signatures, bridging the posix and rpc invocation models.
-If a LiveFoldersFS handler declares its expected inputs via a
-conventions-based DSL (similar to argparse or docopt), a schema can be
-generated and enforced without requiring the author to write it
-manually.
+\emph{Richer schema enforcement} would extend the opt-in input
+validation introduced in LiveFoldersFS v0.6.0 (types: \texttt{json},
+\texttt{string}, \texttt{none}) to structural constraints:
+minimum/maximum length, regex patterns, and JSON Schema shapes. The
+current \texttt{input:} field declares input \emph{kind} but not
+\emph{structure} --- a handler declared as \texttt{type:\ json} still
+receives arbitrary JSON. Adding structural constraints would bring
+posix-invocation systems closer to the safety guarantees that RPC
+systems provide at the protocol layer, without abandoning the YAML
+authoring model.
 
 \emph{Cross-platform FUSE} would extend os-coupled approaches to macOS
 (where FUSE is less mature following the osxfuse/macFUSE fragmentation)
@@ -864,10 +888,15 @@ the two dimensions that most explain system behavior --- and they trade
 off against each other. Os-coupled systems (LiveFoldersFS, ToolFS,
 AgentFS, InferNode, Quine) win on ergonomics, authoring speed,
 hot-reload, and publishing; protocol-decoupled systems (MCP) win on
-security, observability, and portability. No current system fully
+portability and unconditional schema enforcement. The gap is narrowing:
+LiveFoldersFS v0.6.0 introduced opt-in per-endpoint input validation and
+a structured \texttt{{[}ERROR:CODE{]}} error format, improving its
+security and observability ratings from ✗ to \textasciitilde{} and
+demonstrating that posix-invocation systems can add schema enforcement
+without abandoning their authoring advantages. No current system fully
 optimizes both dimensions. The independent convergence of multiple teams
 on filesystem abstractions for LLM tool integration validates the
-abstraction's practical appeal; the security gap relative to
+abstraction's practical appeal; the remaining safety gap relative to
 protocol-based systems explains why protocol approaches have gained
 institutional traction.
 
