@@ -42,19 +42,22 @@ cargo install --git https://github.com/natanloterio/LiveFolders
 ## Quick start
 
 ```bash
-# 1. Create a config file (prompts for mount directory, default: .livefolders)
+# 1. Create a config file
 livefolders init
 
 # 2. Install a tool from GitHub
 livefolders install github.com/natanloterio/LiveFolders/tree/master/examples/users
 
-# 3. Mount
+# 3. Mount (runs in background, returns to prompt immediately)
 livefolders mount
 
 # 4. Use it
 cat .livefolders/tools/users/list      # fetches users from the API
 echo "hello world" > .livefolders/tools/demo/shout
 cat .livefolders/tools/demo/shout      # → HELLO WORLD
+
+# 5. Stop
+livefolders stop
 ```
 
 ---
@@ -79,6 +82,20 @@ Every tool is a directory under `/tools/<name>/`. Each file inside is an **endpo
 ```
 
 The write call **blocks until the tool finishes** — by the time `cat` runs, the result is ready.
+
+---
+
+## Mount and stop
+
+```bash
+livefolders mount               # mount in background (default)
+livefolders mount --foreground  # stay in foreground (useful for debugging)
+livefolders stop                # stop the background daemon
+```
+
+Logs go to `~/.local/share/livefolders/livefolders.log`.
+
+If something looks wrong, run `livefolders doctor` — it checks FUSE, your config, and every installed tool's `folder.yaml` and prints actionable fixes.
 
 ---
 
@@ -130,10 +147,9 @@ files:
   - name: forecast
     type: write_invoke
     handler: "curl -s \"https://wttr.in/$(cat -)?format=3\""
-
-  - name: how_to.md
-    type: readonly
 ```
+
+> `how_to.md` is auto-generated from `folder.yaml` if not present on disk — no need to include it.
 
 **File types**
 
