@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
+use crate::error::format_error;
 use crate::registry::{Session, Tool, ToolResult};
 
 pub async fn invoke_command(
@@ -28,12 +29,12 @@ pub async fn invoke_command(
         .spawn()
     {
         Ok(c) => c,
-        Err(e) => return ToolResult::err(format!("failed to spawn handler: {}", e)),
+        Err(e) => return ToolResult::err(format_error("SPAWN", &e.to_string())),
     };
 
     if let Some(mut stdin) = child.stdin.take() {
         if let Err(e) = stdin.write_all(input).await {
-            return ToolResult::err(format!("failed to write stdin: {}", e));
+            return ToolResult::err(format_error("SPAWN", &format!("failed to write stdin: {}", e)));
         }
         let _ = stdin.flush().await;
     }
@@ -65,15 +66,15 @@ pub async fn invoke_command(
     match tokio::time::timeout(Duration::from_secs(timeout_secs), wait_fut).await {
         Err(_) => {
             let _ = child.kill().await;
-            ToolResult::err("timeout")
+            ToolResult::err(format_error("TIMEOUT", &format!("handler exceeded {}s", timeout_secs)))
         }
-        Ok(Err(e)) => ToolResult::err(format!("process error: {}", e)),
+        Ok(Err(e)) => ToolResult::err(format_error("PROCESS", &e.to_string())),
         Ok(Ok((status, out_bytes, err_bytes))) => {
             if status.success() {
                 ToolResult::ok(out_bytes)
             } else {
                 let stderr = String::from_utf8_lossy(&err_bytes);
-                ToolResult::err(stderr.trim().to_string())
+                ToolResult::err(format_error("HANDLER", stderr.trim()))
             }
         }
     }
@@ -162,12 +163,12 @@ impl Tool for ExternalTool {
             .spawn()
         {
             Ok(c) => c,
-            Err(e) => return ToolResult::err(format!("failed to spawn {}: {}", script.display(), e)),
+            Err(e) => return ToolResult::err(format_error("SPAWN", &format!("failed to spawn {}: {}", script.display(), e))),
         };
 
         if let Some(mut stdin) = child.stdin.take() {
             if let Err(e) = stdin.write_all(input).await {
-                return ToolResult::err(format!("failed to write stdin: {}", e));
+                return ToolResult::err(format_error("SPAWN", &format!("failed to write stdin: {}", e)));
             }
             let _ = stdin.flush().await;
         }
@@ -199,15 +200,15 @@ impl Tool for ExternalTool {
         match tokio::time::timeout(Duration::from_secs(self.timeout_secs), wait_fut).await {
             Err(_) => {
                 let _ = child.kill().await;
-                ToolResult::err("timeout")
+                ToolResult::err(format_error("TIMEOUT", &format!("handler exceeded {}s", self.timeout_secs)))
             }
-            Ok(Err(e)) => ToolResult::err(format!("process error: {}", e)),
+            Ok(Err(e)) => ToolResult::err(format_error("PROCESS", &e.to_string())),
             Ok(Ok((status, out_bytes, err_bytes))) => {
                 if status.success() {
                     ToolResult::ok(out_bytes)
                 } else {
                     let stderr = String::from_utf8_lossy(&err_bytes);
-                    ToolResult::err(stderr.trim().to_string())
+                    ToolResult::err(format_error("HANDLER", stderr.trim()))
                 }
             }
         }
@@ -256,13 +257,16 @@ mod tests {
     async fn invoke_command_captures_error_on_nonzero_exit() {
         let result = invoke_command("sh -c 'echo failure >&2; exit 1'", b"", "testtool", "testep", Path::new("/tmp"), 10).await;
         assert!(result.is_error());
-        assert!(result.error.unwrap().contains("failure"));
+        let err = result.error.unwrap();
+        assert!(err.starts_with("[ERROR:HANDLER]"), "got: {}", err);
+        assert!(err.contains("failure"), "got: {}", err);
     }
 
     #[tokio::test]
     async fn invoke_command_times_out() {
         let result = invoke_command("sleep 60", b"", "testtool", "testep", Path::new("/tmp"), 1).await;
         assert!(result.is_error());
-        assert_eq!(result.error.as_deref(), Some("timeout"));
+        let err = result.error.unwrap();
+        assert!(err.starts_with("[ERROR:TIMEOUT]"), "got: {}", err);
     }
 }
