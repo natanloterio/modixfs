@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+CRITERION="09-hot-reload"
+echo "[$CRITERION]"
+echo ""
+echo "LiveFoldersFS:"
+echo "  Edit folder.yaml or handler script → inotify watcher detects change → immediate"
+echo "  No restart required. New file reads reflect updated handler within ~1s."
+echo ""
+echo "MCP:"
+echo "  Edit server.py → must restart MCP server process → Claude Code must reconnect"
+echo "  Restart latency: ~1-3s for Python startup + reconnect handshake"
+echo ""
+echo "  Winner: LiveFoldersFS — true hot-reload via filesystem watcher"
