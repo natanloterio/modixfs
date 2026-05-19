@@ -4,7 +4,20 @@ author:
   - Natan Loterio
 date: May 2026
 abstract: |
-  [PLACEHOLDER — write last]
+  Large language model agents require external tool integration, yet the landscape of
+  integration approaches is fragmented and lacks systematic analysis. We propose a
+  two-axis taxonomy organizing seven tool-integration systems along coupling depth
+  (os-coupled vs. protocol-decoupled) and invocation interface (posix vs. rpc), then
+  empirically evaluate all seven across ten criteria using three evidence tiers: live
+  experiments for LiveFoldersFS and MCP, structured assessment for ToolFS, AgentFS,
+  and llm9p, and paper-only assessment for InferNode and Quine. Our central finding is
+  that coupling depth predicts ergonomics ceiling while invocation interface predicts
+  safety floor, and no current system optimizes both simultaneously. Concretely,
+  LiveFoldersFS requires 10 lines of YAML versus MCP's 18 lines of Python for an
+  equivalent REST tool — but MCP enforces schema validation at the protocol layer that
+  POSIX-based systems structurally lack. A secondary finding is the gap between claimed
+  and implemented behavior: ToolFS's documented WASM sandbox is an unimplemented stub.
+  All experiments are reproducible via the public LiveFoldersFS repository.
 ---
 
 # Introduction
