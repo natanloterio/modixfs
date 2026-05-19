@@ -91,30 +91,87 @@ Constraints: LiveFoldersFS: min/max length, regex pattern for strings; MCP: type
 === criteria/06-stateful-tools/ ===
 [06-stateful-tools]
 
-LiveFoldersFS: state lives in a file (e.g. /tmp/lf_counter) — persists across restarts
-  Limitation: no atomic update without a lock file; concurrent writes can corrupt state
+LiveFoldersFS v0.8.0: state_file field in folder.yaml
+  - declare state_file: counter.db on any endpoint
+  - runtime creates file if absent, holds flock(LOCK_EX) for the entire handler call
+  - LIVEFOLDERS_STATE_FILE env var injected with the resolved path
+  - concurrent invocations serialised automatically; no handler-side locking needed
+  - state persists across restarts (file, not memory)
 
-MCP: state lives in Python process memory — fast, no locking needed for single-threaded
-  Limitation: state lost on server restart; persistent state still requires a file/DB
+  Counter after 2 sequential invocations: 2 (expected: 2)
 
-  Winner: MCP for in-process state; LiveFoldersFS for file-persisted state
+MCP: state in Python process memory — fast, no locking needed for single-threaded
+  Limitation: state lost on server restart; persistent state requires a file/DB
+
+  Winner: LiveFoldersFS — durable file-based state with automatic exclusive locking;
+          MCP in-process state is faster but ephemeral
 
 === criteria/07-composability/ ===
 [07-composability]
 
-LiveFoldersFS: compose via shell pipes — any unix tool is composable
-  Cross-tool calls require writing to another endpoint file (awkward for chaining)
+LiveFoldersFS v0.9.0: pipe: field in folder.yaml
+  - declare pipe: [stage1, stage2, ...] on any write_invoke endpoint
+  - runtime chains handlers: stdout of each stage → stdin of next
+  - single LLM write triggers the entire pipeline; no intermediate reads needed
+  - per-stage input: schema validated before each stage executes
+  - any stage error stops the pipeline and returns [ERROR:CODE] immediately
 
-MCP: compose via Python function calls — clean, typed, testable
-  Cross-server tool calls not natively supported; requires LLM orchestration
+  Example folder.yaml:
+    files:
+      - name: fetch
+        type: write_invoke
+        handler: ./fetch.sh
+      - name: format
+        type: write_invoke
+        handler: ./format.sh
+      - name: report
+        type: write_invoke
+        pipe: [fetch, format]
 
-  Winner: MCP for within-server composition; LiveFoldersFS for unix pipeline composition
+  Pipeline demo (echo → uppercase → prefix):
+    input:  london
+    stage1: LONDON
+    output: City: LONDON
+
+MCP: compose via Python function calls — clean within a single server
+  Cross-server tool chaining not natively supported; requires LLM orchestration
+
+  Winner: LiveFoldersFS — native declarative pipeline; single write, zero intermediate reads
+          MCP composition requires LLM round-trips across server boundaries
 
 === criteria/08-observability/ ===
 [08-observability]
-  LiveFoldersFS: stderr → log file; errors returned as plain text to LLM
-  MCP: structured error objects; Python exceptions auto-converted
-  Winner: MCP (marginal) — structured errors easier to handle programmatically
+
+LiveFoldersFS v0.8.0: two observability layers
+  1. Structured error codes in the response stream:
+     [ERROR:HANDLER]       — handler exited non-zero
+     [ERROR:TIMEOUT]       — handler exceeded timeout
+     [ERROR:SPAWN]         — handler failed to start
+     [ERROR:PROCESS]       — unexpected process I/O error
+     [ERROR:INVALID_INPUT] — input failed schema validation
+
+  2. Per-endpoint <endpoint>.log file written after every invocation:
+     cat forecast.log
+     duration_ms: 342
+     exit: ok
+     stderr: 
+
+     cat forecast.log  (with stderr)
+     duration_ms: 88
+     exit: ok
+     stderr: warning: rate limit approaching
+
+  LLM or monitoring script can read <endpoint>.log without round-tripping through the tool.
+
+MCP: Python exceptions auto-converted to structured error objects (type, message, traceback)
+  Strong for programmatic error handling; no timing or stderr capture by default
+
+AgentFS: purpose-built observability substrate — structured audit logs and execution
+  traces as first-class filesystem artifacts (but not a tool-invocation interface)
+
+  Winner: LiveFoldersFS ✓ — structured error codes + per-invocation timing/stderr logs
+          MCP ✓ — structured exceptions; AgentFS ✓ — audit substrate
+          llm9p ✗ — no observability mechanism
 
 === criteria/09-hot-reload/ ===
 [09-hot-reload]
