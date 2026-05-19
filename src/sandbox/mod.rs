@@ -28,7 +28,7 @@ impl Default for SandboxMode {
 /// Built-in default filesystem read paths allowed for every tool.
 pub const DEFAULT_READ_PATHS: &[&str] = &[
     "/usr", "/lib", "/lib64", "/etc/ssl/certs", "/etc/localtime",
-    "/etc/nsswitch.conf", "/etc/hosts",
+    "/etc/nsswitch.conf", "/etc/hosts", "/tmp",
 ];
 
 /// Built-in default executable paths allowed for every tool.
