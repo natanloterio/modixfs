@@ -187,10 +187,22 @@ fn load_external_tools(cfg: &Config, registry: &mut ToolRegistry) -> Result<()> 
             info!("skipping external tool '{}': shadowed by built-in", name);
             continue;
         }
-        registry.register(Arc::new(ExternalTool::new(&name, path, cfg.timeout_secs)));
+        registry.register(Arc::new(ExternalTool::new(&name, path.clone(), cfg.timeout_secs)));
         info!("registered external tool: {}", name);
+        if let Some(err) = validation_error_for_tool(&path) {
+            tracing::error!(
+                "tool '{}' has an invalid folder.yaml: {}. Fix the folder.yaml before mounting.",
+                name, err
+            );
+            eprintln!("ERROR: tool '{}' has an invalid folder.yaml: {}", name, err);
+        }
     }
     Ok(())
+}
+
+fn validation_error_for_tool(tool_dir: &std::path::Path) -> Option<String> {
+    let manifest = crate::manifest::Manifest::load(tool_dir).ok()??;
+    manifest.validate().err().map(|e| e.to_string())
 }
 
 fn build_registry(cfg: &Config) -> ToolRegistry {
@@ -242,5 +254,30 @@ mod tests {
         let content = std::fs::read_to_string(tmp.path().join("livefolders.yaml")).unwrap();
         assert!(content.contains("mount: .livefolders"));
         assert!(content.contains("tools_dir:"));
+    }
+
+    #[test]
+    fn validation_error_for_tool_detects_missing_handler() {
+        let tmp = tempfile::tempdir().unwrap();
+        let tool_dir = tmp.path().join("badtool");
+        std::fs::create_dir(&tool_dir).unwrap();
+        std::fs::write(
+            tool_dir.join("folder.yaml"),
+            "files:\n  - name: search\n    type: write_invoke\n",
+        ).unwrap();
+        let err = super::validation_error_for_tool(&tool_dir);
+        assert!(err.is_some());
+        assert!(err.unwrap().contains("handler"));
+    }
+
+    #[test]
+    fn validation_error_for_tool_returns_none_for_valid_manifest() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(
+            tmp.path().join("folder.yaml"),
+            "files:\n  - name: search\n    type: write_invoke\n    handler: ./search.sh\n",
+        ).unwrap();
+        let err = super::validation_error_for_tool(tmp.path());
+        assert!(err.is_none());
     }
 }
