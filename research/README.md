@@ -5,13 +5,13 @@ Each subdirectory of `criteria/` is a self-contained experiment for one evaluati
 ## Running all experiments
 
 ```bash
-bash run-all.sh
+bash research/run-all.sh
 ```
 
 ## Running one experiment
 
 ```bash
-bash criteria/01-setup-complexity/run.sh
+bash research/criteria/01-setup-complexity/run.sh
 ```
 
 ## Requirements
