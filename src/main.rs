@@ -1,4 +1,5 @@
 mod config;
+mod daemon;
 mod doctor;
 mod fs;
 mod installer;
@@ -26,13 +27,15 @@ Usage: livefolders <command> [options]
 
 Commands:
   init                   Create a starter livefolders.yaml in the current directory
-  mount [path]           Mount the filesystem (path overrides livefolders.yaml)
+  mount [path]           Mount the filesystem in the background (default)
+  stop [path]            Stop the background mount
   install <url>          Install a tool from GitHub
   doctor                 Check setup and print actionable fixes
   help                   Show this help
 
 Options:
   --config, -c <file>   Path to livefolders.yaml (default: ./livefolders.yaml)
+  --foreground, -f      Keep mount in the foreground (don't daemonize)
 
 Environment:
   GITHUB_TOKEN      GitHub personal access token (for livefolders install)
@@ -55,6 +58,17 @@ fn main() -> Result<()> {
     match cmd {
         "init" => cmd_init(),
         "mount" => cmd_mount(&args),
+        "stop" => {
+            let (cli_mount, config_path, _) = parse_mount_args(&args);
+            let mountpoint = cli_mount.or_else(|| {
+                let p = config_path
+                    .unwrap_or_else(|| PathBuf::from("livefolders.yaml"));
+                Config::load(&p).ok()
+                    .and_then(|c| c.mount)
+            }).unwrap_or_else(|| PathBuf::from(".livefolders"));
+            let mountpoint = mountpoint.canonicalize().unwrap_or(mountpoint);
+            daemon::stop(&mountpoint)
+        }
         "install" => {
             let url = args.get(2).map(|s| s.as_str()).unwrap_or("");
             if url.is_empty() {
@@ -66,7 +80,7 @@ fn main() -> Result<()> {
             installer::install(url, &cfg)
         }
         "doctor" => {
-            let config_path = parse_mount_args(&args).1;
+            let config_path = parse_mount_args(&args).1; // .1 = config path
             let cfg = match config_path {
                 Some(p) => Config::load(&p).unwrap_or_else(|_| Config::default_config()),
                 None => {
@@ -128,7 +142,7 @@ fn load_config_for_install(args: &[String]) -> Config {
 }
 
 fn cmd_mount(args: &[String]) -> Result<()> {
-    let (cli_mount, config_path) = parse_mount_args(args);
+    let (cli_mount, config_path, foreground) = parse_mount_args(args);
 
     let cfg = match config_path {
         Some(p) => Config::load(&p)?,
@@ -144,10 +158,12 @@ fn cmd_mount(args: &[String]) -> Result<()> {
 
     let mountpoint = cli_mount
         .or_else(|| cfg.mount.clone())
-        .unwrap_or_else(|| PathBuf::from("/tmp/livefolders"));
+        .unwrap_or_else(|| PathBuf::from(".livefolders"));
 
     std::fs::create_dir_all(&mountpoint)
         .with_context(|| format!("creating mountpoint {}", mountpoint.display()))?;
+
+    let mountpoint = mountpoint.canonicalize().unwrap_or(mountpoint);
 
     let mut registry = build_registry(&cfg);
     load_external_tools(&cfg, &mut registry)?;
@@ -164,10 +180,15 @@ fn cmd_mount(args: &[String]) -> Result<()> {
         MountOption::AllowOther,
     ];
 
-    info!("mounting livefolders at {}", mountpoint.display());
-    println!("Mounted at {}  (Ctrl-C or unmount to stop)", mountpoint.display());
-
     let tools_dir = cfg.resolved_tools_dir().unwrap_or(None);
+
+    if foreground {
+        info!("mounting livefolders at {} (foreground)", mountpoint.display());
+        println!("Mounted at {}  (Ctrl-C or `livefolders stop` to stop)", mountpoint.display());
+    } else {
+        daemon::daemonize(&mountpoint)?;
+        // Only the child process reaches here
+    }
 
     if let Some(ref td) = tools_dir {
         if td.exists() {
@@ -239,9 +260,10 @@ fn build_registry(cfg: &Config) -> ToolRegistry {
     registry
 }
 
-fn parse_mount_args(args: &[String]) -> (Option<PathBuf>, Option<PathBuf>) {
+fn parse_mount_args(args: &[String]) -> (Option<PathBuf>, Option<PathBuf>, bool) {
     let mut mount = None;
     let mut config = None;
+    let mut foreground = false;
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
@@ -251,8 +273,9 @@ fn parse_mount_args(args: &[String]) -> (Option<PathBuf>, Option<PathBuf>) {
                     config = Some(PathBuf::from(&args[i]));
                 }
             }
-            // skip "mount" and "install" subcommand tokens themselves
-            "mount" | "install" => {}
+            "--foreground" | "-f" => foreground = true,
+            // skip subcommand tokens themselves
+            "mount" | "install" | "stop" | "doctor" | "init" | "help" => {}
             arg if !arg.starts_with('-') => {
                 mount = Some(PathBuf::from(arg));
             }
@@ -260,7 +283,7 @@ fn parse_mount_args(args: &[String]) -> (Option<PathBuf>, Option<PathBuf>) {
         }
         i += 1;
     }
-    (mount, config)
+    (mount, config, foreground)
 }
 
 #[cfg(test)]
