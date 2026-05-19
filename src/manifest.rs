@@ -64,6 +64,33 @@ pub struct FileSpec {
     pub pipe: Option<Vec<String>>,
 }
 
+#[derive(Debug, Deserialize, Clone, Default, PartialEq)]
+pub struct SandboxFsSpec {
+    #[serde(default)]
+    pub read: Vec<String>,
+    #[serde(default)]
+    pub write: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, Clone, Default, PartialEq)]
+pub struct SandboxResourceSpec {
+    #[serde(default)]
+    pub max_procs: Option<u64>,
+    #[serde(default)]
+    pub max_memory_mb: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, Clone, Default, PartialEq)]
+pub struct SandboxSpec {
+    #[serde(default)]
+    pub fs: SandboxFsSpec,
+    /// None = use global default (deny network). Some(true) = allow network.
+    #[serde(default)]
+    pub network: Option<bool>,
+    #[serde(default)]
+    pub resources: SandboxResourceSpec,
+}
+
 #[derive(Debug, Deserialize, Default)]
 pub struct Manifest {
     pub name: Option<String>,
@@ -74,6 +101,8 @@ pub struct Manifest {
     pub env: Vec<EnvDecl>,
     #[serde(default)]
     pub files: Vec<FileSpec>,
+    #[serde(default)]
+    pub sandbox: Option<SandboxSpec>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -470,5 +499,50 @@ files:
         assert!(schema.max_length.is_none());
         assert!(schema.pattern.is_none());
         assert!(schema.schema.is_none());
+    }
+}
+
+#[cfg(test)]
+mod sandbox_tests {
+    use super::*;
+
+    #[test]
+    fn sandbox_spec_deserializes_from_yaml() {
+        let yaml = r#"
+name: mytool
+sandbox:
+  fs:
+    read: ["/usr", "/lib"]
+    write: ["./cache"]
+  network: false
+  resources:
+    max_procs: 4
+    max_memory_mb: 128
+"#;
+        let manifest: Manifest = serde_yaml::from_str(yaml).unwrap();
+        let sandbox = manifest.sandbox.unwrap();
+        assert_eq!(sandbox.fs.read, vec!["/usr", "/lib"]);
+        assert_eq!(sandbox.fs.write, vec!["./cache"]);
+        assert_eq!(sandbox.network, Some(false));
+        assert_eq!(sandbox.resources.max_procs, Some(4));
+        assert_eq!(sandbox.resources.max_memory_mb, Some(128));
+    }
+
+    #[test]
+    fn sandbox_absent_yields_none() {
+        let yaml = "name: mytool\n";
+        let manifest: Manifest = serde_yaml::from_str(yaml).unwrap();
+        assert!(manifest.sandbox.is_none());
+    }
+
+    #[test]
+    fn sandbox_network_defaults_to_none_when_omitted() {
+        let yaml = r#"name: mytool
+sandbox:
+  fs:
+    read: []
+"#;
+        let manifest: Manifest = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(manifest.sandbox.unwrap().network, None);
     }
 }

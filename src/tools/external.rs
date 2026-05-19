@@ -261,6 +261,7 @@ pub async fn invoke_pipe(
     tool_name: &str,
     cwd: &Path,
     timeout_secs: u64,
+    sandbox: &dyn crate::sandbox::Sandbox,
 ) -> ToolResult {
     let mut current: Vec<u8> = initial_input.to_vec();
     let mut total_ms = 0u64;
@@ -268,18 +269,16 @@ pub async fn invoke_pipe(
 
     for stage_name in stages {
         let spec = manifest.spec_for(stage_name);
-        if let Some(s) = spec.and_then(|s| s.input.as_ref()) {
-            if let Err(e) = validate_input(&current, s) {
-                return ToolResult::err(e);
-            }
-        }
+        let schema = spec.and_then(|s| s.input.as_ref());
         let state_file = spec
             .and_then(|s| s.state_file.as_deref())
             .map(|sf| cwd.join(sf));
         let handler = cwd.join(stage_name).to_string_lossy().to_string();
-        let result = invoke_command(
+        let result = invoke_command_sandboxed(
             &handler, &current, tool_name, stage_name,
             cwd, timeout_secs, state_file.as_deref(),
+            schema,
+            sandbox,
         ).await;
         total_ms += result.duration_ms;
         last_stderr = result.stderr.clone();
@@ -309,16 +308,129 @@ pub async fn invoke_command_validated(
     invoke_command(handler, input, tool_name, endpoint, cwd, timeout_secs, state_file).await
 }
 
+pub async fn invoke_command_sandboxed(
+    handler: &str,
+    input: &[u8],
+    tool_name: &str,
+    endpoint: &str,
+    cwd: &Path,
+    timeout_secs: u64,
+    state_file: Option<&Path>,
+    schema: Option<&InputSchema>,
+    sandbox: &dyn crate::sandbox::Sandbox,
+) -> ToolResult {
+    if let Some(s) = schema {
+        if let Err(e) = validate_input(input, s) {
+            return ToolResult::err(e);
+        }
+    }
+
+    let _lock = if let Some(sf) = state_file {
+        let resolved = if sf.is_absolute() { sf.to_path_buf() } else { cwd.join(sf) };
+        match acquire_state_lock(resolved).await {
+            Ok(f) => Some(f),
+            Err(e) => return ToolResult::err(format_error("SPAWN", &format!("state lock failed: {}", e))),
+        }
+    } else {
+        None
+    };
+
+    let mut cmd = tokio::process::Command::new("sh");
+    cmd.arg("-c")
+        .arg(handler)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .current_dir(cwd)
+        .env("LIVEFOLDERS_TOOL", tool_name)
+        .env("LIVEFOLDERS_ENDPOINT", endpoint);
+    if let Some(sf) = state_file {
+        let resolved = if sf.is_absolute() { sf.to_path_buf() } else { cwd.join(sf) };
+        cmd.env("LIVEFOLDERS_STATE_FILE", resolved);
+    }
+
+    sandbox.apply(&mut cmd);
+
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(e) => return ToolResult::err(format_error("SPAWN", &e.to_string())),
+    };
+
+    if let Some(mut stdin) = child.stdin.take() {
+        use tokio::io::AsyncWriteExt;
+        if let Err(e) = stdin.write_all(input).await {
+            return ToolResult::err(format_error("SPAWN", &format!("failed to write stdin: {}", e)));
+        }
+        let _ = stdin.flush().await;
+    }
+
+    use tokio::io::AsyncReadExt;
+    let mut stdout_handle = child.stdout.take();
+    let mut stderr_handle = child.stderr.take();
+
+    let read_out = async {
+        let mut buf = Vec::new();
+        if let Some(ref mut h) = stdout_handle { let _ = h.read_to_end(&mut buf).await; }
+        buf
+    };
+    let read_err = async {
+        let mut buf = Vec::new();
+        if let Some(ref mut h) = stderr_handle { let _ = h.read_to_end(&mut buf).await; }
+        buf
+    };
+
+    let wait_fut = async {
+        let (out_bytes, err_bytes) = tokio::join!(read_out, read_err);
+        child.wait().await.map(|status| (status, out_bytes, err_bytes))
+    };
+
+    let started = std::time::Instant::now();
+    let timed = tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), wait_fut).await;
+    let duration_ms = started.elapsed().as_millis() as u64;
+
+    match timed {
+        Err(_) => {
+            let _ = child.kill().await;
+            ToolResult::err(format_error("TIMEOUT", &format!("handler exceeded {}s", timeout_secs)))
+        }
+        Ok(Err(e)) => ToolResult::err(format_error("PROCESS", &e.to_string())),
+        Ok(Ok((status, out_bytes, err_bytes))) => {
+            if status.success() {
+                ToolResult { output: out_bytes, error: None, duration_ms, stderr: err_bytes }
+            } else {
+                let msg = String::from_utf8_lossy(&err_bytes);
+                ToolResult {
+                    output: Vec::new(),
+                    error: Some(format_error("HANDLER", msg.trim())),
+                    duration_ms,
+                    stderr: err_bytes,
+                }
+            }
+        }
+    }
+}
+
 pub struct ExternalTool {
     name: String,
     dir: PathBuf,
     timeout_secs: u64,
+    sandbox_mode: crate::sandbox::SandboxMode,
     description_cache: std::sync::OnceLock<String>,
 }
 
 impl ExternalTool {
+    #[allow(dead_code)]
     pub fn new(name: impl Into<String>, dir: PathBuf, timeout_secs: u64) -> Self {
-        Self { name: name.into(), dir, timeout_secs, description_cache: std::sync::OnceLock::new() }
+        Self::with_sandbox_mode(name, dir, timeout_secs, crate::sandbox::SandboxMode::default())
+    }
+
+    pub fn with_sandbox_mode(
+        name: impl Into<String>,
+        dir: PathBuf,
+        timeout_secs: u64,
+        sandbox_mode: crate::sandbox::SandboxMode,
+    ) -> Self {
+        Self { name: name.into(), dir, timeout_secs, sandbox_mode, description_cache: std::sync::OnceLock::new() }
     }
 
     fn endpoint_path(&self, endpoint: &str) -> PathBuf {
@@ -390,24 +502,30 @@ impl Tool for ExternalTool {
                 Some(m) => m,
                 None => return ToolResult::err("[ERROR:SPAWN] manifest not found"),
             };
-            return invoke_pipe(stages, input, &m, &self.name, &self.dir, self.timeout_secs).await;
+            let sandbox = crate::sandbox::build(
+                m.sandbox.as_ref(),
+                self.sandbox_mode,
+            );
+            return invoke_pipe(stages, input, &m, &self.name, &self.dir, self.timeout_secs, sandbox.as_ref()).await;
         }
 
         let schema = spec.as_ref().and_then(|s| s.input.as_ref());
-        if let Some(s) = schema
-            && let Err(e) = validate_input(input, s) {
-                return ToolResult::err(e);
-            }
 
         let state_file = spec.as_ref()
             .and_then(|s| s.state_file.as_deref())
             .map(|sf| self.dir.join(sf));
 
         let handler = self.endpoint_path(endpoint).to_string_lossy().to_string();
-        invoke_command(
+        let sandbox = crate::sandbox::build(
+            manifest.as_ref().and_then(|m| m.sandbox.as_ref()),
+            self.sandbox_mode,
+        );
+        invoke_command_sandboxed(
             &handler, input, &self.name, endpoint,
             &self.dir, self.timeout_secs,
             state_file.as_deref(),
+            schema,
+            sandbox.as_ref(),
         ).await
     }
 }
@@ -563,10 +681,12 @@ mod tests {
             ("upper", "tr a-z A-Z"),
             ("trim",  "tr -d '\\n'"),
         ], "process");
+        let sandbox = crate::sandbox::build(None, crate::sandbox::SandboxMode::Disabled);
         let result = invoke_pipe(
             manifest.spec_for("process").unwrap().pipe.as_ref().unwrap(),
             b"hello",
             &manifest, "pipetool", tmp.path(), 10,
+            sandbox.as_ref(),
         ).await;
         assert!(!result.is_error(), "got: {:?}", result.error);
         assert_eq!(result.output, b"HELLO");
@@ -579,10 +699,12 @@ mod tests {
             ("fail",   "exit 1"),
             ("should_not_run", "cat"),
         ], "broken");
+        let sandbox = crate::sandbox::build(None, crate::sandbox::SandboxMode::Disabled);
         let result = invoke_pipe(
             manifest.spec_for("broken").unwrap().pipe.as_ref().unwrap(),
             b"input",
             &manifest, "pipetool", tmp.path(), 10,
+            sandbox.as_ref(),
         ).await;
         assert!(result.is_error());
         assert!(result.error.as_ref().unwrap().starts_with("[ERROR:HANDLER]"), "got: {:?}", result.error);
@@ -596,10 +718,12 @@ mod tests {
             ("b", "cat"),
             ("c", "cat"),
         ], "chain");
+        let sandbox = crate::sandbox::build(None, crate::sandbox::SandboxMode::Disabled);
         let result = invoke_pipe(
             manifest.spec_for("chain").unwrap().pipe.as_ref().unwrap(),
             b"data",
             &manifest, "pipetool", tmp.path(), 10,
+            sandbox.as_ref(),
         ).await;
         assert!(!result.is_error());
         assert_eq!(result.output, b"data");
@@ -811,6 +935,19 @@ files:
             Path::new("/tmp"), 10, None,
         ).await;
         assert!(!result.is_error(), "LIVEFOLDERS_STATE_FILE should not be set, got: {:?}", result.error);
+    }
+
+    #[tokio::test]
+    async fn sandbox_is_applied_noop_does_not_break_invocation() {
+        use crate::sandbox::{build as build_sandbox, SandboxMode};
+        let sandbox = build_sandbox(None, SandboxMode::Disabled);
+        let result = invoke_command_sandboxed(
+            "echo hello", b"", "tool", "ep",
+            Path::new("/tmp"), 10, None, None,
+            sandbox.as_ref(),
+        ).await;
+        assert!(!result.is_error(), "got: {:?}", result.error);
+        assert_eq!(result.output.trim_ascii_end(), b"hello");
     }
 
     #[tokio::test]

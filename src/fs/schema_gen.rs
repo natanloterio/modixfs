@@ -77,6 +77,7 @@ mod tests {
             description: Some("Search things.".into()),
             version: None, env: vec![],
             files: vec![],
+            ..Default::default()
         };
         let out = generate_schema_json(&m);
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
@@ -93,6 +94,7 @@ mod tests {
                 spec("status", FileKind::ReadInvoke, None),
                 FileSpec { name: "notes.txt".into(), kind: FileKind::Passthrough, handler: None, input: None, state_file: None, pipe: None },
             ],
+            ..Default::default()
         };
         let out = generate_schema_json(&m);
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
@@ -114,6 +116,7 @@ mod tests {
         let m = Manifest {
             name: Some("s".into()), description: None, version: None, env: vec![],
             files: vec![spec("search", FileKind::WriteInvoke, Some(schema))],
+            ..Default::default()
         };
         let out = generate_schema_json(&m);
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
@@ -134,6 +137,7 @@ mod tests {
         let m = Manifest {
             name: Some("s".into()), description: None, version: None, env: vec![],
             files: vec![spec("greet", FileKind::WriteInvoke, Some(schema))],
+            ..Default::default()
         };
         let out = generate_schema_json(&m);
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
@@ -153,6 +157,7 @@ mod tests {
                 FileSpec { name: "pipeline".into(), kind: FileKind::WriteInvoke, handler: None, input: None, state_file: None,
                     pipe: Some(vec!["fetch".into(), "format".into()]) },
             ],
+            ..Default::default()
         };
         let out = generate_schema_json(&m);
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
@@ -170,6 +175,7 @@ mod tests {
                 FileSpec { name: "config.json".into(), kind: FileKind::Passthrough, handler: None, input: None, state_file: None, pipe: None },
                 FileSpec { name: "readme.md".into(), kind: FileKind::Readonly, handler: None, input: None, state_file: None, pipe: None },
             ],
+            ..Default::default()
         };
         let out = generate_schema_json(&m);
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();

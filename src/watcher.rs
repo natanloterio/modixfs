@@ -13,6 +13,7 @@ pub fn spawn_watcher(
     tools_dir: PathBuf,
     registry: Arc<RwLock<ToolRegistry>>,
     timeout_secs: u64,
+    sandbox_mode: crate::sandbox::SandboxMode,
 ) -> Result<()> {
     let (tx, mut rx) = mpsc::unbounded_channel::<notify::Result<Event>>();
 
@@ -29,7 +30,7 @@ pub fn spawn_watcher(
         let _watcher = watcher;
         while let Some(res) = rx.recv().await {
             match res {
-                Ok(event) => handle_event(event, &tools_dir, &registry, timeout_secs),
+                Ok(event) => handle_event(event, &tools_dir, &registry, timeout_secs, sandbox_mode),
                 Err(e) => warn!("watcher error: {}", e),
             }
         }
@@ -43,6 +44,7 @@ fn handle_event(
     tools_dir: &Path,
     registry: &Arc<RwLock<ToolRegistry>>,
     timeout_secs: u64,
+    sandbox_mode: crate::sandbox::SandboxMode,
 ) {
     for path in &event.paths {
         let parent = path.parent();
@@ -59,7 +61,7 @@ fn handle_event(
                 let mut reg = registry.write().unwrap_or_else(|e| e.into_inner());
                 if reg.get(&name).is_none() {
                     reg.register(Arc::new(
-                        ExternalTool::new(&name, path.clone(), timeout_secs)
+                        ExternalTool::with_sandbox_mode(&name, path.clone(), timeout_secs, sandbox_mode)
                     ));
                     info!("hot-reload: registered tool '{}'", name);
                 }

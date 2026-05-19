@@ -6,6 +6,7 @@ mod fs;
 mod installer;
 mod manifest;
 mod registry;
+mod sandbox;
 mod secrets;
 mod tools;
 mod watcher;
@@ -249,7 +250,7 @@ fn cmd_mount(args: &[String]) -> Result<()> {
     let mountpoint = mountpoint.canonicalize().unwrap_or(mountpoint);
 
     let mut registry = build_registry(&cfg);
-    load_external_tools(&cfg, &mut registry)?;
+    load_external_tools(&cfg, &mut registry, cfg.sandbox_mode())?;
     let registry = Arc::new(RwLock::new(registry));
 
     let session = Session::new();
@@ -279,20 +280,20 @@ fn cmd_mount(args: &[String]) -> Result<()> {
     if let Some(ref td) = tools_dir
         && td.exists() {
             let _guard = rt.enter();
-            if let Err(e) = watcher::spawn_watcher(td.clone(), Arc::clone(&registry), cfg.timeout_secs) {
+            if let Err(e) = watcher::spawn_watcher(td.clone(), Arc::clone(&registry), cfg.timeout_secs, cfg.sandbox_mode()) {
                 warn!("hot-reload watcher failed to start: {}", e);
             } else {
                 info!("hot-reload watcher started");
             }
         }
 
-    let fs = LiveFolders::new(registry, tools_dir, session, handle, cfg.timeout_secs);
+    let fs = LiveFolders::new(registry, tools_dir, session, handle, cfg.timeout_secs, cfg.sandbox_mode());
     fuser::mount2(fs, &mountpoint, &options)?;
 
     Ok(())
 }
 
-fn load_external_tools(cfg: &Config, registry: &mut ToolRegistry) -> Result<()> {
+fn load_external_tools(cfg: &Config, registry: &mut ToolRegistry, sandbox_mode: crate::sandbox::SandboxMode) -> Result<()> {
     let tools_dir = match cfg.resolved_tools_dir()? {
         Some(p) => p,
         None => return Ok(()),
@@ -311,7 +312,7 @@ fn load_external_tools(cfg: &Config, registry: &mut ToolRegistry) -> Result<()> 
             info!("skipping external tool '{}': shadowed by built-in", name);
             continue;
         }
-        registry.register(Arc::new(ExternalTool::new(&name, path.clone(), cfg.timeout_secs)));
+        registry.register(Arc::new(ExternalTool::with_sandbox_mode(&name, path.clone(), cfg.timeout_secs, sandbox_mode)));
         info!("registered external tool: {}", name);
         if let Some(err) = validation_error_for_tool(&path) {
             tracing::error!(

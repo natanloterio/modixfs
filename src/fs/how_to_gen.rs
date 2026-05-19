@@ -86,6 +86,7 @@ mod tests {
             version: None,
             env,
             files,
+            ..Default::default()
         }
     }
 
@@ -111,6 +112,7 @@ mod tests {
                 default: Some("30".into()),
             }],
             files: vec![],
+            ..Default::default()
         };
         let out = generate_how_to(&m);
         assert!(out.contains("TIMEOUT"));
@@ -146,6 +148,7 @@ mod tests {
                 state_file: None,
                 pipe: None,
             }],
+            ..Default::default()
         };
         let output = generate_how_to(&manifest);
         assert!(output.contains("JSON"), "expected JSON mention, got:\n{}", output);
@@ -173,6 +176,7 @@ mod tests {
                 state_file: None,
                 pipe: None,
             }],
+            ..Default::default()
         };
         let output = generate_how_to(&manifest);
         assert!(output.contains("min_length: 1"), "got:\n{}", output);
@@ -202,6 +206,7 @@ mod tests {
                 state_file: None,
                 pipe: None,
             }],
+            ..Default::default()
         };
         let output = generate_how_to(&manifest);
         assert!(output.contains("schema:"), "got:\n{}", output);

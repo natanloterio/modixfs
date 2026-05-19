@@ -196,6 +196,23 @@ If the tool declares required secrets in its `folder.yaml`, you'll be prompted f
 
 ---
 
+## Security / Sandbox
+
+Every tool handler runs in an isolated sandbox. Filesystem access is restricted to the paths the tool explicitly declares, and outbound network connections are blocked by default. This limits the blast radius if a handler misbehaves or is supplied malicious input.
+
+**Platform details:** On Linux (kernel ≥ 5.13) isolation is enforced by Landlock LSM plus a seccomp socket filter. On macOS, `sandbox-exec` is used (deprecated by Apple but functional on all current releases). Both platforms degrade gracefully: if the kernel or OS feature is unavailable, LiveFolders logs a warning and continues running without isolation. Set `mode: strict` in `livefolders.yaml` to refuse to mount instead of degrading.
+
+**Opting in to network access:** Network is denied by default. Add `network: true` to the `sandbox:` block in `folder.yaml` for any tool that needs to reach external services (e.g. tools that call REST APIs).
+
+**Setting strict mode globally:** Add the following to `livefolders.yaml` to require full isolation or refuse to mount:
+
+```yaml
+sandbox:
+  mode: strict   # abort mount if Landlock/sandbox-exec cannot be applied
+```
+
+---
+
 ## Example tools
 
 Ready-to-install tools in this repo:

@@ -50,6 +50,7 @@ pub struct LiveFolders {
     path_table: PathTable,
     next_ino: Arc<Mutex<u64>>,
     timeout_secs: u64,
+    sandbox_mode: crate::sandbox::SandboxMode,
 }
 
 impl LiveFolders {
@@ -59,6 +60,7 @@ impl LiveFolders {
         session: Session,
         rt: Handle,
         timeout_secs: u64,
+        sandbox_mode: crate::sandbox::SandboxMode,
     ) -> Self {
         Self {
             registry,
@@ -72,6 +74,7 @@ impl LiveFolders {
             path_table: Arc::new(Mutex::new(HashMap::new())),
             next_ino: Arc::new(Mutex::new(100_000)),
             timeout_secs,
+            sandbox_mode,
         }
     }
 
@@ -919,7 +922,7 @@ impl Filesystem for LiveFolders {
                     let mut reg = self.registry.write().unwrap_or_else(|e| e.into_inner());
                     if reg.get(&tool_name).is_none() {
                         reg.register(Arc::new(
-                            ExternalTool::new(&tool_name, dir_path, self.timeout_secs),
+                            ExternalTool::with_sandbox_mode(&tool_name, dir_path, self.timeout_secs, self.sandbox_mode),
                         ));
                     }
                     reg.list().iter().position(|&n| n == tool_name.as_str()).unwrap_or(0)
