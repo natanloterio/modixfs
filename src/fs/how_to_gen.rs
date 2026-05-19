@@ -1,4 +1,4 @@
-use crate::manifest::{FileKind, Manifest};
+use crate::manifest::{FileKind, InputKind, Manifest};
 
 pub fn generate_how_to(manifest: &Manifest) -> String {
     let mut out = String::new();
@@ -19,6 +19,14 @@ pub fn generate_how_to(manifest: &Manifest) -> String {
             out.push_str(&format!("- **{}** (`{}`)", spec.name, kind_str));
             if let Some(h) = &spec.handler {
                 out.push_str(&format!(" — handler: `{}`", h));
+            }
+            if let Some(ref schema) = spec.input {
+                let type_str = match schema.kind {
+                    InputKind::String => "plain text",
+                    InputKind::Json => "JSON",
+                    InputKind::None => "nothing (read-only endpoint)",
+                };
+                out.push_str(&format!(", input: {}", type_str));
             }
             out.push('\n');
         }
@@ -96,5 +104,24 @@ mod tests {
         assert!(out.contains("read_invoke"));
         assert!(out.contains("notes.txt"));
         assert!(out.contains("passthrough"));
+    }
+
+    #[test]
+    fn how_to_mentions_json_input_schema() {
+        use crate::manifest::{FileKind, FileSpec, InputKind, InputSchema, Manifest};
+        let manifest = Manifest {
+            name: Some("search".to_string()),
+            description: Some("Search the web.".to_string()),
+            version: None,
+            env: vec![],
+            files: vec![FileSpec {
+                name: "query".to_string(),
+                kind: FileKind::WriteInvoke,
+                handler: Some("./search.sh".to_string()),
+                input: Some(InputSchema { kind: InputKind::Json }),
+            }],
+        };
+        let output = generate_how_to(&manifest);
+        assert!(output.contains("JSON"), "expected JSON mention, got:\n{}", output);
     }
 }
