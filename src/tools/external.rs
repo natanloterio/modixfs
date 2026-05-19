@@ -189,6 +189,18 @@ impl Tool for ExternalTool {
     }
 
     async fn invoke(&self, endpoint: &str, input: &[u8], _session: &Session) -> ToolResult {
+        // Look up input schema from folder.yaml if present
+        let schema = crate::manifest::Manifest::load(&self.dir)
+            .ok()
+            .flatten()
+            .and_then(|m| m.spec_for(endpoint).and_then(|s| s.input.clone()));
+
+        if let Some(ref s) = schema {
+            if let Err(e) = validate_input(input, s) {
+                return ToolResult::err(e);
+            }
+        }
+
         let script = self.endpoint_path(endpoint);
 
         let mut child = match Command::new(&script)
@@ -376,5 +388,53 @@ mod tests {
         assert!(result.is_error());
         let err = result.error.unwrap();
         assert!(err.starts_with("[ERROR:TIMEOUT]"), "got: {}", err);
+    }
+
+    #[tokio::test]
+    async fn external_tool_rejects_invalid_json_when_schema_declared() {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("folder.yaml"), r#"
+name: testtool
+files:
+  - name: search
+    type: write_invoke
+    handler: "cat"
+    input:
+      type: json
+"#).unwrap();
+        let ep = tmp.path().join("search");
+        std::fs::write(&ep, "#!/bin/sh\ncat").unwrap();
+        std::fs::set_permissions(&ep, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+
+        let tool = ExternalTool::new("testtool", tmp.path().to_path_buf(), 10);
+        let session = crate::registry::Session::default();
+        let result = tool.invoke("search", b"not json", &session).await;
+        assert!(result.is_error());
+        let err = result.error.unwrap();
+        assert!(err.starts_with("[ERROR:INVALID_INPUT]"), "got: {}", err);
+    }
+
+    #[tokio::test]
+    async fn external_tool_accepts_valid_json_when_schema_declared() {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("folder.yaml"), r#"
+name: testtool
+files:
+  - name: search
+    type: write_invoke
+    handler: "cat"
+    input:
+      type: json
+"#).unwrap();
+        let ep = tmp.path().join("search");
+        std::fs::write(&ep, "#!/bin/sh\ncat").unwrap();
+        std::fs::set_permissions(&ep, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+
+        let tool = ExternalTool::new("testtool", tmp.path().to_path_buf(), 10);
+        let session = crate::registry::Session::default();
+        let result = tool.invoke("search", b"{\"q\":\"hello\"}", &session).await;
+        assert!(!result.is_error(), "unexpected error: {:?}", result.error);
     }
 }
