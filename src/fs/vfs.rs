@@ -14,7 +14,7 @@ use tracing::debug;
 
 use crate::manifest::FileKind;
 use crate::registry::{Session, ToolRegistry};
-use crate::tools::invoke_command_validated;
+use crate::tools::{invoke_command_validated, ExternalTool};
 
 use super::inode::*;
 use super::root_doc::{ROOT_CREATE_TOOL, ROOT_HOW_TO};
@@ -436,7 +436,25 @@ impl Filesystem for LiveFolders {
                 } else {
                     // parent might be an external path (inode_table entry)
                     if let Some(parent_path) = self.path_for_ino(parent) {
-                        let disk_path = parent_path.join(name.to_str().unwrap_or(""));
+                        let name_str = name.to_str().unwrap_or("");
+
+                        // If the parent is a direct tool directory (one level under tools_dir),
+                        // delegate to lookup_external_file so manifest-declared virtual files
+                        // (write_invoke / read_invoke) resolve correctly even when the parent
+                        // was assigned a dynamic inode before the tool was registered.
+                        if let Some(tools_dir) = self.tools_dir.clone() {
+                            if let Ok(rel) = parent_path.strip_prefix(&tools_dir) {
+                                let mut comps = rel.components();
+                                if let (Some(tool_comp), None) = (comps.next(), comps.next()) {
+                                    let tool_name = tool_comp.as_os_str().to_string_lossy().to_string();
+                                    if let Some(attr) = self.lookup_external_file(&tool_name, name_str) {
+                                        return reply.entry(&TTL, &attr, 0);
+                                    }
+                                }
+                            }
+                        }
+
+                        let disk_path = parent_path.join(name_str);
                         if let Ok(meta) = std::fs::metadata(&disk_path) {
                             let ino = self.ino_for_path(&disk_path);
                             use std::os::unix::fs::PermissionsExt;
@@ -889,10 +907,24 @@ impl Filesystem for LiveFolders {
                 reply.error(libc::EACCES);
                 return;
             };
-            let dir_path = tools_dir.join(name.to_string_lossy().as_ref());
+            let tool_name = name.to_string_lossy().to_string();
+            let dir_path = tools_dir.join(&tool_name);
             if std::fs::create_dir(&dir_path).is_ok() {
-                let ino = self.ino_for_path(&dir_path);
-                reply.entry(&TTL, &Self::dir_attr(ino), 0);
+                // Register the tool synchronously so the kernel receives the stable
+                // static inode (tool_dir_ino) from the very first mkdir reply.
+                // Without this, the kernel caches a dynamic inode (>= 100_000) and
+                // subsequent lookups of virtual manifest-declared files inside the dir
+                // fall into the disk-only code path and return ENOENT within the TTL.
+                let idx = {
+                    let mut reg = self.registry.write().unwrap_or_else(|e| e.into_inner());
+                    if reg.get(&tool_name).is_none() {
+                        reg.register(Arc::new(
+                            ExternalTool::new(&tool_name, dir_path, self.timeout_secs),
+                        ));
+                    }
+                    reg.list().iter().position(|&n| n == tool_name.as_str()).unwrap_or(0)
+                };
+                reply.entry(&TTL, &Self::dir_attr(tool_dir_ino(idx)), 0);
             } else {
                 reply.error(libc::EIO);
             }
