@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+CRITERION="06-stateful-tools"
+echo "[$CRITERION]"
+echo ""
+echo "LiveFoldersFS: state lives in a file (e.g. /tmp/lf_counter) — persists across restarts"
+echo "  Limitation: no atomic update without a lock file; concurrent writes can corrupt state"
+echo ""
+echo "MCP: state lives in Python process memory — fast, no locking needed for single-threaded"
+echo "  Limitation: state lost on server restart; persistent state still requires a file/DB"
+echo ""
+echo "  Winner: MCP for in-process state; LiveFoldersFS for file-persisted state"
