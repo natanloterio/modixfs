@@ -12,6 +12,7 @@ pub const ROOT_INO: u64 = 1;
 pub const TOOLS_DIR_INO: u64 = 2;
 pub const ROOT_INDEX_INO: u64 = 3;
 pub const ROOT_HOW_TO_INO: u64 = 4;
+pub const ROOT_CREATE_TOOL_INO: u64 = 5;
 
 /// Inodes 1000+ are tool dirs (1000 + tool_index * 100).
 /// Inodes 1001+ are how_to files (tool_ino + 1).
