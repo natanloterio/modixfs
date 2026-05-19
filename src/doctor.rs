@@ -104,9 +104,63 @@ pub fn check_tool_manifests(cfg: &Config) -> Vec<CheckResult> {
         .collect()
 }
 
+pub fn check_sandbox() -> CheckResult {
+    #[cfg(target_os = "linux")]
+    {
+        use landlock::{AccessFs, Ruleset, RulesetAttr};
+        match Ruleset::default().handle_access(AccessFs::ReadFile) {
+            Ok(_) => CheckResult {
+                name: "Sandbox",
+                ok: true,
+                message: "Landlock available — full filesystem isolation enabled".into(),
+            },
+            Err(_) => CheckResult {
+                name: "Sandbox",
+                ok: false,
+                message: "Landlock not available (kernel < 5.13). \
+                          Tool isolation will degrade to NO_NEW_PRIVS + setrlimit only."
+                    .into(),
+            },
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let available = std::process::Command::new("which")
+            .arg("sandbox-exec")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        if available {
+            CheckResult {
+                name: "Sandbox",
+                ok: true,
+                message: "sandbox-exec found — macOS sandbox available".into(),
+            }
+        } else {
+            CheckResult {
+                name: "Sandbox",
+                ok: false,
+                message: "sandbox-exec not found. \
+                          Tool isolation will be limited to setrlimit only."
+                    .into(),
+            }
+        }
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        CheckResult {
+            name: "Sandbox",
+            ok: true,
+            message: "Sandbox checks not applicable on this platform".into(),
+        }
+    }
+}
+
 pub fn run_doctor(cfg: &Config) {
     let mut all_ok = true;
-    let checks = [check_fuse(), check_config_exists(), check_tools_dir(cfg)];
+    let checks = [check_fuse(), check_config_exists(), check_tools_dir(cfg), check_sandbox()];
     let tool_checks = check_tool_manifests(cfg);
     for check in checks.iter().chain(tool_checks.iter()) {
         let icon = if check.ok { "OK" } else { "FAIL" };
