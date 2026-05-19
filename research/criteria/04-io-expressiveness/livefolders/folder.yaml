@@ -1,0 +1,10 @@
+name: reflect
+description: Reflects back whatever is written to it.
+
+files:
+  - name: reflect
+    type: write_invoke
+    handler: "cat -"
+  - name: json_reflect
+    type: write_invoke
+    handler: "python3 -c \"import sys,json; d=json.load(sys.stdin); print(json.dumps(d))\""
