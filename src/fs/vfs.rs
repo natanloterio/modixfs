@@ -514,7 +514,7 @@ impl Filesystem for LiveFolders {
                                 invoke_command_validated(&handler, &input, &tool_name, &file_name, &cwd, timeout, input_schema.as_ref()).await
                             });
                             let b = if result.is_error() {
-                                format!("ERROR: {}\n", result.error.unwrap()).into_bytes()
+                                format!("{}\n", result.error.unwrap()).into_bytes()
                             } else {
                                 result.output
                             };
@@ -659,7 +659,7 @@ impl Filesystem for LiveFolders {
                                 invoke_command_validated(&handler, &input, &tool_name, &file_name, &cwd, timeout, input_schema.as_ref()).await
                             });
                             let bytes = if output.is_error() {
-                                format!("ERROR: {}\n", output.error.unwrap()).into_bytes()
+                                format!("{}\n", output.error.unwrap()).into_bytes()
                             } else {
                                 output.output
                             };
@@ -715,7 +715,7 @@ impl Filesystem for LiveFolders {
                                 let output = self.rt.block_on(async move {
                                     let result = tool.invoke(&ep_name, &input, &session).await;
                                     if result.is_error() {
-                                        format!("ERROR: {}\n", result.error.unwrap()).into_bytes()
+                                        format!("{}\n", result.error.unwrap()).into_bytes()
                                     } else {
                                         result.output
                                     }
@@ -764,7 +764,7 @@ impl Filesystem for LiveFolders {
             let result = tool.invoke(&endpoint, &input, &session).await;
             tracing::debug!("invoke done: ino={}", ino);
             if result.is_error() {
-                format!("ERROR: {}\n", result.error.unwrap()).into_bytes()
+                format!("{}\n", result.error.unwrap()).into_bytes()
             } else {
                 result.output
             }
