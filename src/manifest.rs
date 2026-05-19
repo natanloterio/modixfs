@@ -64,7 +64,7 @@ pub struct FileSpec {
     pub pipe: Option<Vec<String>>,
 }
 
-#[derive(Debug, Deserialize, Clone, Default)]
+#[derive(Debug, Deserialize, Clone, Default, PartialEq)]
 pub struct SandboxFsSpec {
     #[serde(default)]
     pub read: Vec<String>,
@@ -72,13 +72,15 @@ pub struct SandboxFsSpec {
     pub write: Vec<String>,
 }
 
-#[derive(Debug, Deserialize, Clone, Default)]
+#[derive(Debug, Deserialize, Clone, Default, PartialEq)]
 pub struct SandboxResourceSpec {
+    #[serde(default)]
     pub max_procs: Option<u64>,
+    #[serde(default)]
     pub max_memory_mb: Option<u64>,
 }
 
-#[derive(Debug, Deserialize, Clone, Default)]
+#[derive(Debug, Deserialize, Clone, Default, PartialEq)]
 pub struct SandboxSpec {
     #[serde(default)]
     pub fs: SandboxFsSpec,
@@ -535,7 +537,11 @@ sandbox:
 
     #[test]
     fn sandbox_network_defaults_to_none_when_omitted() {
-        let yaml = "name: mytool\nsandbox:\n  fs:\n    read: []\n";
+        let yaml = r#"name: mytool
+sandbox:
+  fs:
+    read: []
+"#;
         let manifest: Manifest = serde_yaml::from_str(yaml).unwrap();
         assert_eq!(manifest.sandbox.unwrap().network, None);
     }
