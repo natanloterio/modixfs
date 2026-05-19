@@ -1,0 +1,12 @@
+name: users
+description: List users from the mock API.
+
+files:
+  - name: list
+    type: read_invoke
+    handler: >-
+      curl -s https://6a0b5d085aa893e1015a2d32.mockapi.io/users
+      | jq -r '"# Users\n", (.[] | "## \(.name)\nID: \(.id)\nCreated: \(.createdAt)\nAvatar: \(.avatar)\n")'
+
+  - name: how_to.md
+    type: readonly
