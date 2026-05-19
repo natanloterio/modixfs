@@ -91,6 +91,81 @@ The write call **blocks until the tool finishes** — by the time `cat` runs, th
 
 ---
 
+## Using with an LLM
+
+Once mounted, give the agent a single instruction:
+
+> *"Tools are mounted at `.livefolders/tools/`. Read `index.md` to discover what's available, then read `how_to.md` inside any tool directory before using it."*
+
+The agent then follows this natural sequence on its own:
+
+**1. Discover available tools**
+```
+cat .livefolders/tools/index.md
+# → weather  — Get the weather forecast for any city.
+# → users    — Fetch users from the REST API.
+```
+
+**2. Read the instructions for a tool**
+```
+cat .livefolders/tools/weather/how_to.md
+# → # weather
+# →
+# → Get the weather forecast for any city.
+# →
+# → ## Files
+# →
+# → - **forecast** (`write_invoke`) — handler: ..., input: plain text, min_length: 1
+# →   → read `forecast.log` for last invocation timing and stderr
+```
+
+**3. Invoke the tool**
+```
+echo "London" > .livefolders/tools/weather/forecast
+cat .livefolders/tools/weather/forecast
+# → Weather report for London, United Kingdom:
+# →    \☁️   Overcast
+# →   15 °C
+```
+
+**4. Handle errors**
+
+If input is invalid, the endpoint returns a structured error — no handler runs:
+```
+echo "" > .livefolders/tools/weather/forecast
+cat .livefolders/tools/weather/forecast
+# → [ERROR:INVALID_INPUT] input too short: minimum 1 characters required
+```
+
+If the handler fails, the error includes the exit reason:
+```
+# → [ERROR:HANDLER] curl: (6) Could not resolve host: wttr.in
+```
+
+**5. Check timing and diagnostics (optional)**
+```
+cat .livefolders/tools/weather/forecast.log
+# → duration_ms: 342
+# → exit: ok
+# → stderr:
+```
+
+**Giving tools to Claude Code**
+
+Add this to your project's `CLAUDE.md`:
+
+```markdown
+## Tools
+
+LiveFolders is mounted at `.livefolders/tools/`. Before using any tool:
+1. `cat .livefolders/tools/index.md` to see what's available
+2. `cat .livefolders/tools/<name>/how_to.md` to read usage instructions
+3. Write input with `echo "..." > .livefolders/tools/<name>/<endpoint>`
+4. Read output with `cat .livefolders/tools/<name>/<endpoint>`
+```
+
+---
+
 ## Mount and stop
 
 ```bash
