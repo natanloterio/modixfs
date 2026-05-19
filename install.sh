@@ -97,4 +97,9 @@ else
 fi
 
 ok "Installed: $(command -v ${BIN})"
-printf "\n  ${GREEN}${BOLD}Done.${RESET} Run ${BOLD}livefolders init${RESET} to get started.\n\n"
+printf "\n  ${GREEN}${BOLD}Done.${RESET}\n\n"
+printf "  Next steps:\n"
+printf "    1. cd into your project, then run  ${BOLD}livefolders init${RESET}\n"
+printf "       (it will offer to add setup instructions to CLAUDE.md / AGENTS.md)\n"
+printf "    2. ${BOLD}livefolders install <github-url>${RESET}  to add tools\n"
+printf "    3. ${BOLD}livefolders mount${RESET}  to start the filesystem\n\n"

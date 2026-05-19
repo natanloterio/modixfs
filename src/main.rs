@@ -110,7 +110,10 @@ fn main() -> Result<()> {
 }
 
 fn cmd_init() -> Result<()> {
-    cmd_init_silent(&std::env::current_dir()?)
+    let base = std::env::current_dir()?;
+    cmd_init_silent(&base)?;
+    prompt_agent_integration(&base)?;
+    Ok(())
 }
 
 fn cmd_init_silent(base: &std::path::Path) -> Result<()> {
@@ -124,6 +127,85 @@ fn cmd_init_silent(base: &std::path::Path) -> Result<()> {
     )?;
     println!("Created livefolders.yaml");
     println!("Run `livefolders install <github-url>` to add tools, then `livefolders mount`.");
+    Ok(())
+}
+
+const AGENT_SNIPPET: &str = "\
+## LiveFolders tools
+
+Tools are available at `.livefolders/tools/`. To use them:
+1. `cat .livefolders/tools/index.md` — discover available tools
+2. `cat .livefolders/tools/<name>/how_to.md` — read usage instructions for a tool
+3. Write input: `echo \"...\" > .livefolders/tools/<name>/<endpoint>`
+4. Read output: `cat .livefolders/tools/<name>/<endpoint>`
+";
+
+fn prompt_agent_integration(base: &std::path::Path) -> Result<()> {
+    use std::io::Write;
+
+    let has_claude  = base.join("CLAUDE.md").exists();
+    let has_agents  = base.join("AGENTS.md").exists();
+    let has_copilot = base.join(".github").join("copilot-instructions.md").exists();
+
+    println!();
+    println!("Which code agent are you using?");
+    println!("  [1] Claude Code{}",
+        if has_claude { " (CLAUDE.md detected)" } else { "" });
+    println!("  [2] Cursor / Windsurf / Aider / other (AGENTS.md){}",
+        if has_agents { " (AGENTS.md detected)" } else { "" });
+    println!("  [3] GitHub Copilot{}",
+        if has_copilot { " (copilot-instructions.md detected)" } else { "" });
+    println!("  [4] Show me the snippet — I'll add it myself");
+    println!("  [5] Skip");
+    print!("Choice [1-5]: ");
+    std::io::stdout().flush()?;
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+
+    match input.trim() {
+        "1" => {
+            let path = base.join("CLAUDE.md");
+            append_agent_snippet(&path)?;
+            println!("Added LiveFolders instructions to CLAUDE.md");
+        }
+        "2" => {
+            let path = base.join("AGENTS.md");
+            append_agent_snippet(&path)?;
+            println!("Added LiveFolders instructions to AGENTS.md");
+        }
+        "3" => {
+            let dir = base.join(".github");
+            std::fs::create_dir_all(&dir)?;
+            let path = dir.join("copilot-instructions.md");
+            append_agent_snippet(&path)?;
+            println!("Added LiveFolders instructions to .github/copilot-instructions.md");
+        }
+        "4" => {
+            println!();
+            println!("Add this block to your agent's instruction file:\n");
+            println!("{}", AGENT_SNIPPET);
+        }
+        _ => {
+            println!("Skipped.");
+        }
+    }
+
+    Ok(())
+}
+
+fn append_agent_snippet(path: &std::path::Path) -> Result<()> {
+    use std::io::Write;
+    let needs_newline = path.exists()
+        && std::fs::metadata(path).map(|m| m.len() > 0).unwrap_or(false);
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)?;
+    if needs_newline {
+        writeln!(file)?;
+    }
+    file.write_all(AGENT_SNIPPET.as_bytes())?;
     Ok(())
 }
 
