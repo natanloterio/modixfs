@@ -1,6 +1,14 @@
 name: users
 description: List users from the mock API.
 
+sandbox:
+  fs:
+    read: ["/usr", "/lib", "/etc/ssl"]
+    write: []
+  network: true   # required: handler calls an external API
+  resources:
+    max_procs: 4
+
 files:
   - name: list
     type: read_invoke
