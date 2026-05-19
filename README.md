@@ -120,7 +120,7 @@ Ready-to-install tools in this repo:
 
 | Tool | Install | What it does |
 |------|---------|--------------|
-| `demo` | `livefolders install github.com/natanloterio/LiveFolders/tree/master/examples/demo` | Demonstrates all four file types |
+| `demo` | `livefolders install github.com/natanloterio/LiveFolders/tree/master/examples/demo` | Demonstrates all file types and input schema validation |
 | `users` | `livefolders install github.com/natanloterio/LiveFolders/tree/master/examples/users` | Fetches users from a REST API via GET |
 
 ---
@@ -161,6 +161,40 @@ files:
 | `read_invoke` | No-op | Runs `handler`, returns output |
 | `passthrough` | Writes to disk | Reads from disk |
 | `readonly` | Returns error | Reads from disk |
+
+**Input validation**
+
+Add an `input:` field to any endpoint to validate what the LLM writes before the handler runs:
+
+```yaml
+files:
+  - name: search
+    type: write_invoke
+    handler: "./search.sh"
+    input:
+      type: json       # "json" | "string" | "none"
+```
+
+| Value | Behaviour |
+|---|---|
+| `json` | Rejects input that is not valid UTF-8 JSON |
+| `string` | Accepts any bytes (explicit no-op, same as omitting the field) |
+| `none` | Rejects any non-empty input |
+| *(absent)* | No validation — current behaviour preserved |
+
+On rejection the endpoint returns `[ERROR:INVALID_INPUT] reason` instead of invoking the handler. The generated `how_to.md` documents the declared input type automatically.
+
+**Error format**
+
+All handler errors are returned as `[ERROR:CODE] message` so LLMs and scripts can parse them reliably:
+
+| Code | When |
+|---|---|
+| `INVALID_INPUT` | Input failed schema validation |
+| `HANDLER` | Handler exited with non-zero status |
+| `TIMEOUT` | Handler exceeded the configured timeout |
+| `SPAWN` | Handler process failed to start |
+| `PROCESS` | Unexpected process I/O error |
 
 **Handlers**
 
