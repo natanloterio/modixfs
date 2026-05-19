@@ -185,6 +185,17 @@ impl LiveFolders {
             _ => {
                 // External inode (>= 100_000)?
                 if let Some(disk_path) = self.path_for_ino(ino) {
+                    // If the disk file is absent but is named how_to.md, generate from folder.yaml.
+                    if !disk_path.exists()
+                        && disk_path.file_name().map_or(false, |n| n == "how_to.md")
+                    {
+                        if let Some(tool_dir) = disk_path.parent() {
+                            if let Ok(Some(manifest)) = crate::manifest::Manifest::load(tool_dir) {
+                                let content = crate::fs::how_to_gen::generate_how_to(&manifest);
+                                return Some(Self::file_attr(ino, content.len() as u64, 0o444));
+                            }
+                        }
+                    }
                     if let Ok(meta) = std::fs::metadata(&disk_path) {
                         use std::os::unix::fs::PermissionsExt;
                         let mode = meta.permissions().mode();
@@ -328,6 +339,15 @@ impl LiveFolders {
                         // Fall through to disk stat.
                     }
                 }
+            }
+        }
+
+        // Fallback: if how_to.md is absent on disk but folder.yaml exists, synthesize attr.
+        if name == "how_to.md" && !disk_path.exists() {
+            if let Ok(Some(manifest)) = crate::manifest::Manifest::load(&tools_dir.join(tool_name)) {
+                let content = crate::fs::how_to_gen::generate_how_to(&manifest);
+                let ino = self.ino_for_path(&disk_path);
+                return Some(Self::file_attr(ino, content.len() as u64, 0o444));
             }
         }
 
@@ -533,6 +553,21 @@ impl Filesystem for LiveFolders {
             }
 
             // No manifest entry or passthrough/readonly: read from disk.
+            // If the file doesn't exist but is named how_to.md, generate from folder.yaml.
+            if !disk_path.exists()
+                && disk_path.file_name().map_or(false, |n| n == "how_to.md")
+            {
+                if let Some(tool_dir) = disk_path.parent() {
+                    if let Ok(Some(manifest)) = crate::manifest::Manifest::load(tool_dir) {
+                        let content = crate::fs::how_to_gen::generate_how_to(&manifest);
+                        let data = content.into_bytes();
+                        let start = offset as usize;
+                        let end = (start + size as usize).min(data.len());
+                        reply.data(if start < data.len() { &data[start..end] } else { b"" });
+                        return;
+                    }
+                }
+            }
             match std::fs::read(&disk_path) {
                 Ok(bytes) => {
                     reply_bytes(reply, &bytes, offset, size);
