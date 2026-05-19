@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+CRITERION="04-io-expressiveness"
+echo "[$CRITERION]"
+echo ""
+echo "Plain text:  both handle it"
+echo "JSON:        LiveFoldersFS passes raw string (handler must parse); MCP enforces typed schema"
+echo "Multiline:   LiveFoldersFS native (stdin); MCP requires escaped string parameter"
+echo "Binary:      LiveFoldersFS: pipe binary to handler; MCP: base64 encode in string (workaround)"
+echo ""
+echo "  Winner: MCP for structured/typed I/O; LiveFoldersFS for raw/binary/streaming"
