@@ -83,11 +83,12 @@ pub struct ExternalTool {
     name: String,
     dir: PathBuf,
     timeout_secs: u64,
+    description_cache: std::sync::OnceLock<String>,
 }
 
 impl ExternalTool {
     pub fn new(name: impl Into<String>, dir: PathBuf, timeout_secs: u64) -> Self {
-        Self { name: name.into(), dir, timeout_secs }
+        Self { name: name.into(), dir, timeout_secs, description_cache: std::sync::OnceLock::new() }
     }
 
     fn endpoint_path(&self, endpoint: &str) -> PathBuf {
@@ -100,6 +101,13 @@ impl ExternalTool {
             .ok()
             .and_then(|s| s.lines().find(|l| !l.trim().is_empty()).map(|l| l.trim_start_matches('#').trim().to_string()))
             .unwrap_or_else(|| format!("External tool at {}", self.dir.display()))
+    }
+
+    fn description_from_manifest(&self) -> Option<String> {
+        let path = self.dir.join("folder.yaml");
+        let content = std::fs::read_to_string(path).ok()?;
+        let manifest: crate::manifest::Manifest = serde_yaml::from_str(&content).ok()?;
+        manifest.description
     }
 
     pub fn endpoints_from_disk(&self) -> Vec<String> {
@@ -127,7 +135,10 @@ impl Tool for ExternalTool {
     }
 
     fn description(&self) -> &str {
-        "External tool"
+        self.description_cache.get_or_init(|| {
+            self.description_from_manifest()
+                .unwrap_or_else(|| self.description_from_how_to())
+        })
     }
 
     fn how_to(&self) -> &str {
@@ -207,6 +218,25 @@ impl Tool for ExternalTool {
 mod tests {
     use super::*;
     use std::path::Path;
+
+    #[test]
+    fn description_reads_from_folder_yaml() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(
+            tmp.path().join("folder.yaml"),
+            "name: mytool\ndescription: Fetches data from the API\n",
+        ).unwrap();
+        let tool = ExternalTool::new("mytool", tmp.path().to_path_buf(), 30);
+        assert_eq!(tool.description(), "Fetches data from the API");
+    }
+
+    #[test]
+    fn description_falls_back_to_how_to_when_no_folder_yaml() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("how_to.md"), "# My tool\nDoes stuff.\n").unwrap();
+        let tool = ExternalTool::new("mytool", tmp.path().to_path_buf(), 30);
+        assert_eq!(tool.description(), "My tool");
+    }
 
     #[tokio::test]
     async fn invoke_command_echo() {
