@@ -6,6 +6,7 @@ mod fs;
 mod installer;
 mod manifest;
 mod registry;
+mod sandbox;
 mod secrets;
 mod tools;
 mod watcher;
