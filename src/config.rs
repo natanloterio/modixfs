@@ -95,7 +95,7 @@ mod tests {
     #[test]
     fn load_parses_timeout_and_tools() {
         let tmp = tempfile::tempdir().unwrap();
-        let path = tmp.path().join("tools.yaml");
+        let path = tmp.path().join("livefolders.yaml");
         let mut f = std::fs::File::create(&path).unwrap();
         writeln!(f, "timeout: 60\ntools:\n  - name: echo\n  - name: custom\n").unwrap();
         let cfg = Config::load(&path).unwrap();
@@ -108,7 +108,7 @@ mod tests {
     #[test]
     fn load_uses_default_timeout_when_absent() {
         let tmp = tempfile::tempdir().unwrap();
-        let path = tmp.path().join("tools.yaml");
+        let path = tmp.path().join("livefolders.yaml");
         std::fs::write(&path, "mount: /tmp/lf\n").unwrap();
         let cfg = Config::load(&path).unwrap();
         assert_eq!(cfg.timeout_secs, 30);
@@ -116,7 +116,7 @@ mod tests {
 
     #[test]
     fn load_returns_error_for_missing_file() {
-        let result = Config::load(Path::new("/nonexistent/tools.yaml"));
+        let result = Config::load(Path::new("/nonexistent/livefolders.yaml"));
         assert!(result.is_err());
     }
 

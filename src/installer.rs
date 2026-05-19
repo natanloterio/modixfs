@@ -43,7 +43,7 @@ pub fn install(url: &str, cfg: &crate::config::Config) -> Result<()> {
 
     let tools_dir = cfg.resolved_tools_dir()?.ok_or_else(|| {
         anyhow::anyhow!(
-            "tools_dir is not configured in tools.yaml. Add:\n  tools_dir: ~/.config/livefolders/tools"
+            "tools_dir is not configured in livefolders.yaml. Add:\n  tools_dir: ~/.config/livefolders/tools"
         )
     })?;
 
@@ -113,7 +113,7 @@ pub fn install(url: &str, cfg: &crate::config::Config) -> Result<()> {
             m
         }
         None => {
-            tracing::warn!("no livefolders.yaml found — installing without manifest");
+            tracing::warn!("no folder.yaml found — installing without manifest");
             crate::manifest::Manifest::default()
         }
     };

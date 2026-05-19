@@ -24,13 +24,13 @@ const USAGE: &str = "\
 Usage: livefolders <command> [options]
 
 Commands:
-  init                   Create a starter tools.yaml in the current directory
-  mount [path]           Mount the filesystem (path overrides tools.yaml)
+  init                   Create a starter livefolders.yaml in the current directory
+  mount [path]           Mount the filesystem (path overrides livefolders.yaml)
   install <url>          Install a tool from GitHub
   help                   Show this help
 
 Options:
-  --config, -c <file>   Path to tools.yaml (default: ./tools.yaml)
+  --config, -c <file>   Path to livefolders.yaml (default: ./livefolders.yaml)
 
 Environment:
   GITHUB_TOKEN      GitHub personal access token (for livefolders install)
@@ -79,9 +79,9 @@ fn main() -> Result<()> {
 fn cmd_init() -> Result<()> {
     use std::io::Write as _;
 
-    let path = PathBuf::from("tools.yaml");
+    let path = PathBuf::from("livefolders.yaml");
     if path.exists() {
-        bail!("tools.yaml already exists in the current directory");
+        bail!("livefolders.yaml already exists in the current directory");
     }
 
     print!("Mount directory [.livefolders]: ");
@@ -98,7 +98,7 @@ fn cmd_init() -> Result<()> {
         ),
     )?;
 
-    println!("Created tools.yaml");
+    println!("Created livefolders.yaml");
     println!("Run `livefolders install <github-url>` to add tools, then `livefolders mount`.");
     Ok(())
 }
@@ -108,7 +108,7 @@ fn load_config_for_install(args: &[String]) -> Config {
     match config_path {
         Some(p) => Config::load(&p).unwrap_or_else(|_| Config::default_config()),
         None => {
-            let default = PathBuf::from("tools.yaml");
+            let default = PathBuf::from("livefolders.yaml");
             if default.exists() {
                 Config::load(&default).unwrap_or_else(|_| Config::default_config())
             } else {
@@ -124,7 +124,7 @@ fn cmd_mount(args: &[String]) -> Result<()> {
     let cfg = match config_path {
         Some(p) => Config::load(&p)?,
         None => {
-            let default_path = PathBuf::from("tools.yaml");
+            let default_path = PathBuf::from("livefolders.yaml");
             if default_path.exists() {
                 Config::load(&default_path)?
             } else {

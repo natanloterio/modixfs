@@ -91,7 +91,7 @@ livefolders install github.com/owner/repo
 livefolders install github.com/owner/repo/tree/main/mytool
 ```
 
-If the tool declares required secrets in its `livefolders.yaml`, you'll be prompted for them on install. Secrets are stored in `~/.config/livefolders/secrets.env` and loaded automatically on every mount.
+If the tool declares required secrets in its `folder.yaml`, you'll be prompted for them on install. Secrets are stored in `~/.config/livefolders/secrets.env` and loaded automatically on every mount.
 
 ---
 
@@ -108,19 +108,19 @@ Ready-to-install tools in this repo:
 
 ## Building a tool
 
-Any directory with a `livefolders.yaml` is a LiveFolders tool. No Rust required.
+Any directory with a `folder.yaml` is a LiveFolders tool. No Rust required.
 
 **Directory layout**
 
 ```
 ~/.config/livefolders/tools/
 └── weather/
-    ├── livefolders.yaml
+    ├── folder.yaml
     ├── how_to.md
     └── forecast        ← optional script (if not using handler in yaml)
 ```
 
-**`livefolders.yaml`**
+**`folder.yaml`**
 
 ```yaml
 name: weather
@@ -171,7 +171,7 @@ LiveFolders watches `tools_dir` for changes. Adding or editing a tool takes effe
 
 ## Publishing a tool
 
-Add `livefolders.yaml` to your repo and push. Anyone can install it with one command:
+Add `folder.yaml` to your repo and push. Anyone can install it with one command:
 
 ```bash
 livefolders install github.com/you/your-tool
@@ -191,7 +191,7 @@ env:
 
 ---
 
-## `tools.yaml` reference
+## `livefolders.yaml` reference
 
 ```yaml
 mount: .livefolders                     # where to mount (set by `livefolders init`)

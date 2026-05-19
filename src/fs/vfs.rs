@@ -295,7 +295,7 @@ impl LiveFolders {
     }
 
     /// Given an external inode (>= 100_000), return (tool_name, file_name, FileSpec)
-    /// if the file is declared in the tool's livefolders.yaml.
+    /// if the file is declared in the tool's folder.yaml.
     fn file_spec_for_ino(&self, ino: u64) -> Option<(String, String, crate::manifest::FileSpec)> {
         let tools_dir = self.tools_dir.as_ref()?;
         let disk_path = self.path_for_ino(ino)?;
