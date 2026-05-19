@@ -63,6 +63,21 @@ cat .livefolders/tools/demo/shout      # → HELLO WORLD
 livefolders stop
 ```
 
+
+## Giving tools to Claude Code
+
+Add this to your project's `CLAUDE.md`:
+
+```markdown
+## Tools
+
+LiveFolders is mounted at `.livefolders/tools/`. Before using any tool:
+1. `cat .livefolders/tools/index.md` to see what's available
+2. `cat .livefolders/tools/<name>/how_to.md` to read usage instructions
+3. Write input with `echo "..." > .livefolders/tools/<name>/<endpoint>`
+4. Read output with `cat .livefolders/tools/<name>/<endpoint>`
+```
+
 ---
 
 ## How it works
@@ -148,20 +163,6 @@ cat .livefolders/tools/weather/forecast.log
 # → duration_ms: 342
 # → exit: ok
 # → stderr:
-```
-
-**Giving tools to Claude Code**
-
-Add this to your project's `CLAUDE.md`:
-
-```markdown
-## Tools
-
-LiveFolders is mounted at `.livefolders/tools/`. Before using any tool:
-1. `cat .livefolders/tools/index.md` to see what's available
-2. `cat .livefolders/tools/<name>/how_to.md` to read usage instructions
-3. Write input with `echo "..." > .livefolders/tools/<name>/<endpoint>`
-4. Read output with `cat .livefolders/tools/<name>/<endpoint>`
 ```
 
 ---
