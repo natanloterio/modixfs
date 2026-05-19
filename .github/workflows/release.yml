@@ -125,6 +125,6 @@ jobs:
 
             ## Quick start
             ```bash
-            livefolders init       # creates tools.yaml in current directory
-            livefolders mount      # mounts at path defined in tools.yaml
+            livefolders init       # creates livefolders.yaml in current directory
+            livefolders mount      # mounts at path defined in livefolders.yaml
             ```
