@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 400" width="500" height="400"
+     font-family="sans-serif" font-size="12">
+
+  <!-- Background -->
+  <rect width="500" height="400" fill="white"/>
+
+  <!-- ===== Axes ===== -->
+
+  <!-- X-axis (horizontal, mid-height) -->
+  <line x1="60" y1="200" x2="450" y2="200" stroke="black" stroke-width="1.5"/>
+  <!-- X-axis arrow -->
+  <polygon points="450,196 460,200 450,204" fill="black"/>
+
+  <!-- Y-axis (vertical, mid-width) -->
+  <line x1="250" y1="370" x2="250" y2="30" stroke="black" stroke-width="1.5"/>
+  <!-- Y-axis arrow -->
+  <polygon points="246,30 250,20 254,30" fill="black"/>
+
+  <!-- ===== Axis Labels ===== -->
+
+  <!-- X-axis: posix (left end) -->
+  <text x="62" y="216" text-anchor="middle" font-size="11" fill="black">posix</text>
+  <!-- X-axis: rpc (right end) -->
+  <text x="458" y="216" text-anchor="middle" font-size="11" fill="black">rpc</text>
+  <!-- X-axis title -->
+  <text x="260" y="395" text-anchor="middle" font-size="12" font-style="italic" fill="black">Invocation interface</text>
+
+  <!-- Y-axis: os-coupled (top) -->
+  <text x="254" y="26" text-anchor="start" font-size="11" fill="black">os-coupled</text>
+  <!-- Y-axis: protocol-decoupled (bottom) -->
+  <text x="254" y="388" text-anchor="start" font-size="11" fill="black">protocol-decoupled</text>
+  <!-- Y-axis title (rotated) -->
+  <text x="14" y="200" text-anchor="middle" font-size="12" font-style="italic" fill="black"
+        transform="rotate(-90, 14, 200)">Coupling depth</text>
+
+  <!-- ===== Quadrant faint dividers already given by axes ===== -->
+
+  <!-- ===== Dashed rectangle: kernel-level (InferNode + Quine) ===== -->
+  <!-- Placed in top-left quadrant, further toward extreme posix/os-coupled corner -->
+  <rect x="68" y="42" width="130" height="70" fill="none" stroke="black"
+        stroke-width="1.2" stroke-dasharray="5,3" rx="4"/>
+  <text x="75" y="58" font-size="10" fill="black" font-style="italic">kernel-level</text>
+
+  <!-- InferNode dot + label -->
+  <circle cx="100" cy="80" r="4" fill="black"/>
+  <text x="107" y="77" font-size="11" fill="black">InferNode</text>
+
+  <!-- Quine dot + label -->
+  <circle cx="100" cy="100" r="4" fill="black"/>
+  <text x="107" y="104" font-size="11" fill="black">Quine</text>
+
+  <!-- ===== Top-left cluster: LiveFoldersFS, ToolFS, AgentFS ===== -->
+
+  <!-- LiveFoldersFS -->
+  <circle cx="145" cy="135" r="4" fill="black"/>
+  <text x="152" y="132" font-size="11" fill="black">LiveFoldersFS</text>
+
+  <!-- ToolFS -->
+  <circle cx="145" cy="155" r="4" fill="black"/>
+  <text x="152" y="159" font-size="11" fill="black">ToolFS</text>
+
+  <!-- AgentFS -->
+  <circle cx="145" cy="175" r="4" fill="black"/>
+  <text x="152" y="179" font-size="11" fill="black">AgentFS</text>
+
+  <!-- ===== Bottom-left: llm9p (protocol-decoupled + posix) ===== -->
+  <circle cx="130" cy="310" r="4" fill="black"/>
+  <text x="138" y="314" font-size="11" fill="black">llm9p</text>
+
+  <!-- ===== Bottom-right: MCP (protocol-decoupled + rpc) ===== -->
+  <circle cx="390" cy="310" r="4" fill="black"/>
+  <text x="357" y="330" font-size="11" fill="black">MCP</text>
+
+  <!-- ===== Quadrant corner labels (small, light) ===== -->
+  <text x="65" y="195" font-size="9" fill="#888">posix + os-coupled</text>
+  <text x="270" y="195" font-size="9" fill="#888">rpc + os-coupled</text>
+  <text x="65" y="375" font-size="9" fill="#888">posix + protocol-decoupled</text>
+  <text x="270" y="375" font-size="9" fill="#888">rpc + protocol-decoupled</text>
+
+</svg>
