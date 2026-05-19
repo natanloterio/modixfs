@@ -33,6 +33,8 @@ pub fn generate_how_to(manifest: &Manifest) -> String {
             }
             if e.required {
                 out.push_str(" *(required)*");
+            } else if let Some(default) = &e.default {
+                out.push_str(&format!(" (default: `{}`)", default));
             }
             out.push('\n');
         }
@@ -61,6 +63,26 @@ mod tests {
         let out = generate_how_to(&m);
         assert!(out.contains("weather"));
         assert!(out.contains("Get the weather forecast."));
+    }
+
+    #[test]
+    fn generate_includes_env_defaults() {
+        use crate::manifest::EnvDecl;
+        let m = Manifest {
+            name: Some("mytool".into()),
+            description: None,
+            version: None,
+            env: vec![EnvDecl {
+                name: "TIMEOUT".into(),
+                description: Some("Seconds".into()),
+                required: false,
+                default: Some("30".into()),
+            }],
+            files: vec![],
+        };
+        let out = generate_how_to(&m);
+        assert!(out.contains("TIMEOUT"));
+        assert!(out.contains("30"));
     }
 
     #[test]

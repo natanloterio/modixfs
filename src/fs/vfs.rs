@@ -928,6 +928,15 @@ impl Filesystem for LiveFolders {
                                         entries.push((child_ino, kind, fname));
                                     }
                                 }
+                                // Synthesize how_to.md if the tool has a folder.yaml but no how_to.md on disk.
+                                let has_how_to = entries.iter().any(|(_, _, n)| n == "how_to.md");
+                                if !has_how_to {
+                                    if let Ok(Some(_)) = crate::manifest::Manifest::load(&tool_path) {
+                                        let how_to_path = tool_path.join("how_to.md");
+                                        let child_ino = self.ino_for_path(&how_to_path);
+                                        entries.push((child_ino, FileType::RegularFile, "how_to.md".to_string()));
+                                    }
+                                }
                                 // Merge manifest-declared virtual files (may not exist on disk).
                                 if let Some(manifest) = self.manifest_for_tool(&tool_name) {
                                     for spec in &manifest.files {
