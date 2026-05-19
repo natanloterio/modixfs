@@ -14,7 +14,7 @@ use tracing::debug;
 
 use crate::manifest::FileKind;
 use crate::registry::{Session, ToolRegistry};
-use crate::tools::invoke_command;
+use crate::tools::{invoke_command, invoke_command_validated};
 
 use super::inode::*;
 use super::root_doc::ROOT_HOW_TO;
@@ -517,8 +517,9 @@ impl Filesystem for LiveFolders {
                                     disk_path.parent().unwrap_or(Path::new(".")).to_path_buf()
                                 });
                             let timeout = self.timeout_secs;
+                            let input_schema = spec.input.clone();
                             let result = self.rt.block_on(async move {
-                                invoke_command(&handler, &input, &tool_name, &file_name, &cwd, timeout).await
+                                invoke_command_validated(&handler, &input, &tool_name, &file_name, &cwd, timeout, input_schema.as_ref()).await
                             });
                             let b = if result.is_error() {
                                 format!("ERROR: {}\n", result.error.unwrap()).into_bytes()
@@ -664,8 +665,9 @@ impl Filesystem for LiveFolders {
                         if !input.is_empty() {
                             let handler = spec.handler.clone().unwrap_or_default();
                             let timeout = self.timeout_secs;
+                            let input_schema = spec.input.clone();
                             let output = self.rt.block_on(async move {
-                                invoke_command(&handler, &input, &tool_name, &file_name, &cwd, timeout).await
+                                invoke_command_validated(&handler, &input, &tool_name, &file_name, &cwd, timeout, input_schema.as_ref()).await
                             });
                             let bytes = if output.is_error() {
                                 format!("ERROR: {}\n", output.error.unwrap()).into_bytes()
