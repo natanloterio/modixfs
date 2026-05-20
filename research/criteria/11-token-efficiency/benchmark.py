@@ -347,6 +347,105 @@ async def run_mcp_task(task: dict, mcp_cmd: str) -> dict:
     return result.to_dict()
 
 
+# ── LiveFoldersFS native backend ─────────────────────────────────────────────
+
+NATIVE_SYSTEM_PROMPT = "Use the tools to answer. Return only the final answer."
+
+
+@weave.op()
+def run_livefolders_native_task(task: dict, mount_path: str) -> dict:
+    """Run a task using LF endpoints exposed as native Anthropic tools (no bash tool)."""
+    client = anthropic.Anthropic()
+    result = TaskResult(task_id=task["id"], backend="livefolders-native")
+
+    # Discover all tool directories and read their anthropic_tools.json.
+    tools_root = Path(mount_path) / "tools"
+    combined_tools: list[dict] = []
+    endpoint_kinds: dict[str, str] = {}  # tool__ep -> "read" | "write"
+
+    for tool_dir in sorted(tools_root.iterdir()):
+        if not tool_dir.is_dir():
+            continue
+        tools_json_path = tool_dir / "anthropic_tools.json"
+        try:
+            tools_data = json.loads(tools_json_path.read_text())
+        except Exception:
+            continue
+        for tool_def in tools_data:
+            combined_tools.append(tool_def)
+            # Detect kind from input_schema: write_invoke has "input" property.
+            props = tool_def.get("input_schema", {}).get("properties", {})
+            kind = "write" if "input" in props else "read"
+            endpoint_kinds[tool_def["name"]] = kind
+
+    messages = [{"role": "user", "content": task["user_turn"]}]
+
+    for turn_idx in range(MAX_TURNS):
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=1024,
+            system=NATIVE_SYSTEM_PROMPT,
+            tools=combined_tools,
+            messages=messages,
+        )
+        _record_usage(result, turn_idx, response.usage)
+
+        messages.append({"role": "assistant", "content": response.content})
+
+        text_parts = [b.text for b in response.content if hasattr(b, "text")]
+        full_text = " ".join(text_parts)
+
+        if response.stop_reason == "end_turn":
+            result.completed = task["stop_when"](full_text)
+            break
+
+        tool_results = []
+        for block in response.content:
+            if block.type != "tool_use":
+                continue
+            # Parse "toolname__epname" -> tool_dir/ep_name
+            sep = "__"
+            sep_idx = block.name.find(sep)
+            if sep_idx == -1:
+                output = f"[ERROR] unexpected tool name format: {block.name}"
+            else:
+                tool_name = block.name[:sep_idx]
+                ep_name = block.name[sep_idx + len(sep):]
+                mount = mount_path
+                kind = endpoint_kinds.get(block.name, "read")
+                if kind == "write":
+                    raw_input = block.input.get("input", "")
+                    # Use printf to safely pass the input without shell expansion.
+                    cmd = (
+                        f"printf '%s' {repr(raw_input)} "
+                        f"> {mount}/tools/{tool_name}/{ep_name} && "
+                        f"cat {mount}/tools/{tool_name}/{ep_name}"
+                    )
+                else:
+                    cmd = f"cat {mount}/tools/{tool_name}/{ep_name}"
+                try:
+                    proc = subprocess.run(
+                        cmd, shell=True, capture_output=True, text=True, timeout=15
+                    )
+                    output = proc.stdout + proc.stderr
+                except subprocess.TimeoutExpired:
+                    output = "[ERROR:TIMEOUT] command exceeded 15s"
+
+            tool_results.append({
+                "type": "tool_result",
+                "tool_use_id": block.id,
+                "content": output or "(no output)",
+            })
+
+        if not tool_results:
+            result.completed = task["stop_when"](full_text)
+            break
+
+        messages.append({"role": "user", "content": tool_results})
+
+    return result.to_dict()
+
+
 # ── Comparison report ─────────────────────────────────────────────────────────
 
 def print_report(results: list[dict]) -> None:
@@ -390,7 +489,7 @@ def print_report(results: list[dict]) -> None:
 
     print("=" * W)
 
-    lf_variants = ["livefolders", "livefolders-manifest", "livefolders-v2", "livefolders-cached"]
+    lf_variants = ["livefolders", "livefolders-manifest", "livefolders-v2", "livefolders-cached", "livefolders-native"]
     print("\nEffective-token delta vs MCP (negative = LF cheaper)\n")
     for task_id, backends in sorted(by_task.items()):
         if "mcp" not in backends:
@@ -446,6 +545,11 @@ def main() -> None:
         help="Also run livefolders-v2 variant: minimal prompt that explicitly lists search endpoint",
     )
     parser.add_argument(
+        "--native",
+        action="store_true",
+        help="Also run livefolders-native variant: LF endpoints as native Anthropic tools (no bash tool)",
+    )
+    parser.add_argument(
         "--runs",
         type=int,
         default=1,
@@ -499,6 +603,11 @@ def main() -> None:
                 r = run_livefolders_task(task, args.mount, v2=True)
                 results.append(r)
                 print(f"  livefolders-v2       → {r['total_tokens']} tokens, completed={r['completed']}")
+
+            if run_lf and args.native:
+                r = run_livefolders_native_task(task, args.mount)
+                results.append(r)
+                print(f"  livefolders-native   → {r['total_tokens']} tokens, completed={r['completed']}")
 
             if run_lf and args.cache:
                 r = run_livefolders_task(task, args.mount, use_cache=True)

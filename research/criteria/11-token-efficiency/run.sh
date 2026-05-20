@@ -73,6 +73,7 @@ echo "  Running benchmark..."
 python3 benchmark.py \
   --backend both \
   --manifest \
+  --native \
   --mount "$MOUNT_DIR" \
   --mcp-cmd "python3 mcp/server.py" \
   "${BENCH_ARGS[@]}"

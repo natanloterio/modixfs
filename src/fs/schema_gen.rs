@@ -61,6 +61,47 @@ pub fn generate_schema_json(manifest: &Manifest) -> String {
     serde_json::to_string_pretty(&doc).unwrap_or_default()
 }
 
+/// Generates an array of Anthropic-native tool objects for a tool manifest.
+///
+/// Each visible endpoint becomes one Anthropic tool with the name format
+/// `{tool_name}__{endpoint_name}` (double underscore separator).
+/// Hidden endpoints (spec.hidden == true) are excluded.
+/// `write_invoke` endpoints get an `input` string parameter; `read_invoke` endpoints
+/// have no parameters.
+pub fn generate_anthropic_tools_json(tool_name: &str, manifest: &Manifest) -> String {
+    let tools: Vec<serde_json::Value> = manifest
+        .files
+        .iter()
+        .filter(|s| !s.hidden && matches!(s.kind, FileKind::WriteInvoke | FileKind::ReadInvoke))
+        .map(|spec| {
+            let name = format!("{}__{}", tool_name, spec.name);
+            let description = spec.description.as_deref().unwrap_or("").to_string();
+            let input_schema = match spec.kind {
+                FileKind::WriteInvoke => serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "input": {"type": "string"}
+                    },
+                    "required": ["input"]
+                }),
+                FileKind::ReadInvoke => serde_json::json!({
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }),
+                _ => unreachable!("filtered above"),
+            };
+            serde_json::json!({
+                "name": name,
+                "description": description,
+                "input_schema": input_schema,
+            })
+        })
+        .collect();
+
+    serde_json::to_string_pretty(&tools).unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -180,5 +221,75 @@ mod tests {
         let out = generate_schema_json(&m);
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["endpoints"].as_array().unwrap().len(), 0);
+    }
+
+    // ── generate_anthropic_tools_json tests ────────────────────────────────────
+
+    #[test]
+    fn anthropic_tools_hidden_endpoints_are_excluded() {
+        let m = Manifest {
+            name: Some("users".into()), description: None, version: None, env: vec![],
+            files: vec![
+                FileSpec { name: "count".into(), kind: FileKind::ReadInvoke, handler: Some("cat".into()), input: None, state_file: None, pipe: None, description: None, hidden: false },
+                FileSpec { name: "internal".into(), kind: FileKind::ReadInvoke, handler: Some("cat".into()), input: None, state_file: None, pipe: None, description: None, hidden: true },
+            ],
+            ..Default::default()
+        };
+        let out = generate_anthropic_tools_json("users", &m);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        let tools = v.as_array().unwrap();
+        assert_eq!(tools.len(), 1, "hidden endpoint should be excluded");
+        assert_eq!(tools[0]["name"], "users__count");
+    }
+
+    #[test]
+    fn anthropic_tools_read_invoke_has_no_parameters() {
+        let m = Manifest {
+            name: Some("users".into()), description: None, version: None, env: vec![],
+            files: vec![
+                FileSpec { name: "count".into(), kind: FileKind::ReadInvoke, handler: Some("cat".into()), input: None, state_file: None, pipe: None, description: Some("integer count of all users".into()), hidden: false },
+            ],
+            ..Default::default()
+        };
+        let out = generate_anthropic_tools_json("users", &m);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        let tool = &v[0];
+        assert_eq!(tool["name"], "users__count");
+        assert_eq!(tool["description"], "integer count of all users");
+        let props = &tool["input_schema"]["properties"];
+        assert!(props.as_object().unwrap().is_empty(), "read_invoke should have no properties");
+        let required = &tool["input_schema"]["required"];
+        assert!(required.as_array().unwrap().is_empty(), "read_invoke should have no required fields");
+    }
+
+    #[test]
+    fn anthropic_tools_write_invoke_has_input_string_parameter() {
+        let m = Manifest {
+            name: Some("users".into()), description: None, version: None, env: vec![],
+            files: vec![
+                FileSpec { name: "search".into(), kind: FileKind::WriteInvoke, handler: Some("cat".into()), input: None, state_file: None, pipe: None, description: Some("find user by name".into()), hidden: false },
+            ],
+            ..Default::default()
+        };
+        let out = generate_anthropic_tools_json("users", &m);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        let tool = &v[0];
+        assert_eq!(tool["name"], "users__search");
+        assert_eq!(tool["input_schema"]["properties"]["input"]["type"], "string");
+        assert_eq!(tool["input_schema"]["required"][0], "input");
+    }
+
+    #[test]
+    fn anthropic_tools_name_format_uses_double_underscore() {
+        let m = Manifest {
+            name: Some("myservice".into()), description: None, version: None, env: vec![],
+            files: vec![
+                FileSpec { name: "ep".into(), kind: FileKind::ReadInvoke, handler: Some("cat".into()), input: None, state_file: None, pipe: None, description: None, hidden: false },
+            ],
+            ..Default::default()
+        };
+        let out = generate_anthropic_tools_json("myservice", &m);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v[0]["name"], "myservice__ep");
     }
 }

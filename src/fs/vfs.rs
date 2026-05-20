@@ -378,6 +378,14 @@ impl LiveFolders {
                 return Some(Self::file_attr(ino, content.len() as u64, 0o444));
             }
 
+        // anthropic_tools.json: synthesize from folder.yaml.
+        if name == "anthropic_tools.json"
+            && let Ok(Some(manifest)) = crate::manifest::Manifest::load(&tools_dir.join(tool_name)) {
+                let content = crate::fs::schema_gen::generate_anthropic_tools_json(tool_name, &manifest);
+                let ino = self.ino_for_path(&disk_path);
+                return Some(Self::file_attr(ino, content.len() as u64, 0o444));
+            }
+
         // For virtual files (write_invoke / read_invoke) declared in the manifest,
         // synthesize an attr without requiring a disk file.
         if let Some(manifest) = self.manifest_for_tool(tool_name)
@@ -671,6 +679,20 @@ impl Filesystem for LiveFolders {
                 && let Some(tool_dir) = disk_path.parent()
                     && let Ok(Some(manifest)) = crate::manifest::Manifest::load(tool_dir) {
                         let content = crate::fs::schema_gen::generate_schema_json(&manifest);
+                        let data = content.into_bytes();
+                        reply_bytes(reply, &data, offset, size);
+                        return;
+                    }
+
+            // anthropic_tools.json: generate from folder.yaml.
+            if disk_path.file_name().is_some_and(|n| n == "anthropic_tools.json")
+                && let Some(tool_dir) = disk_path.parent()
+                    && let Ok(Some(manifest)) = crate::manifest::Manifest::load(tool_dir) {
+                        let tool_name = tool_dir
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("unknown");
+                        let content = crate::fs::schema_gen::generate_anthropic_tools_json(tool_name, &manifest);
                         let data = content.into_bytes();
                         reply_bytes(reply, &data, offset, size);
                         return;
@@ -1130,6 +1152,11 @@ impl Filesystem for LiveFolders {
                                     if !entries.iter().any(|(_, _, n)| n == "schema.json") {
                                         let p = tool_path.join("schema.json");
                                         entries.push((self.ino_for_path(&p), FileType::RegularFile, "schema.json".to_string()));
+                                    }
+                                    // Always include anthropic_tools.json.
+                                    if !entries.iter().any(|(_, _, n)| n == "anthropic_tools.json") {
+                                        let p = tool_path.join("anthropic_tools.json");
+                                        entries.push((self.ino_for_path(&p), FileType::RegularFile, "anthropic_tools.json".to_string()));
                                     }
                                     // Merge manifest-declared virtual files and their .log companions.
                                     for spec in &manifest.files {
