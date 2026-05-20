@@ -79,6 +79,18 @@ LSFS [@shi2024lsfs], part of the AIOS project, introduces a semantically-indexed
 
 ![Taxonomy of LLM tool integration systems.](figures/taxonomy.pdf)
 
+## LiveFoldersFS Architecture
+
+Figure 2 shows the internal architecture of LiveFoldersFS, the primary T1 system in our evaluation. The design reflects its os-coupled, posix-invocation taxonomy placement: the FUSE kernel layer is the sole entry point, and every tool invocation reduces to a standard file write followed by a file read — no protocol, no SDK.
+
+The central component is `src/fs/vfs.rs`, which implements the `Filesystem` trait from the `fuser` crate. It maintains three in-memory maps keyed by inode: `write_buf` accumulates bytes across successive `write()` calls; `result_buf` stores the handler output after invocation; `trace_buf` holds the companion `.log` content with execution timing and stderr. The FUSE `release()` event — fired when the LLM closes the file descriptor — triggers handler dispatch for `write_invoke` endpoints; `read_invoke` endpoints fire on `read()` instead.
+
+Tool dispatch flows through `src/registry/`, which maps names to `Arc<dyn Tool>` implementations. Built-in tools are registered at startup; external tools are loaded from subdirectories under `tools_dir`, each described by a `folder.yaml` manifest parsed by `src/manifest.rs`. The manifest declares endpoint types, input schemas, optional `state_file` paths for serialised concurrent access, and optional `sandbox` policies. Two virtual files — `how_to.md` and `schema.json` — are synthesised at read time by `src/fs/how_to_gen.rs` and `src/fs/schema_gen.rs`; they are never written to disk.
+
+Process isolation is provided by `src/sandbox/`, which applies `PR_SET_NO_NEW_PRIVS`, Landlock filesystem access control, and seccomp-BPF network filtering before each handler process starts. An `inotify`-based watcher monitors `tools_dir` for changes and hot-reloads the registry without remounting. The daemon layer forks after mount options are validated, redirecting stderr to a log file and writing a PID file for the `stop` subcommand.
+
+![LiveFoldersFS internal architecture. Arrows show the dispatch path from LLM I/O through the FUSE layer to tool handlers; dashed arrows indicate asynchronous or event-driven paths.](figures/architecture.pdf)
+
 # Empirical Comparison
 
 ## Methodology

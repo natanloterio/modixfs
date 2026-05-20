@@ -426,6 +426,55 @@ taxonomy extensions may need to accommodate this paradigm.
 \caption{Taxonomy of LLM tool integration systems.}
 \end{figure}
 
+\hypertarget{livefoldersfs-architecture}{%
+\subsection{LiveFoldersFS
+Architecture}\label{livefoldersfs-architecture}}
+
+Figure 2 shows the internal architecture of LiveFoldersFS, the primary
+T1 system in our evaluation. The design reflects its os-coupled,
+posix-invocation taxonomy placement: the FUSE kernel layer is the sole
+entry point, and every tool invocation reduces to a standard file write
+followed by a file read --- no protocol, no SDK.
+
+The central component is \texttt{src/fs/vfs.rs}, which implements the
+\texttt{Filesystem} trait from the \texttt{fuser} crate. It maintains
+three in-memory maps keyed by inode: \texttt{write\_buf} accumulates
+bytes across successive \texttt{write()} calls; \texttt{result\_buf}
+stores the handler output after invocation; \texttt{trace\_buf} holds
+the companion \texttt{.log} content with execution timing and stderr.
+The FUSE \texttt{release()} event --- fired when the LLM closes the file
+descriptor --- triggers handler dispatch for \texttt{write\_invoke}
+endpoints; \texttt{read\_invoke} endpoints fire on \texttt{read()}
+instead.
+
+Tool dispatch flows through \texttt{src/registry/}, which maps names to
+\texttt{Arc\textless{}dyn\ Tool\textgreater{}} implementations. Built-in
+tools are registered at startup; external tools are loaded from
+subdirectories under \texttt{tools\_dir}, each described by a
+\texttt{folder.yaml} manifest parsed by \texttt{src/manifest.rs}. The
+manifest declares endpoint types, input schemas, optional
+\texttt{state\_file} paths for serialised concurrent access, and
+optional \texttt{sandbox} policies. Two virtual files ---
+\texttt{how\_to.md} and \texttt{schema.json} --- are synthesised at read
+time by \texttt{src/fs/how\_to\_gen.rs} and
+\texttt{src/fs/schema\_gen.rs}; they are never written to disk.
+
+Process isolation is provided by \texttt{src/sandbox/}, which applies
+\texttt{PR\_SET\_NO\_NEW\_PRIVS}, Landlock filesystem access control,
+and seccomp-BPF network filtering before each handler process starts. An
+\texttt{inotify}-based watcher monitors \texttt{tools\_dir} for changes
+and hot-reloads the registry without remounting. The daemon layer forks
+after mount options are validated, redirecting stderr to a log file and
+writing a PID file for the \texttt{stop} subcommand.
+
+\begin{figure}
+\centering
+\includegraphics{figures/architecture.pdf}
+\caption{LiveFoldersFS internal architecture. Arrows show the dispatch
+path from LLM I/O through the FUSE layer to tool handlers; dashed arrows
+indicate asynchronous or event-driven paths.}
+\end{figure}
+
 \hypertarget{empirical-comparison}{%
 \section{Empirical Comparison}\label{empirical-comparison}}
 
