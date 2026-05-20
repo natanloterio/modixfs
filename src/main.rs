@@ -112,23 +112,42 @@ fn main() -> Result<()> {
 
 fn cmd_init() -> Result<()> {
     let base = std::env::current_dir()?;
-    cmd_init_silent(&base)?;
     prompt_agent_integration(&base)?;
+    let mount = prompt_mount_location()?;
+    cmd_init_silent(&base, &mount)?;
     Ok(())
 }
 
-fn cmd_init_silent(base: &std::path::Path) -> Result<()> {
+fn cmd_init_silent(base: &std::path::Path, mount: &str) -> Result<()> {
     let path = base.join("livefolders.yaml");
     if path.exists() {
         bail!("livefolders.yaml already exists in the current directory");
     }
     std::fs::write(
         &path,
-        "# LiveFolders configuration\n# Run `livefolders mount` to start the filesystem.\n\nmount: .livefolders\ntools_dir: ~/.config/livefolders/tools\n\ntools:\n  - name: echo\n",
+        format!("# LiveFolders configuration\n# Run `livefolders mount` to start the filesystem.\n\nmount: {mount}\ntools_dir: ~/.config/livefolders/tools\n\ntools:\n  - name: echo\n"),
     )?;
     println!("Created livefolders.yaml");
     println!("Run `livefolders install <github-url>` to add tools, then `livefolders mount`.");
     Ok(())
+}
+
+fn prompt_mount_location() -> Result<String> {
+    use std::io::Write;
+    println!();
+    println!("Where should the filesystem mount?");
+    println!("  [1] Current folder   (.livefolders — project-local, per-repo)");
+    println!("  [2] Home folder      (~/.livefolders — shared across all projects)");
+    print!("Choice [1-2]: ");
+    std::io::stdout().flush()?;
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+
+    match input.trim() {
+        "2" => Ok("~/.livefolders".to_string()),
+        _ => Ok(".livefolders".to_string()),
+    }
 }
 
 const AGENT_SNIPPET: &str = "\
@@ -375,11 +394,20 @@ fn parse_mount_args(args: &[String]) -> (Option<PathBuf>, Option<PathBuf>, bool)
 #[cfg(test)]
 mod tests {
     #[test]
-    fn init_creates_livefolders_yaml_with_defaults() {
+    fn init_creates_livefolders_yaml_with_local_mount() {
         let tmp = tempfile::tempdir().unwrap();
-        super::cmd_init_silent(tmp.path()).unwrap();
+        super::cmd_init_silent(tmp.path(), ".livefolders").unwrap();
         let content = std::fs::read_to_string(tmp.path().join("livefolders.yaml")).unwrap();
         assert!(content.contains("mount: .livefolders"));
+        assert!(content.contains("tools_dir:"));
+    }
+
+    #[test]
+    fn init_creates_livefolders_yaml_with_home_mount() {
+        let tmp = tempfile::tempdir().unwrap();
+        super::cmd_init_silent(tmp.path(), "~/.livefolders").unwrap();
+        let content = std::fs::read_to_string(tmp.path().join("livefolders.yaml")).unwrap();
+        assert!(content.contains("mount: ~/.livefolders"));
         assert!(content.contains("tools_dir:"));
     }
 

@@ -1,10 +1,8 @@
 # LiveFolders configuration
-# Run: livefolders [mountpoint] [--config path]
-# Mountpoint defaults to /tmp/livefolders if not set here or via CLI.
+# Run `livefolders mount` to start the filesystem.
 
-mount: /tmp/livefolders
+mount: .livefolders
 tools_dir: ~/.config/livefolders/tools
-timeout: 30
 
 tools:
   - name: echo
