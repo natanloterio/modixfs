@@ -47,7 +47,7 @@
   <!-- ── VFS Core ── -->
   <rect x="220" y="178" width="460" height="56" rx="8" fill="#e8e4ff" stroke="#7766dd" stroke-width="2"/>
   <text x="450" y="203" text-anchor="middle" font-size="13" font-weight="bold" fill="#3322aa">src/fs/vfs.rs  —  LiveFolders struct</text>
-  <text x="450" y="221" text-anchor="middle" font-size="10" fill="#5544bb">write_buf · result_buf · trace_buf  (keyed by inode)   |   Tokio rt.block_on()</text>
+  <text x="450" y="218" text-anchor="middle" font-size="9" fill="#5544bb">write_buf · result_buf · trace_buf  (keyed by inode)   |   Tokio rt.block_on()</text>
 
   <!-- ── Inode / Registry row ── -->
   <rect x="220" y="278" width="210" height="52" rx="8" fill="#e6f5ee" stroke="#2d8a4e" stroke-width="1.5"/>
@@ -90,9 +90,9 @@
 
   <!-- ── Support services row ── -->
   <rect x="30" y="570" width="160" height="52" rx="8" fill="#f4f4f8" stroke="#bbb" stroke-width="1.2"/>
-  <text x="110" y="592" text-anchor="middle" font-size="11" font-weight="bold" fill="#444">Watcher</text>
-  <text x="110" y="607" text-anchor="middle" font-size="10" fill="#777">notify hot-reload</text>
-  <text x="110" y="619" text-anchor="middle" font-size="10" fill="#777">src/watcher.rs</text>
+  <text x="110" y="592" text-anchor="middle" font-size="11" font-weight="bold" fill="#444">Doctor</text>
+  <text x="110" y="607" text-anchor="middle" font-size="10" fill="#777">validate FUSE</text>
+  <text x="110" y="619" text-anchor="middle" font-size="10" fill="#777">src/doctor.rs</text>
 
   <rect x="210" y="570" width="160" height="52" rx="8" fill="#f4f4f8" stroke="#bbb" stroke-width="1.2"/>
   <text x="290" y="592" text-anchor="middle" font-size="11" font-weight="bold" fill="#444">Daemon</text>
@@ -106,49 +106,51 @@
 
   <rect x="570" y="570" width="160" height="52" rx="8" fill="#f4f4f8" stroke="#bbb" stroke-width="1.2"/>
   <text x="650" y="592" text-anchor="middle" font-size="11" font-weight="bold" fill="#444">Secrets / Config</text>
-  <text x="650" y="607" text-anchor="middle" font-size="10" fill="#777">secrets.env  livefolders.yaml</text>
-  <text x="650" y="619" text-anchor="middle" font-size="10" fill="#777">src/secrets.rs · config.rs</text>
+  <text x="650" y="607" text-anchor="middle" font-size="9" fill="#777">secrets.env  livefolders.yaml</text>
+  <text x="650" y="619" text-anchor="middle" font-size="9" fill="#777">src/secrets.rs · config.rs</text>
 
   <rect x="750" y="570" width="120" height="52" rx="8" fill="#f4f4f8" stroke="#bbb" stroke-width="1.2"/>
-  <text x="810" y="592" text-anchor="middle" font-size="11" font-weight="bold" fill="#444">Doctor</text>
-  <text x="810" y="607" text-anchor="middle" font-size="10" fill="#777">validate FUSE</text>
-  <text x="810" y="619" text-anchor="middle" font-size="10" fill="#777">src/doctor.rs</text>
+  <text x="810" y="592" text-anchor="middle" font-size="11" font-weight="bold" fill="#444">Watcher</text>
+  <text x="810" y="607" text-anchor="middle" font-size="10" fill="#777">notify hot-reload</text>
+  <text x="810" y="619" text-anchor="middle" font-size="10" fill="#777">src/watcher.rs</text>
 
   <!-- ── Data flow label strip ── -->
-  <rect x="30" y="680" width="840" height="82" rx="8" fill="#eef0f6" stroke="#ccc" stroke-width="1"/>
-  <text x="50" y="700" font-size="11" font-weight="bold" fill="#555">Data flow</text>
-  <text x="50" y="718" font-size="10" fill="#444">1. LLM  echo "input" &gt; .livefolders/tools/&lt;name&gt;/&lt;endpoint&gt;   →  FUSE write() accumulates in write_buf</text>
-  <text x="50" y="733" font-size="10" fill="#444">2. fd closes  →  FUSE release()  →  ExternalTool spawns shell handler (stdin=input, sandboxed)  →  stores in result_buf</text>
-  <text x="50" y="748" font-size="10" fill="#444">3. LLM  cat .livefolders/tools/&lt;name&gt;/&lt;endpoint&gt;   →  FUSE read()  →  drains result_buf  |  .log companion  →  trace_buf</text>
-  <text x="50" y="763" font-size="10" fill="#2a6e3c" font-style="italic">read_invoke: invocation fires on read() instead of release()   |   state_file: flock serialises concurrent calls</text>
+  <rect x="30" y="672" width="840" height="82" rx="8" fill="#eef0f6" stroke="#ccc" stroke-width="1"/>
+  <text x="50" y="692" font-size="11" font-weight="bold" fill="#555">Data flow</text>
+  <text x="50" y="710" font-size="10" fill="#444">1. LLM  echo "input" &gt; .livefolders/tools/&lt;name&gt;/&lt;endpoint&gt;   →  FUSE write() accumulates in write_buf</text>
+  <text x="50" y="725" font-size="10" fill="#444">2. fd closes  →  FUSE release()  →  ExternalTool spawns shell handler (stdin=input, sandboxed)  →  stores in result_buf</text>
+  <text x="50" y="740" font-size="10" fill="#444">3. LLM  cat .livefolders/tools/&lt;name&gt;/&lt;endpoint&gt;   →  FUSE read()  →  drains result_buf  |  .log companion  →  trace_buf</text>
+  <text x="50" y="755" font-size="10" fill="#2a6e3c" font-style="italic">read_invoke: invocation fires on read() instead of release()   |   state_file: flock serialises concurrent calls</text>
 
   <!-- ── Arrows: LLM → Kernel ── -->
   <line x1="170" y1="106" x2="218" y2="106" stroke="#2472c8" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
 
   <!-- ── Kernel → VFS ── -->
-  <line x1="450" y1="136" x2="450" y2="176" stroke="#6655cc" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+  <line x1="450" y1="136" x2="450" y2="178" stroke="#6655cc" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
 
   <!-- ── VFS → Inode ── -->
-  <line x1="380" y1="234" x2="355" y2="276" stroke="#2d8a4e" stroke-width="1.2" marker-end="url(#arrow-green)"/>
+  <line x1="380" y1="234" x2="355" y2="278" stroke="#2d8a4e" stroke-width="1.2" marker-end="url(#arrow-green)"/>
   <!-- ── VFS → Registry ── -->
-  <line x1="520" y1="234" x2="545" y2="276" stroke="#2d8a4e" stroke-width="1.2" marker-end="url(#arrow-green)"/>
+  <line x1="520" y1="234" x2="545" y2="278" stroke="#2d8a4e" stroke-width="1.2" marker-end="url(#arrow-green)"/>
 
   <!-- ── Registry → Tools ── -->
-  <line x1="500" y1="330" x2="380" y2="374" stroke="#c07818" stroke-width="1.2" marker-end="url(#arrow-orange)"/>
-  <line x1="540" y1="330" x2="452" y2="374" stroke="#c07818" stroke-width="1.2" marker-end="url(#arrow-orange)"/>
-  <line x1="590" y1="330" x2="610" y2="374" stroke="#c07818" stroke-width="1.2" marker-end="url(#arrow-orange)"/>
+  <!-- EchoTool: L-path so the line doesn't look like it points at ExternalTool -->
+  <path d="M 480,330 L 480,353 L 287,353 L 287,376" stroke="#c07818" stroke-width="1.2" fill="none" marker-end="url(#arrow-orange)"/>
+  <line x1="540" y1="330" x2="452" y2="376" stroke="#c07818" stroke-width="1.2" marker-end="url(#arrow-orange)"/>
+  <line x1="590" y1="330" x2="610" y2="376" stroke="#c07818" stroke-width="1.2" marker-end="url(#arrow-orange)"/>
 
   <!-- ── ExternalTool → Sandbox ── -->
-  <line x1="420" y1="428" x2="360" y2="472" stroke="#b83030" stroke-width="1.2" marker-end="url(#arrow-red)"/>
+  <line x1="420" y1="428" x2="360" y2="474" stroke="#b83030" stroke-width="1.2" marker-end="url(#arrow-red)"/>
 
   <!-- ── ExternalTool → Manifest ── -->
   <line x1="530" y1="402" x2="550" y2="402" stroke="#c07818" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-orange)"/>
 
   <!-- ── Manifest → Generated ── -->
-  <line x1="615" y1="428" x2="580" y2="472" stroke="#1a8a90" stroke-width="1.2" marker-end="url(#arrow-teal)"/>
+  <line x1="615" y1="428" x2="580" y2="474" stroke="#1a8a90" stroke-width="1.2" marker-end="url(#arrow-teal)"/>
 
-  <!-- ── Watcher → Registry (dashed) ── -->
-  <line x1="110" y1="570" x2="480" y2="336" stroke="#999" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <!-- ── Watcher → Registry (dashed): routed via right+top margin to avoid crossing boxes ── -->
+  <path d="M 810,570 L 885,570 L 885,262 L 575,262 L 575,278"
+        stroke="#999" stroke-width="1" stroke-dasharray="4,3" fill="none" marker-end="url(#arrow)"/>
 
   <!-- ── Legend ── -->
   <line x1="720" y1="178" x2="755" y2="178" stroke="#2d8a4e" stroke-width="1.5" marker-end="url(#arrow-green)"/>
