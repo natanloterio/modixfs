@@ -17,6 +17,8 @@
   \usepackage{unicode-math}
   \defaultfontfeatures{Scale=MatchLowercase}
   \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+  \setmainfont[]{DejaVu Serif}
+  \setmonofont[]{DejaVu Sans Mono}
 \fi
 % Use upquote if available, for straight quotes in verbatim environments
 \IfFileExists{upquote.sty}{\usepackage{upquote}}{}
@@ -109,6 +111,11 @@
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 \setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{newunicodechar}
+\newfontfamily\symbolfont{Noto Sans Symbols2}[Scale=MatchLowercase]
+\newunicodechar{✓}{{\symbolfont ✓}}
+\newunicodechar{✗}{{\symbolfont ✗}}
+\newunicodechar{≥}{{\symbolfont ≥}}
 \ifLuaTeX
   \usepackage{selnolig}  % disable illegal ligatures
 \fi
@@ -376,7 +383,7 @@ taxonomy extensions may need to accommodate this paradigm.
 
 \begin{figure}
 \centering
-\includegraphics{figures/taxonomy.svg}
+\includegraphics{figures/taxonomy.pdf}
 \caption{Taxonomy of LLM tool integration systems.}
 \end{figure}
 

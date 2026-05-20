@@ -93,7 +93,7 @@ Table 1 summarizes the placement of all seven systems.
 
 LSFS [@shi2024lsfs], part of the AIOS project, introduces a semantically-indexed filesystem in which natural-language queries retrieve relevant files and directories. Rather than LLMs calling tools-as-files, LSFS makes the filesystem itself LLM-aware. This represents a third invocation model — natural language (`nl`) — that falls outside our two-axis taxonomy. Because LSFS is not a tool-invocation interface in the sense we evaluate, we note it here as an emerging direction rather than a primary comparison point. Future taxonomy extensions may need to accommodate this paradigm.
 
-![Taxonomy of LLM tool integration systems.](figures/taxonomy.svg)
+![Taxonomy of LLM tool integration systems.](figures/taxonomy.pdf)
 
 # Empirical Comparison
 
