@@ -111,6 +111,15 @@
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 \setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+% ── Title block styling ────────────────────────────────────────────────────
+\usepackage{titling}
+\pretitle{\begin{center}\LARGE\bfseries}
+\posttitle{\par\end{center}\vskip 0.75em}
+\preauthor{\begin{center}\large\itshape}
+\postauthor{\end{center}}
+\predate{\begin{center}\normalsize}
+\postdate{\par\end{center}\vskip 1.5em\hrule\vskip 1em}
+
 % ── Font: TeX Gyre Termes (Times New Roman clone) ──────────────────────────
 \setmainfont{TeX Gyre Termes}
 \setmonofont{DejaVu Sans Mono}[Scale=0.82]
@@ -207,43 +216,20 @@ analysis. We propose a two-axis taxonomy organizing seven
 tool-integration systems along coupling depth (os-coupled
 vs.~protocol-decoupled) and invocation interface (posix vs.~rpc), then
 empirically evaluate all seven across ten criteria using three evidence
-tiers: live experiments for LiveFoldersFS and MCP, structured assessment
-for ToolFS, AgentFS, and llm9p, and paper-only assessment for InferNode
-and Quine. Our central finding is that coupling depth predicts
-ergonomics ceiling while invocation interface predicts safety floor, and
-no current system optimizes both simultaneously. Concretely,
-LiveFoldersFS requires 10 lines of YAML versus MCP's 18 lines of Python
-for an equivalent REST tool --- but MCP enforces schema validation at
-the protocol layer while POSIX-based systems must opt in at the tool
-level. LiveFoldersFS v0.7.0 narrows this gap through richer structural
-validation: the \texttt{input:} field now supports \texttt{min\_length},
-\texttt{max\_length}, and \texttt{pattern} constraints for string
-endpoints, and a \texttt{schema:} sub-key accepting a JSON Schema subset
-(required fields, property types) for JSON endpoints; all constraints
-are rejected before any handler executes and surfaced inline in
-auto-generated \texttt{how\_to.md}. LiveFoldersFS v0.8.0 further
-advances three criteria to ✓: discoverability via a machine-readable
-\texttt{schema.json} mirroring MCP's \texttt{list\_tools} format;
-stateful tools via a \texttt{state\_file} manifest field with runtime
-\texttt{flock(LOCK\_EX)} locking and \texttt{LIVEFOLDERS\_STATE\_FILE}
-injection; and observability via per-endpoint
-\texttt{\textless{}endpoint\textgreater{}.log} files recording execution
-timing and stderr after each invocation. LiveFoldersFS v0.9.0 adds a
-\texttt{pipe:} field for declarative multi-stage pipelines (criterion 07
-✓): a single write invocation chains an ordered list of endpoints,
-passing each stage's stdout as the next stage's stdin with per-stage
-schema validation and structured error propagation. LiveFoldersFS
-v0.11.0 implements opt-in VFS-layer sandboxing on Linux (criterion 05
-✓): handlers execute with \texttt{PR\_SET\_NO\_NEW\_PRIVS}, Landlock LSM
-filesystem access control (configurable read/write path allowlists),
-seccomp-BPF network isolation, and configurable
-\texttt{RLIMIT\_NPROC}/\texttt{RLIMIT\_AS} resource limits; per-tool
-policy is declared in a \texttt{sandbox:} block in \texttt{folder.yaml}
-and global enforcement is controlled by \texttt{sandbox\_mode} in
-\texttt{livefolders.yaml}. A secondary finding is the gap between
-claimed and implemented behavior: ToolFS's documented WASM sandbox is an
-unimplemented stub. All experiments are reproducible via the public
-LiveFoldersFS repository.
+tiers. Our central finding is that coupling depth predicts ergonomics
+ceiling while invocation interface predicts safety floor, and no current
+system optimizes both simultaneously: os-coupled systems win on
+ergonomics, hot-reload, and publishing; protocol-decoupled systems win
+on portability and unconditional schema enforcement. The gap is
+narrowing --- LiveFoldersFS progressively addresses the safety deficit
+through structural input validation (v0.7.0), machine-readable discovery
+and stateful locking (v0.8.0), declarative multi-stage pipelines
+(v0.9.0), and opt-in VFS-layer sandboxing via Landlock and seccomp-BPF
+(v0.11.0). Concretely, LiveFoldersFS requires 10 lines of YAML versus
+MCP's 18 lines of Python for an equivalent REST tool. A secondary
+finding is the gap between claimed and implemented behavior: ToolFS's
+documented WASM sandbox is an unimplemented stub. All experiments are
+reproducible via the public LiveFoldersFS repository.
 \end{abstract}
 
 \setstretch{1.15}

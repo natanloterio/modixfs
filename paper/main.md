@@ -8,35 +8,19 @@ abstract: |
   integration approaches is fragmented and lacks systematic analysis. We propose a
   two-axis taxonomy organizing seven tool-integration systems along coupling depth
   (os-coupled vs. protocol-decoupled) and invocation interface (posix vs. rpc), then
-  empirically evaluate all seven across ten criteria using three evidence tiers: live
-  experiments for LiveFoldersFS and MCP, structured assessment for ToolFS, AgentFS,
-  and llm9p, and paper-only assessment for InferNode and Quine. Our central finding is
-  that coupling depth predicts ergonomics ceiling while invocation interface predicts
-  safety floor, and no current system optimizes both simultaneously. Concretely,
-  LiveFoldersFS requires 10 lines of YAML versus MCP's 18 lines of Python for an
-  equivalent REST tool — but MCP enforces schema validation at the protocol layer while
-  POSIX-based systems must opt in at the tool level. LiveFoldersFS v0.7.0 narrows this
-  gap through richer structural validation: the `input:` field now supports
-  `min_length`, `max_length`, and `pattern` constraints for string endpoints, and a
-  `schema:` sub-key accepting a JSON Schema subset (required fields, property types)
-  for JSON endpoints; all constraints are rejected before any handler executes and
-  surfaced inline in auto-generated `how_to.md`. LiveFoldersFS v0.8.0 further advances
-  three criteria to ✓: discoverability via a machine-readable `schema.json` mirroring
-  MCP's `list_tools` format; stateful tools via a `state_file` manifest field with
-  runtime `flock(LOCK_EX)` locking and `LIVEFOLDERS_STATE_FILE` injection; and
-  observability via per-endpoint `<endpoint>.log` files recording execution timing and
-  stderr after each invocation. LiveFoldersFS v0.9.0 adds a `pipe:` field for
-  declarative multi-stage pipelines (criterion 07 ✓): a single write invocation chains
-  an ordered list of endpoints, passing each stage's stdout as the next stage's stdin
-  with per-stage schema validation and structured error propagation. LiveFoldersFS
-  v0.11.0 implements opt-in VFS-layer sandboxing on Linux (criterion 05 ✓): handlers
-  execute with `PR_SET_NO_NEW_PRIVS`, Landlock LSM filesystem access control
-  (configurable read/write path allowlists), seccomp-BPF network isolation, and
-  configurable `RLIMIT_NPROC`/`RLIMIT_AS` resource limits; per-tool policy is declared
-  in a `sandbox:` block in `folder.yaml` and global enforcement is controlled by
-  `sandbox_mode` in `livefolders.yaml`. A secondary finding is the gap between claimed
-  and implemented behavior: ToolFS's documented WASM sandbox is an unimplemented stub.
-  All experiments are reproducible via the public LiveFoldersFS repository.
+  empirically evaluate all seven across ten criteria using three evidence tiers. Our
+  central finding is that coupling depth predicts ergonomics ceiling while invocation
+  interface predicts safety floor, and no current system optimizes both simultaneously:
+  os-coupled systems win on ergonomics, hot-reload, and publishing; protocol-decoupled
+  systems win on portability and unconditional schema enforcement. The gap is narrowing —
+  LiveFoldersFS progressively addresses the safety deficit through structural input
+  validation (v0.7.0), machine-readable discovery and stateful locking (v0.8.0),
+  declarative multi-stage pipelines (v0.9.0), and opt-in VFS-layer sandboxing via
+  Landlock and seccomp-BPF (v0.11.0). Concretely, LiveFoldersFS requires 10 lines of
+  YAML versus MCP's 18 lines of Python for an equivalent REST tool. A secondary finding
+  is the gap between claimed and implemented behavior: ToolFS's documented WASM sandbox
+  is an unimplemented stub. All experiments are reproducible via the public LiveFoldersFS
+  repository.
 ---
 
 # Introduction
