@@ -352,44 +352,129 @@ async def run_mcp_task(task: dict, mcp_cmd: str) -> dict:
 NATIVE_SYSTEM_PROMPT = "Use the tools to answer. Return only the final answer."
 
 
-@weave.op()
-def run_livefolders_native_task(task: dict, mount_path: str) -> dict:
-    """Run a task using LF endpoints exposed as native Anthropic tools (no bash tool)."""
-    client = anthropic.Anthropic()
-    result = TaskResult(task_id=task["id"], backend="livefolders-native")
+# ── Unified-tool helpers ───────────────────────────────────────────────────────
 
-    # Discover all tool directories and read their anthropic_tools.json.
+def _load_native_tools(mount_path: str) -> tuple[list[dict], dict[str, str]]:
+    """Read anthropic_tools.json from each tool dir; return (tools, kind_map)."""
     tools_root = Path(mount_path) / "tools"
-    combined_tools: list[dict] = []
-    endpoint_kinds: dict[str, str] = {}  # tool__ep -> "read" | "write"
-
-    for tool_dir in sorted(tools_root.iterdir()):
-        if not tool_dir.is_dir():
+    combined: list[dict] = []
+    kinds: dict[str, str] = {}
+    for td in sorted(tools_root.iterdir()):
+        if not td.is_dir():
             continue
-        tools_json_path = tool_dir / "anthropic_tools.json"
         try:
-            tools_data = json.loads(tools_json_path.read_text())
+            tools_data = json.loads((td / "anthropic_tools.json").read_text())
         except Exception:
             continue
-        for tool_def in tools_data:
-            combined_tools.append(tool_def)
-            # Detect kind from input_schema: write_invoke has "input" property.
-            props = tool_def.get("input_schema", {}).get("properties", {})
-            kind = "write" if "input" in props else "read"
-            endpoint_kinds[tool_def["name"]] = kind
+        for t in tools_data:
+            combined.append(t)
+            props = t.get("input_schema", {}).get("properties", {})
+            kinds[t["name"]] = "write" if "input" in props else "read"
+    return combined, kinds
 
+
+def _build_unified_tools(native_tools: list[dict]) -> tuple[list[dict], dict[str, dict[str, str]]]:
+    """
+    Collapse N per-endpoint tools into 1 tool per namespace with an action enum.
+
+    Returns (unified_tools, dispatch_map) where dispatch_map maps
+    namespace → {action_name: original_tool_name}.
+    """
+    from collections import defaultdict
+    by_ns: dict[str, list[dict]] = defaultdict(list)
+    for t in native_tools:
+        ns, ep = t["name"].split("__", 1)
+        by_ns[ns].append({"ep": ep, "tool": t})
+
+    unified: list[dict] = []
+    dispatch: dict[str, dict[str, str]] = {}
+    for ns, entries in by_ns.items():
+        actions = [e["ep"] for e in entries]
+        has_write = any(
+            "input" in e["tool"].get("input_schema", {}).get("properties", {})
+            for e in entries
+        )
+        props: dict = {
+            "action": {"type": "string", "enum": actions},
+        }
+        if has_write:
+            props["query"] = {"type": "string"}
+        unified.append({
+            "name": ns,
+            "description": f"{ns} API — action: {' | '.join(actions)}",
+            "input_schema": {"type": "object", "properties": props, "required": ["action"]},
+        })
+        dispatch[ns] = {e["ep"]: e["tool"]["name"] for e in entries}
+    return unified, dispatch
+
+
+def _exec_native_tool(block, mount_path: str, kinds: dict[str, str]) -> str:
+    """Execute a native (non-unified) LF tool call via bash."""
+    sep_idx = block.name.find("__")
+    if sep_idx == -1:
+        return f"[ERROR] unexpected tool name: {block.name}"
+    tool_name = block.name[:sep_idx]
+    ep_name = block.name[sep_idx + 2:]
+    kind = kinds.get(block.name, "read")
+    if kind == "write":
+        raw_input = block.input.get("input", "")
+        cmd = (
+            f"printf '%s' {repr(raw_input)} "
+            f"> {mount_path}/tools/{tool_name}/{ep_name} && "
+            f"cat {mount_path}/tools/{tool_name}/{ep_name}"
+        )
+    else:
+        cmd = f"cat {mount_path}/tools/{tool_name}/{ep_name}"
+    try:
+        proc = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
+        return proc.stdout + proc.stderr
+    except subprocess.TimeoutExpired:
+        return "[ERROR:TIMEOUT] command exceeded 15s"
+
+
+def _exec_unified_tool(block, mount_path: str, dispatch: dict[str, dict[str, str]],
+                       kinds: dict[str, str]) -> str:
+    """Execute a unified tool call by resolving action → native tool, then running bash."""
+    ns = block.name
+    action = block.input.get("action", "")
+    ep_map = dispatch.get(ns, {})
+    full_name = ep_map.get(action)
+    if not full_name:
+        return f"[ERROR] unknown action '{action}' for tool '{ns}'"
+    kind = kinds.get(full_name, "read")
+    ep_name = full_name.split("__", 1)[1]
+    if kind == "write":
+        raw_input = block.input.get("query", "")
+        cmd = (
+            f"printf '%s' {repr(raw_input)} "
+            f"> {mount_path}/tools/{ns}/{ep_name} && "
+            f"cat {mount_path}/tools/{ns}/{ep_name}"
+        )
+    else:
+        cmd = f"cat {mount_path}/tools/{ns}/{ep_name}"
+    try:
+        proc = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
+        return proc.stdout + proc.stderr
+    except subprocess.TimeoutExpired:
+        return "[ERROR:TIMEOUT] command exceeded 15s"
+
+
+def _run_native_loop(task: dict, result: TaskResult, tools: list[dict],
+                     executor, mount_path: str) -> None:
+    """Shared agentic loop for all native-tool backends."""
+    client = anthropic.Anthropic()
     messages = [{"role": "user", "content": task["user_turn"]}]
+    system: str | list = NATIVE_SYSTEM_PROMPT
 
     for turn_idx in range(MAX_TURNS):
         response = client.messages.create(
             model=MODEL,
             max_tokens=1024,
-            system=NATIVE_SYSTEM_PROMPT,
-            tools=combined_tools,
+            system=system,
+            tools=tools,
             messages=messages,
         )
         _record_usage(result, turn_idx, response.usage)
-
         messages.append({"role": "assistant", "content": response.content})
 
         text_parts = [b.text for b in response.content if hasattr(b, "text")]
@@ -403,34 +488,80 @@ def run_livefolders_native_task(task: dict, mount_path: str) -> dict:
         for block in response.content:
             if block.type != "tool_use":
                 continue
-            # Parse "toolname__epname" -> tool_dir/ep_name
-            sep = "__"
-            sep_idx = block.name.find(sep)
-            if sep_idx == -1:
-                output = f"[ERROR] unexpected tool name format: {block.name}"
-            else:
-                tool_name = block.name[:sep_idx]
-                ep_name = block.name[sep_idx + len(sep):]
-                mount = mount_path
-                kind = endpoint_kinds.get(block.name, "read")
-                if kind == "write":
-                    raw_input = block.input.get("input", "")
-                    # Use printf to safely pass the input without shell expansion.
-                    cmd = (
-                        f"printf '%s' {repr(raw_input)} "
-                        f"> {mount}/tools/{tool_name}/{ep_name} && "
-                        f"cat {mount}/tools/{tool_name}/{ep_name}"
-                    )
-                else:
-                    cmd = f"cat {mount}/tools/{tool_name}/{ep_name}"
-                try:
-                    proc = subprocess.run(
-                        cmd, shell=True, capture_output=True, text=True, timeout=15
-                    )
-                    output = proc.stdout + proc.stderr
-                except subprocess.TimeoutExpired:
-                    output = "[ERROR:TIMEOUT] command exceeded 15s"
+            output = executor(block)
+            tool_results.append({
+                "type": "tool_result",
+                "tool_use_id": block.id,
+                "content": output or "(no output)",
+            })
 
+        if not tool_results:
+            result.completed = task["stop_when"](full_text)
+            break
+
+        messages.append({"role": "user", "content": tool_results})
+
+
+@weave.op()
+def run_livefolders_native_task(task: dict, mount_path: str) -> dict:
+    """LF endpoints as separate native Anthropic tools — no bash tool."""
+    native_tools, kinds = _load_native_tools(mount_path)
+    result = TaskResult(task_id=task["id"], backend="livefolders-native")
+    _run_native_loop(task, result, native_tools,
+                     lambda b: _exec_native_tool(b, mount_path, kinds), mount_path)
+    return result.to_dict()
+
+
+@weave.op()
+def run_livefolders_unified_task(task: dict, mount_path: str) -> dict:
+    """LF endpoints collapsed into one tool per namespace with an action enum."""
+    native_tools, kinds = _load_native_tools(mount_path)
+    unified_tools, dispatch = _build_unified_tools(native_tools)
+    result = TaskResult(task_id=task["id"], backend="livefolders-unified")
+    _run_native_loop(task, result, unified_tools,
+                     lambda b: _exec_unified_tool(b, mount_path, dispatch, kinds), mount_path)
+    return result.to_dict()
+
+
+@weave.op()
+def run_livefolders_unified_cached_task(task: dict, mount_path: str) -> dict:
+    """Unified tool + Anthropic prompt caching on the (tiny) tool schemas."""
+    native_tools, kinds = _load_native_tools(mount_path)
+    unified_tools, dispatch = _build_unified_tools(native_tools)
+
+    # Wrap the last tool with cache_control so the tools block is cached after turn 0.
+    cached_tools = unified_tools[:-1] + [
+        {**unified_tools[-1], "cache_control": {"type": "ephemeral"}}
+    ] if unified_tools else unified_tools
+
+    client = anthropic.Anthropic()
+    result = TaskResult(task_id=task["id"], backend="livefolders-unified-cached")
+    messages = [{"role": "user", "content": task["user_turn"]}]
+
+    for turn_idx in range(MAX_TURNS):
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=1024,
+            system=[{"type": "text", "text": NATIVE_SYSTEM_PROMPT,
+                      "cache_control": {"type": "ephemeral"}}],
+            tools=cached_tools,
+            messages=messages,
+        )
+        _record_usage(result, turn_idx, response.usage)
+        messages.append({"role": "assistant", "content": response.content})
+
+        text_parts = [b.text for b in response.content if hasattr(b, "text")]
+        full_text = " ".join(text_parts)
+
+        if response.stop_reason == "end_turn":
+            result.completed = task["stop_when"](full_text)
+            break
+
+        tool_results = []
+        for block in response.content:
+            if block.type != "tool_use":
+                continue
+            output = _exec_unified_tool(block, mount_path, dispatch, kinds)
             tool_results.append({
                 "type": "tool_result",
                 "tool_use_id": block.id,
@@ -489,7 +620,8 @@ def print_report(results: list[dict]) -> None:
 
     print("=" * W)
 
-    lf_variants = ["livefolders", "livefolders-manifest", "livefolders-v2", "livefolders-cached", "livefolders-native"]
+    lf_variants = ["livefolders", "livefolders-manifest", "livefolders-v2", "livefolders-cached",
+                   "livefolders-native", "livefolders-unified", "livefolders-unified-cached"]
     print("\nEffective-token delta vs MCP (negative = LF cheaper)\n")
     for task_id, backends in sorted(by_task.items()):
         if "mcp" not in backends:
@@ -550,6 +682,17 @@ def main() -> None:
         help="Also run livefolders-native variant: LF endpoints as native Anthropic tools (no bash tool)",
     )
     parser.add_argument(
+        "--unified",
+        action="store_true",
+        help="Also run livefolders-unified: one tool per namespace with action enum (smaller schema)",
+    )
+    parser.add_argument(
+        "--unified-cached",
+        action="store_true",
+        dest="unified_cached",
+        help="Also run livefolders-unified-cached: unified tool + prompt caching on schemas",
+    )
+    parser.add_argument(
         "--runs",
         type=int,
         default=1,
@@ -608,6 +751,16 @@ def main() -> None:
                 r = run_livefolders_native_task(task, args.mount)
                 results.append(r)
                 print(f"  livefolders-native   → {r['total_tokens']} tokens, completed={r['completed']}")
+
+            if run_lf and args.unified:
+                r = run_livefolders_unified_task(task, args.mount)
+                results.append(r)
+                print(f"  livefolders-unified  → {r['total_tokens']} tokens, completed={r['completed']}")
+
+            if run_lf and args.unified_cached:
+                r = run_livefolders_unified_cached_task(task, args.mount)
+                results.append(r)
+                print(f"  livefolders-unified-cached → {r['total_tokens']} tokens, completed={r['completed']}")
 
             if run_lf and args.cache:
                 r = run_livefolders_task(task, args.mount, use_cache=True)
