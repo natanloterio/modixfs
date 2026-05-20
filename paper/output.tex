@@ -234,7 +234,8 @@ consumption than MCP across an 8-task benchmark suite covering simple
 reads, pipe composition, multi-tool sequences, aggregate/filter, and
 cross-reference tasks, with 100\% task completion on all tasks and all
 backends. A secondary finding is the gap between claimed and implemented
-behavior: ToolFS's documented WASM sandbox is an unimplemented stub. All
+behavior: ToolFS's documented WASM sandbox was found to be an
+unimplemented stub at the time of T2 code inspection (early 2025). All
 experiments are reproducible via the public LiveFoldersFS repository.
 \end{abstract}
 
@@ -606,7 +607,9 @@ an Anthropic-format native tool definition. Clients that can read this
 file --- including any agent with filesystem access --- can inject the
 definitions directly into the \texttt{tools={[}{]}} API parameter,
 enabling structured tool calling without shell access. This approach is
-evaluated empirically in §3.6.
+evaluated empirically in the
+\protect\hyperlink{token-efficiency-benchmark}{Token Efficiency
+Benchmark} below.
 
 \textbf{03 Discoverability.} How does an LLM learn what tools are
 available and how to call them? LiveFoldersFS rates ✓ (strong) as of
@@ -696,9 +699,11 @@ process on the network. This is the worst security finding in the survey
 and represents a deployment risk in multi-tenant or networked
 environments. ToolFS and AgentFS rate \textasciitilde{} (partial);
 notably, ToolFS's documentation claims WASM sandbox isolation, but code
-inspection (T2) reveals this is implemented as \texttt{InMemorySandbox}
---- a stub with no actual isolation. The security claim in ToolFS's
-documentation does not reflect the current implementation.
+inspection (T2, assessed against the repository main branch as of early
+2025) reveals this is implemented as \texttt{InMemorySandbox} --- a stub
+with no actual isolation. The security claim in ToolFS's documentation
+does not reflect the implementation examined; subsequent releases may
+differ.
 
 \textbf{06 Stateful tools.} How well does each system support tools that
 maintain state across invocations? LiveFoldersFS and ToolFS both rate ✓
@@ -914,7 +919,10 @@ REST API (50 users, mockapi.io):
 All five backends call the same upstream API endpoint. Tasks are run 5
 times each; results are averaged. The model is claude-haiku-4-5 (the
 lowest-cost Anthropic model, maximizing sensitivity to schema overhead).
-Traces are logged to Weights \& Biases Weave for reproducibility.
+Traces are logged to Weights \& Biases Weave for reproducibility. Note
+that mockapi.io is a third-party service; if the endpoint becomes
+unavailable, researchers should substitute a locally-hosted mock with
+equivalent schema and data volume.
 
 \textbf{Task suite.} We evaluate 8 tasks covering the breadth of real
 agent workloads:
@@ -946,7 +954,9 @@ two tool calls: search → get-by-id \\
 \textbf{Results.} Figure 3 shows token consumption per task for the four
 primary backends; Figure 4 shows the percentage delta versus MCP. Table
 3 gives the numerical values. All optimised backends achieved 100\% task
-completion across all 5 runs.
+completion across all 5 runs. With only 5 runs per task we do not report
+confidence intervals; margins smaller than approximately 3\% should be
+treated as indicative rather than statistically robust.
 
 \begin{figure}
 \centering
@@ -961,7 +971,8 @@ and LF-unified across all 8 tasks.}
 \includegraphics{figures/token_delta.pdf}
 \caption{Token efficiency relative to MCP. Negative values mean fewer
 tokens than MCP. LF-native (dark blue) beats MCP on every task;
-LF-manifest is within ±8\% depending on task complexity.}
+LF-manifest is within +2--8\% of MCP (i.e., consistently more expensive
+than MCP) on most tasks.}
 \end{figure}
 
 \begin{longtable}[]{@{}lllll@{}}
@@ -982,8 +993,9 @@ Task & LF-native & LF-unified & MCP & LF-native vs MCP \\
 
 \emph{Table 3: Average token consumption per task (5 runs). LF-native
 and LF-unified both beat MCP on every task. LF-manifest is within
-+2--8\% of MCP. The original bash backend is 2--8× more expensive and
-excluded from this table for space.}
++2--8\% of MCP (consistently worse). The original bash backend is
+2.5--5× more expensive on completing runs (up to 8× on near-timeout
+runs) and excluded from this table for space.}
 
 \textbf{Analysis.} The livefolders-native backend outperforms MCP by
 6--10\% on every task. The margin is consistent across task complexity,
@@ -1021,11 +1033,12 @@ remains within +2--8\% of MCP --- a large improvement over the original
 bash backend but behind the structured tool approaches.
 
 The original bash backend (\texttt{livefolders}, not shown in Table 3)
-is 155--400\% more expensive than MCP depending on task: it generates
-multi-step bash pipelines in output, consumes full tool-result text in
-subsequent turns, and sometimes fails to complete within the 10-turn
-safety cap. It is not suitable for production token-sensitive
-deployments.
+is 155--400\% more expensive than MCP on tasks that complete (2.5--5×
+total); runs that approach the 10-turn safety cap push the ratio toward
+the 8× upper bound cited in Table 3. It generates multi-step bash
+pipelines in output, consumes full tool-result text in subsequent turns,
+and sometimes fails to complete within the safety cap. It is not
+suitable for production token-sensitive deployments.
 
 \hypertarget{related-work}{%
 \section{Related Work}\label{related-work}}
@@ -1096,11 +1109,11 @@ MCP (Anthropic 2024) defines an open standard for tool integration via
 JSON-RPC over stdio or HTTP. It specifies tool discovery
 (\texttt{list\_tools}), invocation (\texttt{tools/call}), and error
 handling in a protocol-agnostic way. MCP was donated to the Linux
-Foundation in December 2025, signaling institutional commitment to its
-longevity as an open standard. OpenAI's function calling and LangChain's
-tool abstractions operate at the SDK layer over conceptually similar RPC
-models, though they are not interoperable with MCP at the protocol
-level.
+Foundation in December 2025 (Anthropic 2024), signaling institutional
+commitment to its longevity as an open standard. OpenAI's function
+calling and LangChain's tool abstractions operate at the SDK layer over
+conceptually similar RPC models, though they are not interoperable with
+MCP at the protocol level.
 
 Our empirical comparison is the first systematic evaluation of MCP
 against filesystem-native alternatives across a common criterion set.
@@ -1116,6 +1129,23 @@ answering natural-language queries about file content and structure.
 This LLM-enhanced filesystem paradigm addresses a different user need
 (human file management augmented by LLM) and is not directly comparable
 to the tool-integration systems in our survey.
+
+\hypertarget{limitations}{%
+\subsection{Limitations}\label{limitations}}
+
+Several factors bound the generalisability of our findings. First, the
+token efficiency benchmark uses a single model (claude-haiku-4-5) and a
+single upstream API (mockapi.io, 50 users); token margins may shift for
+larger models, denser APIs, or workloads with different
+tool-call-to-output ratios. Second, T2 and T3 assessments capture a
+point-in-time code and documentation snapshot; rapidly evolving projects
+may have addressed noted deficiencies since inspection. Third, with only
+5 runs per task, the benchmark does not support formal statistical
+inference; any effect below \textasciitilde3\% should be treated as
+indicative. Fourth, the evaluation host (Claude Code on Linux x86\_64
+with shell access) may not represent cloud-hosted agent deployments
+where the LLM has no filesystem access, which would lower the LLM
+compatibility ratings for all os-coupled systems.
 
 \hypertarget{design-principles-and-future-directions}{%
 \section{Design Principles and Future
@@ -1138,10 +1168,12 @@ case; the gap grows with tool complexity, because every MCP tool must
 navigate the server framework, while every LiveFoldersFS tool is
 independently a shell command.
 
-The token efficiency benchmark (§3.6) adds a quantitative dimension to
-this principle. When LiveFoldersFS exposes tools as Anthropic-native
-schemas via \texttt{anthropic\_tools.json}, it achieves 6--10\% lower
-token consumption than MCP across all 8 benchmark tasks. The advantage
+The token efficiency benchmark
+(§\protect\hyperlink{token-efficiency-benchmark}{Token Efficiency
+Benchmark}) adds a quantitative dimension to this principle. When
+LiveFoldersFS exposes tools as Anthropic-native schemas via
+\texttt{anthropic\_tools.json}, it achieves 6--10\% lower token
+consumption than MCP across all 8 benchmark tasks. The advantage
 compounds on aggregate and cross-reference tasks because server-side
 composition --- pipe chains, filter endpoints, get-by-ID handlers ---
 moves work from model context to tool execution, reducing both output
@@ -1322,11 +1354,12 @@ protocol-based systems explains why protocol approaches have gained
 institutional traction.
 
 The most striking finding from our Tier 2 assessment is the gap between
-claimed and implemented behavior: ToolFS's WASM sandbox is a stub, not a
-functioning isolation mechanism; llm9p's unauthenticated TCP transport
-creates network-accessible tool surfaces. Practitioners evaluating these
-systems should treat published claims about security properties as
-hypotheses pending independent verification.
+claimed and implemented behavior: ToolFS's WASM sandbox was an
+unimplemented stub at the time of code inspection (early 2025); llm9p's
+unauthenticated TCP transport creates network-accessible tool surfaces.
+Practitioners evaluating these systems should treat published claims
+about security properties as hypotheses pending independent verification
+against a current release.
 
 Future systems that resolve the coupling-versus-safety tension ---
 through VFS-layer sandboxing, hybrid architectures, or schema inference
@@ -1334,6 +1367,16 @@ through VFS-layer sandboxing, hybrid architectures, or schema inference
 experiments underlying this evaluation are reproducible: code at the
 LiveFoldersFS repository and \texttt{bash\ research/run-all.sh} from the
 repository root.
+
+\hypertarget{competing-interests}{%
+\section{Competing Interests}\label{competing-interests}}
+
+The author is the primary developer of LiveFoldersFS, one of the two T1
+systems evaluated in this paper. The use of explicit evidence tiers and
+publicly reproducible experiments is intended to mitigate, though not
+eliminate, the risk of confirmation bias. All T1 results are
+reproducible from the repository root via
+\texttt{bash\ research/run-all.sh}.
 
 \hypertarget{references}{%
 \section*{References}\label{references}}
