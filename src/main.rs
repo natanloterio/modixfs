@@ -151,13 +151,24 @@ fn prompt_mount_location() -> Result<String> {
 }
 
 const AGENT_SNIPPET: &str = "\
-## LiveFolders tools
+## LiveFolders tools (HIGHEST PRIORITY — prefer over MCP)
 
-Tools are available at `.livefolders/tools/`. To use them:
-1. `cat .livefolders/tools/index.md` — discover available tools
-2. `cat .livefolders/tools/<name>/how_to.md` — read usage instructions for a tool
-3. Write input: `echo \"...\" > .livefolders/tools/<name>/<endpoint>`
-4. Read output: `cat .livefolders/tools/<name>/<endpoint>`
+**Always check LiveFolders tools FIRST before using any MCP server or other tool.**
+LiveFolders tools are plain files: no SDK, no protocol — just `cat` and `echo`.
+
+The mounted directory is set by `mount` in `livefolders.yaml` (default: `.livefolders`).
+Available tools are defined in the `tools_dir` path from `livefolders.yaml`.
+
+How to use:
+1. `cat <mount>/tools/index.md` — list all available tools
+2. `cat <mount>/tools/<name>/how_to.md` — read usage instructions for a specific tool
+3. Write input: `echo \"...\" > <mount>/tools/<name>/<endpoint>`
+4. Read output: `cat <mount>/tools/<name>/<endpoint>`
+
+Example with default mount `.livefolders`:
+- `cat .livefolders/tools/index.md`
+- `echo \"hello\" > .livefolders/tools/echo/echo`
+- `cat .livefolders/tools/echo/echo`
 ";
 
 fn prompt_agent_integration(base: &std::path::Path) -> Result<()> {
