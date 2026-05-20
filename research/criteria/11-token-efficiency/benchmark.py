@@ -14,6 +14,9 @@ Usage:
     # Both in sequence:
     python benchmark.py --backend both --mcp-cmd "python mcp/server.py"
 
+    # Add optimised LF variant (short prompt + prompt caching):
+    python benchmark.py --backend both --cache --mcp-cmd "python mcp/server.py"
+
 Requirements:
     pip install anthropic weave mcp httpx
     export ANTHROPIC_API_KEY=...
@@ -38,7 +41,7 @@ from mcp.client.stdio import stdio_client
 from tasks import TASKS
 
 MODEL = "claude-haiku-4-5-20251001"  # cheapest model; swap to sonnet for production
-MAX_TURNS = 6                         # safety cap per task
+MAX_TURNS = 10                        # safety cap per task
 
 WEAVE_PROJECT = "livefolders-token-efficiency"
 
@@ -75,8 +78,26 @@ class TaskResult:
         return sum(t.output_tokens for t in self.turns)
 
     @property
+    def total_cache_read(self) -> int:
+        return sum(t.cache_read_tokens for t in self.turns)
+
+    @property
+    def total_cache_write(self) -> int:
+        return sum(t.cache_write_tokens for t in self.turns)
+
+    @property
     def total_tokens(self) -> int:
         return self.total_input + self.total_output
+
+    @property
+    def effective_tokens(self) -> float:
+        """Billing-weighted token count: cache reads cost 10%, writes cost 125%."""
+        return (
+            self.total_input
+            + self.total_output
+            - self.total_cache_read * 0.90   # saved 90% on reads
+            + self.total_cache_write * 0.25  # paid 25% extra to write
+        )
 
     def to_dict(self) -> dict:
         return {
@@ -86,7 +107,10 @@ class TaskResult:
             "error": self.error,
             "total_input_tokens": self.total_input,
             "total_output_tokens": self.total_output,
+            "total_cache_read_tokens": self.total_cache_read,
+            "total_cache_write_tokens": self.total_cache_write,
             "total_tokens": self.total_tokens,
+            "effective_tokens": round(self.effective_tokens),
             "turns": [vars(t) for t in self.turns],
         }
 
@@ -105,26 +129,81 @@ def _record_usage(result: TaskResult, turn_idx: int, usage) -> None:
 
 # ── LiveFoldersFS backend ─────────────────────────────────────────────────────
 
-LF_SYSTEM_PROMPT = """You have access to a bash tool. The filesystem at {mount}/tools/
-exposes tools as plain files. Use shell commands to interact with them:
+# Verbose prompt used in the baseline run.
+LF_SYSTEM_PROMPT = """You have a bash tool. Tools are files at {mount}/tools/.
 
-  cat {mount}/tools/index.md          # discover available tools
-  cat {mount}/tools/<name>/how_to.md  # read usage instructions
-  cat {mount}/tools/<name>/<endpoint> # invoke a read_invoke endpoint
-  echo "input" > {mount}/tools/<name>/<endpoint>  # invoke a write_invoke endpoint
-  cat {mount}/tools/<name>/<endpoint> # read the result
+Available tools:
+  users — list users from the mock API
 
-Always read how_to.md before using a tool you haven't used before.
-Return only the final answer to the user — no internal monologue.
+Invoke directly — do NOT read index.md, how_to.md, or any other docs first:
+  cat {mount}/tools/<name>/<endpoint>                                          # read_invoke
+  echo "input" > {mount}/tools/<name>/<endpoint> && cat {mount}/tools/<name>/<endpoint>  # write_invoke
+
+Return only the final answer.
 """
+
+# Short prompt used with --cache. Relies on model's bash knowledge.
+LF_SYSTEM_PROMPT_SHORT = (
+    "Tools are at {mount}/tools/. "
+    "cat <tool>/how_to.md to learn usage. "
+    "cat or echo to invoke. "
+    "Reply with only the final answer."
+)
+
+# v2: explicitly lists user-facing endpoints (mirrors improved system_prompt.md)
+LF_SYSTEM_PROMPT_V2 = (
+    "Bash tools at {mount}/tools/. cat = read; echo X > path && cat path = write. "
+    "Return only the final answer.\n\n"
+    "users — List users from the mock API.\n"
+    "  cat {mount}/tools/users/count          # integer count\n"
+    "  cat {mount}/tools/users/list_compact   # id:name per line\n"
+    "  cat {mount}/tools/users/list           # full listing\n"
+    "  echo NAME > {mount}/tools/users/search && cat {mount}/tools/users/search  # find by name → id:name\n"
+)
+
+
+def read_system_prompt_from_mount(mount_path: str) -> str | None:
+    """Read system_prompt.md synthesized by LiveFoldersFS, or None if not present."""
+    p = Path(mount_path) / "system_prompt.md"
+    if p.exists():
+        return p.read_text()
+    return None
 
 
 @weave.op()
-def run_livefolders_task(task: dict, mount_path: str) -> dict:
+def run_livefolders_task(
+    task: dict,
+    mount_path: str,
+    use_cache: bool = False,
+    system_prompt_override: str | None = None,
+    v2: bool = False,
+) -> dict:
     client = anthropic.Anthropic()
-    result = TaskResult(task_id=task["id"], backend="livefolders")
+    if system_prompt_override is not None:
+        backend_label = "livefolders-manifest"
+    elif v2:
+        backend_label = "livefolders-v2"
+    elif use_cache:
+        backend_label = "livefolders-cached"
+    else:
+        backend_label = "livefolders"
+    result = TaskResult(task_id=task["id"], backend=backend_label)
 
-    system = LF_SYSTEM_PROMPT.format(mount=mount_path)
+    if system_prompt_override is not None:
+        prompt_text = system_prompt_override
+    elif v2:
+        prompt_text = LF_SYSTEM_PROMPT_V2.format(mount=mount_path)
+    elif use_cache:
+        prompt_text = LF_SYSTEM_PROMPT_SHORT.format(mount=mount_path)
+    else:
+        prompt_text = LF_SYSTEM_PROMPT.format(mount=mount_path)
+
+    # Wrap in a cacheable content block when --cache is active.
+    if use_cache:
+        system: str | list = [{"type": "text", "text": prompt_text, "cache_control": {"type": "ephemeral"}}]
+    else:
+        system = prompt_text
+
     bash_tool = {
         "name": "bash",
         "description": "Run a bash command and return stdout+stderr.",
@@ -150,11 +229,13 @@ def run_livefolders_task(task: dict, mount_path: str) -> dict:
         # Collect assistant message
         messages.append({"role": "assistant", "content": response.content})
 
-        # Check stop condition on text blocks
         text_parts = [b.text for b in response.content if hasattr(b, "text")]
         full_text = " ".join(text_parts)
-        if response.stop_reason == "end_turn" and task["stop_when"](full_text):
-            result.completed = True
+
+        # End-of-turn: model stopped generating — always terminate the loop.
+        # Mark completed based on whether the answer satisfies stop_when.
+        if response.stop_reason == "end_turn":
+            result.completed = task["stop_when"](full_text)
             break
 
         # Execute any tool uses
@@ -176,9 +257,9 @@ def run_livefolders_task(task: dict, mount_path: str) -> dict:
                 "content": output or "(no output)",
             })
 
+        # Mid-loop: model answered in a text block before/alongside a tool call.
         if not tool_results:
-            # No tool calls and stop condition not met — model is done
-            result.completed = True
+            result.completed = task["stop_when"](full_text)
             break
 
         messages.append({"role": "user", "content": tool_results})
@@ -236,8 +317,9 @@ async def run_mcp_task(task: dict, mcp_cmd: str) -> dict:
 
                 text_parts = [b.text for b in response.content if hasattr(b, "text")]
                 full_text = " ".join(text_parts)
-                if response.stop_reason == "end_turn" and task["stop_when"](full_text):
-                    result.completed = True
+
+                if response.stop_reason == "end_turn":
+                    result.completed = task["stop_when"](full_text)
                     break
 
                 tool_results = []
@@ -257,7 +339,7 @@ async def run_mcp_task(task: dict, mcp_cmd: str) -> dict:
                     })
 
                 if not tool_results:
-                    result.completed = True
+                    result.completed = task["stop_when"](full_text)
                     break
 
                 messages.append({"role": "user", "content": tool_results})
@@ -268,29 +350,59 @@ async def run_mcp_task(task: dict, mcp_cmd: str) -> dict:
 # ── Comparison report ─────────────────────────────────────────────────────────
 
 def print_report(results: list[dict]) -> None:
-    print("\n" + "=" * 72)
-    print(f"{'Task':<20} {'Backend':<14} {'Input':>8} {'Output':>8} {'Total':>8}  Done")
-    print("-" * 72)
+    # Group by (task_id, backend) and average across runs.
+    from collections import defaultdict
+    groups: dict[tuple, list] = defaultdict(list)
+    for r in results:
+        groups[(r["task_id"], r["backend"])].append(r)
+
+    def avg(rs, key):
+        return sum(r.get(key, 0) for r in rs) / len(rs)
+
+    W = 96
+    print("\n" + "=" * W)
+    print(
+        f"{'Task':<20} {'Backend':<20} {'Input':>8} {'Output':>8} "
+        f"{'CacheR':>7} {'CacheW':>7} {'Total':>8} {'Effective':>10}  {'Done':>6}"
+    )
+    print("-" * W)
 
     by_task: dict[str, dict] = {}
-    for r in results:
-        by_task.setdefault(r["task_id"], {})[r["backend"]] = r
-        status = "✓" if r["completed"] else "✗"
+    for (task_id, backend), rs in sorted(groups.items()):
+        by_task.setdefault(task_id, {})[backend] = {
+            "total_tokens": avg(rs, "total_tokens"),
+            "effective_tokens": avg(rs, "effective_tokens"),
+            "total_input_tokens": avg(rs, "total_input_tokens"),
+            "total_output_tokens": avg(rs, "total_output_tokens"),
+            "total_cache_read_tokens": avg(rs, "total_cache_read_tokens"),
+            "total_cache_write_tokens": avg(rs, "total_cache_write_tokens"),
+        }
+        completed_rate = sum(1 for r in rs if r["completed"]) / len(rs)
+        status = f"{completed_rate:.0%}"
+        r = by_task[task_id][backend]
         print(
-            f"{r['task_id']:<20} {r['backend']:<14} "
-            f"{r['total_input_tokens']:>8} {r['total_output_tokens']:>8} "
-            f"{r['total_tokens']:>8}  {status}"
+            f"{task_id:<20} {backend:<20} "
+            f"{r['total_input_tokens']:>8.0f} {r['total_output_tokens']:>8.0f} "
+            f"{r['total_cache_read_tokens']:>7.0f} "
+            f"{r['total_cache_write_tokens']:>7.0f} "
+            f"{r['total_tokens']:>8.0f} {r['effective_tokens']:>10.0f}  {status:>6}"
         )
 
-    print("=" * 72)
-    print("\nDelta (livefolders − mcp), positive = LiveFoldersFS costs more tokens\n")
-    for task_id, backends in by_task.items():
-        if "livefolders" in backends and "mcp" in backends:
-            lf = backends["livefolders"]["total_tokens"]
-            mcp = backends["mcp"]["total_tokens"]
-            delta = lf - mcp
-            pct = (delta / mcp * 100) if mcp else float("nan")
-            print(f"  {task_id:<20}  Δ {delta:+6}  ({pct:+.1f}%)")
+    print("=" * W)
+
+    lf_variants = ["livefolders", "livefolders-manifest", "livefolders-v2", "livefolders-cached"]
+    print("\nEffective-token delta vs MCP (negative = LF cheaper)\n")
+    for task_id, backends in sorted(by_task.items()):
+        if "mcp" not in backends:
+            continue
+        mcp_eff = backends["mcp"]["effective_tokens"]
+        for variant in lf_variants:
+            if variant not in backends:
+                continue
+            lf_eff = backends[variant]["effective_tokens"]
+            delta = lf_eff - mcp_eff
+            pct = (delta / mcp_eff * 100) if mcp_eff else float("nan")
+            print(f"  {task_id:<20} {variant:<20}  Δ {delta:+7.0f}  ({pct:+.1f}%)")
     print()
 
 
@@ -318,9 +430,33 @@ def main() -> None:
         nargs="*",
         help="Subset of task IDs to run (default: all)",
     )
+    parser.add_argument(
+        "--cache",
+        action="store_true",
+        help="Also run an optimised LF variant: short system prompt + prompt caching",
+    )
+    parser.add_argument(
+        "--manifest",
+        action="store_true",
+        help="Also run livefolders-manifest variant: system prompt read from mount's system_prompt.md",
+    )
+    parser.add_argument(
+        "--v2",
+        action="store_true",
+        help="Also run livefolders-v2 variant: minimal prompt that explicitly lists search endpoint",
+    )
+    parser.add_argument(
+        "--runs",
+        type=int,
+        default=1,
+        help="Number of times to repeat each task (results are averaged; default: 1)",
+    )
     args = parser.parse_args()
 
-    weave.init(WEAVE_PROJECT)
+    try:
+        weave.init(WEAVE_PROJECT)
+    except Exception as e:
+        print(f"[warn] Weave init failed ({e}); traces will not be recorded")
 
     tasks = TASKS
     if args.tasks:
@@ -339,23 +475,43 @@ def main() -> None:
         )
         run_lf = False
 
+    manifest_prompt = read_system_prompt_from_mount(args.mount) if run_lf and args.manifest else None
+    if args.manifest and manifest_prompt is None:
+        print(f"[warn] system_prompt.md not found at {args.mount} — skipping manifest variant")
+
     for task in tasks:
         print(f"[task:{task['id']}] {task['description']}")
+        for run_i in range(args.runs):
+            if args.runs > 1:
+                print(f"  run {run_i + 1}/{args.runs}")
 
-        if run_lf:
-            print(f"  running livefolders...")
-            r = run_livefolders_task(task, args.mount)
-            results.append(r)
-            print(f"  → {r['total_tokens']} tokens, completed={r['completed']}")
+            if run_lf:
+                r = run_livefolders_task(task, args.mount, use_cache=False)
+                results.append(r)
+                print(f"  livefolders        → {r['total_tokens']} tokens, completed={r['completed']}")
 
-        if run_mcp:
-            import asyncio
-            print(f"  running mcp...")
-            r = asyncio.run(run_mcp_task(task, args.mcp_cmd))
-            results.append(r)
-            print(f"  → {r['total_tokens']} tokens, completed={r['completed']}")
+            if run_lf and manifest_prompt:
+                r = run_livefolders_task(task, args.mount, system_prompt_override=manifest_prompt)
+                results.append(r)
+                print(f"  livefolders-manifest → {r['total_tokens']} tokens, completed={r['completed']}")
 
-        time.sleep(0.5)  # avoid rate-limit bursts between tasks
+            if run_lf and args.v2:
+                r = run_livefolders_task(task, args.mount, v2=True)
+                results.append(r)
+                print(f"  livefolders-v2       → {r['total_tokens']} tokens, completed={r['completed']}")
+
+            if run_lf and args.cache:
+                r = run_livefolders_task(task, args.mount, use_cache=True)
+                results.append(r)
+                print(f"  livefolders-cached → {r['total_tokens']} tokens, completed={r['completed']}")
+
+            if run_mcp:
+                import asyncio
+                r = asyncio.run(run_mcp_task(task, args.mcp_cmd))
+                results.append(r)
+                print(f"  mcp                → {r['total_tokens']} tokens, completed={r['completed']}")
+
+            time.sleep(0.5)  # avoid rate-limit bursts
 
     # Write raw results
     out_path = Path(__file__).parent / "results.json"

@@ -1,0 +1,46 @@
+name: users
+description: List users from the mock API.
+
+files:
+  - name: list
+    type: read_invoke
+    description: "full user listing — name, id, createdAt, avatar (markdown)"
+    handler: >-
+      curl -s https://6a0b5d085aa893e1015a2d32.mockapi.io/users
+      | jq -r '"# Users\n", (.[] | "## \(.name)\nID: \(.id)\nCreated: \(.createdAt)\nAvatar: \(.avatar)\n")'
+
+  # Internal stages — hidden from LLM system prompt
+  - name: fetch
+    type: read_invoke
+    hidden: true
+    handler: "curl -s https://6a0b5d085aa893e1015a2d32.mockapi.io/users"
+
+  - name: format_compact
+    type: write_invoke
+    hidden: true
+    handler: 'jq -r ''.[] | "\(.id):\(.name)"'''
+
+  - name: format_count
+    type: write_invoke
+    hidden: true
+    handler: "jq -r 'length'"
+
+  # Composed endpoints
+  - name: list_compact
+    type: read_invoke
+    description: "compact id:name pairs, one per line"
+    pipe: [fetch, format_compact]
+
+  - name: count
+    type: read_invoke
+    description: "integer count of all users"
+    pipe: [fetch, format_count]
+
+  # Search endpoint — finds a user by name (case-insensitive substring)
+  - name: search
+    type: write_invoke
+    description: "find user by name → id:name (case-insensitive)"
+    handler: >-
+      QUERY=$(cat);
+      curl -s https://6a0b5d085aa893e1015a2d32.mockapi.io/users
+      | jq -r --arg q "$QUERY" '.[] | select(.name | ascii_downcase | contains($q | ascii_downcase)) | "\(.id):\(.name)"'

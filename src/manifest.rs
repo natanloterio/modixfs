@@ -62,6 +62,13 @@ pub struct FileSpec {
     /// becomes the stdin of the next.  When set, `handler` must be absent.
     #[serde(default)]
     pub pipe: Option<Vec<String>>,
+    /// Short description of what this endpoint returns (shown in system_prompt.md).
+    #[serde(default)]
+    pub description: Option<String>,
+    /// If true, this endpoint is an internal implementation detail and is excluded
+    /// from the generated system_prompt.md shown to the LLM.
+    #[serde(default)]
+    pub hidden: bool,
 }
 
 #[derive(Debug, Deserialize, Clone, Default, PartialEq)]

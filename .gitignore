@@ -2,3 +2,5 @@
 /docs/plans
 paper/output.aux
 paper/output.log
+.env
+research/criteria/11-token-efficiency/results.json

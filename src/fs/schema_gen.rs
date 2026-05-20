@@ -67,7 +67,7 @@ mod tests {
     use crate::manifest::{FileKind, FileSpec, InputKind, InputSchema, Manifest};
 
     fn spec(name: &str, kind: FileKind, input: Option<InputSchema>) -> FileSpec {
-        FileSpec { name: name.into(), kind, handler: Some("cat".into()), input, state_file: None, pipe: None }
+        FileSpec { name: name.into(), kind, handler: Some("cat".into()), input, state_file: None, pipe: None, description: None, hidden: false }
     }
 
     #[test]
@@ -92,7 +92,7 @@ mod tests {
             files: vec![
                 spec("query", FileKind::WriteInvoke, None),
                 spec("status", FileKind::ReadInvoke, None),
-                FileSpec { name: "notes.txt".into(), kind: FileKind::Passthrough, handler: None, input: None, state_file: None, pipe: None },
+                FileSpec { name: "notes.txt".into(), kind: FileKind::Passthrough, handler: None, input: None, state_file: None, pipe: None, description: None, hidden: false },
             ],
             ..Default::default()
         };
@@ -152,10 +152,10 @@ mod tests {
         let m = Manifest {
             name: Some("t".into()), description: None, version: None, env: vec![],
             files: vec![
-                FileSpec { name: "fetch".into(), kind: FileKind::WriteInvoke, handler: Some("cat".into()), input: None, state_file: None, pipe: None },
-                FileSpec { name: "format".into(), kind: FileKind::WriteInvoke, handler: Some("cat".into()), input: None, state_file: None, pipe: None },
+                FileSpec { name: "fetch".into(), kind: FileKind::WriteInvoke, handler: Some("cat".into()), input: None, state_file: None, pipe: None, description: None, hidden: false },
+                FileSpec { name: "format".into(), kind: FileKind::WriteInvoke, handler: Some("cat".into()), input: None, state_file: None, pipe: None, description: None, hidden: false },
                 FileSpec { name: "pipeline".into(), kind: FileKind::WriteInvoke, handler: None, input: None, state_file: None,
-                    pipe: Some(vec!["fetch".into(), "format".into()]) },
+                    pipe: Some(vec!["fetch".into(), "format".into()]), description: None, hidden: false },
             ],
             ..Default::default()
         };
@@ -172,8 +172,8 @@ mod tests {
         let m = Manifest {
             name: Some("t".into()), description: None, version: None, env: vec![],
             files: vec![
-                FileSpec { name: "config.json".into(), kind: FileKind::Passthrough, handler: None, input: None, state_file: None, pipe: None },
-                FileSpec { name: "readme.md".into(), kind: FileKind::Readonly, handler: None, input: None, state_file: None, pipe: None },
+                FileSpec { name: "config.json".into(), kind: FileKind::Passthrough, handler: None, input: None, state_file: None, pipe: None, description: None, hidden: false },
+                FileSpec { name: "readme.md".into(), kind: FileKind::Readonly, handler: None, input: None, state_file: None, pipe: None, description: None, hidden: false },
             ],
             ..Default::default()
         };

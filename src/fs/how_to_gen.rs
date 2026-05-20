@@ -122,8 +122,8 @@ mod tests {
     #[test]
     fn generate_lists_file_specs() {
         let m = make_manifest("demo", None, vec![
-            FileSpec { name: "forecast".into(), kind: FileKind::ReadInvoke, handler: Some("date".into()), input: None, state_file: None, pipe: None },
-            FileSpec { name: "notes.txt".into(), kind: FileKind::Passthrough, handler: None, input: None, state_file: None, pipe: None },
+            FileSpec { name: "forecast".into(), kind: FileKind::ReadInvoke, handler: Some("date".into()), input: None, state_file: None, pipe: None, description: None, hidden: false },
+            FileSpec { name: "notes.txt".into(), kind: FileKind::Passthrough, handler: None, input: None, state_file: None, pipe: None, description: None, hidden: false },
         ], vec![]);
         let out = generate_how_to(&m);
         assert!(out.contains("forecast"));
@@ -147,6 +147,8 @@ mod tests {
                 input: Some(InputSchema::of_kind(InputKind::Json)),
                 state_file: None,
                 pipe: None,
+                description: None,
+                hidden: false,
             }],
             ..Default::default()
         };
@@ -175,6 +177,8 @@ mod tests {
                 }),
                 state_file: None,
                 pipe: None,
+                description: None,
+                hidden: false,
             }],
             ..Default::default()
         };
@@ -205,6 +209,8 @@ mod tests {
                 }),
                 state_file: None,
                 pipe: None,
+                description: None,
+                hidden: false,
             }],
             ..Default::default()
         };

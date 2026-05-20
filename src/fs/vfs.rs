@@ -41,6 +41,7 @@ type PathTable = Arc<Mutex<HashMap<PathBuf, u64>>>;
 pub struct LiveFolders {
     registry: Arc<RwLock<ToolRegistry>>,
     tools_dir: Option<PathBuf>,
+    mount_path: PathBuf,
     session: Session,
     write_buf: WriteBuf,
     result_buf: ResultBuf,
@@ -57,6 +58,7 @@ impl LiveFolders {
     pub fn new(
         registry: Arc<RwLock<ToolRegistry>>,
         tools_dir: Option<PathBuf>,
+        mount_path: PathBuf,
         session: Session,
         rt: Handle,
         timeout_secs: u64,
@@ -65,6 +67,7 @@ impl LiveFolders {
         Self {
             registry,
             tools_dir,
+            mount_path,
             session,
             write_buf: Arc::new(Mutex::new(HashMap::new())),
             result_buf: Arc::new(Mutex::new(HashMap::new())),
@@ -76,6 +79,15 @@ impl LiveFolders {
             timeout_secs,
             sandbox_mode,
         }
+    }
+
+    fn system_prompt_content(&self) -> Vec<u8> {
+        let mount_str = self.mount_path.to_string_lossy();
+        self.registry
+            .read()
+            .unwrap()
+            .system_prompt(&mount_str, self.tools_dir.as_deref())
+            .into_bytes()
     }
 
     fn alloc_ino(&self) -> u64 {
@@ -194,6 +206,10 @@ impl LiveFolders {
             ROOT_CREATE_TOOL_INO => {
                 Some(Self::file_attr(ROOT_CREATE_TOOL_INO, ROOT_CREATE_TOOL.len() as u64, 0o444))
             }
+            ROOT_SYSTEM_PROMPT_INO => {
+                let len = self.system_prompt_content().len() as u64;
+                Some(Self::file_attr(ROOT_SYSTEM_PROMPT_INO, len, 0o444))
+            }
             _ => {
                 // External inode (>= 100_000)?
                 if let Some(disk_path) = self.path_for_ino(ino) {
@@ -267,6 +283,10 @@ impl LiveFolders {
             }
             "create_tool.md" => {
                 Some(Self::file_attr(ROOT_CREATE_TOOL_INO, ROOT_CREATE_TOOL.len() as u64, 0o444))
+            }
+            "system_prompt.md" => {
+                let len = self.system_prompt_content().len() as u64;
+                Some(Self::file_attr(ROOT_SYSTEM_PROMPT_INO, len, 0o444))
             }
             "index.md" => {
                 let content = self.registry.read().unwrap().root_index();
@@ -568,8 +588,7 @@ impl Filesystem for LiveFolders {
                         let bytes = if let Some(b) = cached {
                             b
                         } else {
-                            // First read: invoke handler and cache the full result.
-                            let handler = spec.handler.clone().unwrap_or_default();
+                            // First read: invoke handler (or pipe) and cache the full result.
                             let input = self.write_buf.lock().unwrap().remove(&ino).unwrap_or_default();
                             let cwd = self.tools_dir.as_ref()
                                 .map(|d| d.join(&tool_name))
@@ -577,12 +596,29 @@ impl Filesystem for LiveFolders {
                                     disk_path.parent().unwrap_or(Path::new(".")).to_path_buf()
                                 });
                             let timeout = self.timeout_secs;
-                            let input_schema = spec.input.clone();
-                            let state_file = spec.state_file.clone()
-                                .map(|sf| cwd.join(sf));
-                            let result = self.rt.block_on(async move {
-                                invoke_command_validated(&handler, &input, &tool_name, &file_name, &cwd, timeout, input_schema.as_ref(), state_file.as_deref()).await
-                            });
+                            let result = if let Some(stages) = spec.pipe {
+                                // Pipe endpoint: load manifest and chain stages.
+                                // Use Disabled sandbox to match the non-pipe read_invoke path,
+                                // which also runs without sandbox via invoke_command_validated.
+                                let manifest_path = cwd.clone();
+                                let tn = tool_name.clone();
+                                self.rt.block_on(async move {
+                                    match crate::manifest::Manifest::load(&manifest_path) {
+                                        Ok(Some(m)) => {
+                                            let sandbox = crate::sandbox::build(m.sandbox.as_ref(), crate::sandbox::SandboxMode::Disabled);
+                                            crate::tools::invoke_pipe(&stages, &input, &m, &tn, &manifest_path, timeout, sandbox.as_ref()).await
+                                        }
+                                        _ => crate::registry::ToolResult::err("[ERROR:SPAWN] manifest not found"),
+                                    }
+                                })
+                            } else {
+                                let handler = spec.handler.clone().unwrap_or_default();
+                                let input_schema = spec.input.clone();
+                                let state_file = spec.state_file.clone().map(|sf| cwd.join(sf));
+                                self.rt.block_on(async move {
+                                    invoke_command_validated(&handler, &input, &tool_name, &file_name, &cwd, timeout, input_schema.as_ref(), state_file.as_deref()).await
+                                })
+                            };
                             self.store_trace(ino, result.duration_ms, result.is_error(), &result.stderr);
                             let b = if result.is_error() {
                                 format!("{}\n", result.error.unwrap()).into_bytes()
@@ -664,6 +700,7 @@ impl Filesystem for LiveFolders {
         let data: Option<Vec<u8>> = match ino {
             ROOT_HOW_TO_INO => Some(ROOT_HOW_TO.as_bytes().to_vec()),
             ROOT_CREATE_TOOL_INO => Some(ROOT_CREATE_TOOL.as_bytes().to_vec()),
+            ROOT_SYSTEM_PROMPT_INO => Some(self.system_prompt_content()),
             ROOT_INDEX_INO => Some(self.registry.read().unwrap().root_index().into_bytes()),
             _ => {
                 if let Some(idx) = self.tool_index_for_ino(ino) {
@@ -1052,6 +1089,7 @@ impl Filesystem for LiveFolders {
             ROOT_INO => {
                 entries.push((ROOT_HOW_TO_INO, FileType::RegularFile, "how_to.md".to_string()));
                 entries.push((ROOT_CREATE_TOOL_INO, FileType::RegularFile, "create_tool.md".to_string()));
+                entries.push((ROOT_SYSTEM_PROMPT_INO, FileType::RegularFile, "system_prompt.md".to_string()));
                 entries.push((ROOT_INDEX_INO, FileType::RegularFile, "index.md".to_string()));
                 entries.push((TOOLS_DIR_INO, FileType::Directory, "tools".to_string()));
             }

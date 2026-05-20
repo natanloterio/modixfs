@@ -273,7 +273,9 @@ pub async fn invoke_pipe(
         let state_file = spec
             .and_then(|s| s.state_file.as_deref())
             .map(|sf| cwd.join(sf));
-        let handler = cwd.join(stage_name).to_string_lossy().to_string();
+        let handler = spec
+            .and_then(|s| s.handler.as_deref().map(str::to_string))
+            .unwrap_or_else(|| cwd.join(stage_name).to_string_lossy().to_string());
         let result = invoke_command_sandboxed(
             &handler, &current, tool_name, stage_name,
             cwd, timeout_secs, state_file.as_deref(),

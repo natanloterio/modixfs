@@ -318,7 +318,7 @@ fn cmd_mount(args: &[String]) -> Result<()> {
             }
         }
 
-    let fs = LiveFolders::new(registry, tools_dir, session, handle, cfg.timeout_secs, cfg.sandbox_mode());
+    let fs = LiveFolders::new(registry, tools_dir, mountpoint.clone(), session, handle, cfg.timeout_secs, cfg.sandbox_mode());
     fuser::mount2(fs, &mountpoint, &options)?;
 
     Ok(())
