@@ -155,9 +155,35 @@ no current system optimizes both simultaneously. Concretely,
 LiveFoldersFS requires 10 lines of YAML versus MCP's 18 lines of Python
 for an equivalent REST tool --- but MCP enforces schema validation at
 the protocol layer while POSIX-based systems must opt in at the tool
-level. A secondary finding is the gap between claimed and implemented
-behavior: ToolFS's documented WASM sandbox is an unimplemented stub. All
-experiments are reproducible via the public LiveFoldersFS repository.
+level. LiveFoldersFS v0.7.0 narrows this gap through richer structural
+validation: the \texttt{input:} field now supports \texttt{min\_length},
+\texttt{max\_length}, and \texttt{pattern} constraints for string
+endpoints, and a \texttt{schema:} sub-key accepting a JSON Schema subset
+(required fields, property types) for JSON endpoints; all constraints
+are rejected before any handler executes and surfaced inline in
+auto-generated \texttt{how\_to.md}. LiveFoldersFS v0.8.0 further
+advances three criteria to ✓: discoverability via a machine-readable
+\texttt{schema.json} mirroring MCP's \texttt{list\_tools} format;
+stateful tools via a \texttt{state\_file} manifest field with runtime
+\texttt{flock(LOCK\_EX)} locking and \texttt{LIVEFOLDERS\_STATE\_FILE}
+injection; and observability via per-endpoint
+\texttt{\textless{}endpoint\textgreater{}.log} files recording execution
+timing and stderr after each invocation. LiveFoldersFS v0.9.0 adds a
+\texttt{pipe:} field for declarative multi-stage pipelines (criterion 07
+✓): a single write invocation chains an ordered list of endpoints,
+passing each stage's stdout as the next stage's stdin with per-stage
+schema validation and structured error propagation. LiveFoldersFS
+v0.11.0 implements opt-in VFS-layer sandboxing on Linux (criterion 05
+✓): handlers execute with \texttt{PR\_SET\_NO\_NEW\_PRIVS}, Landlock LSM
+filesystem access control (configurable read/write path allowlists),
+seccomp-BPF network isolation, and configurable
+\texttt{RLIMIT\_NPROC}/\texttt{RLIMIT\_AS} resource limits; per-tool
+policy is declared in a \texttt{sandbox:} block in \texttt{folder.yaml}
+and global enforcement is controlled by \texttt{sandbox\_mode} in
+\texttt{livefolders.yaml}. A secondary finding is the gap between
+claimed and implemented behavior: ToolFS's documented WASM sandbox is an
+unimplemented stub. All experiments are reproducible via the public
+LiveFoldersFS repository.
 \end{abstract}
 
 \setstretch{1.2}
@@ -234,8 +260,9 @@ FUSE-based systems), and absent or implicit for others. They differ in
 \emph{publishing model}: GitHubURL install (LiveFoldersFS), npm/PyPI
 packages (MCP community), and manual configuration for most. Finally,
 they differ in \emph{sandboxing approach}: none (most), process
-isolation (MCP via separate server process), and claimed WASM sandboxing
-(ToolFS).
+isolation (MCP via separate server process), claimed WASM sandboxing
+(ToolFS), and opt-in VFS-layer isolation via Landlock + seccomp-BPF
+(LiveFoldersFS v0.11.0 on Linux).
 
 Faced with this diversity, we ask: which dimensions most strongly
 discriminate system behavior? After examining all seven systems, we find
@@ -420,20 +447,19 @@ llm9p (T2) & InferNode (T3) & Quine (T3) \\
 02 LLM compatibility & \textasciitilde{} & \textasciitilde{} &
 \textasciitilde{} & \textasciitilde{} & \textasciitilde{} &
 \textasciitilde{} & \textasciitilde{} \\
-03 Discoverability & \textasciitilde{} & \textasciitilde{} &
-\textasciitilde{} & --- & --- & \textasciitilde{} & \textasciitilde{} \\
+03 Discoverability & ✓ & \textasciitilde{} & \textasciitilde{} & --- &
+--- & \textasciitilde{} & \textasciitilde{} \\
 04 I/O expressiveness & \textasciitilde{} & \textasciitilde{} &
 \textasciitilde{} & \textasciitilde{} & \textasciitilde{} &
 \textasciitilde{} & ✓ \\
-05 Security & \textasciitilde{} & ✓ & \textasciitilde{} &
-\textasciitilde{} & ✗ & ✓ & \textasciitilde{} \\
-06 Stateful tools & \textasciitilde{} & \textasciitilde{} & ✓ &
-\textasciitilde{} & \textasciitilde{} & \textasciitilde{} &
+05 Security & ✓ & ✓ & \textasciitilde{} & \textasciitilde{} & ✗ & ✓ &
 \textasciitilde{} \\
-07 Composability & \textasciitilde{} & \textasciitilde{} &
-\textasciitilde{} & --- & \textasciitilde{} & ✓ & ✓ \\
-08 Observability & \textasciitilde{} & ✓ & \textasciitilde{} & ✓ & ✗ &
-\textasciitilde{} & \textasciitilde{} \\
+06 Stateful tools & ✓ & \textasciitilde{} & ✓ & \textasciitilde{} &
+\textasciitilde{} & \textasciitilde{} & \textasciitilde{} \\
+07 Composability & ✓ & \textasciitilde{} & \textasciitilde{} & --- &
+\textasciitilde{} & ✓ & ✓ \\
+08 Observability & ✓ & ✓ & \textasciitilde{} & ✓ & ✗ & \textasciitilde{}
+& \textasciitilde{} \\
 09 Hot-reload & ✓ & ✗ & ✗ & --- & \textasciitilde{} & \textasciitilde{}
 & \textasciitilde{} \\
 10 Publishing & ✓ & \textasciitilde{} & \textasciitilde{} & --- & --- &
@@ -475,26 +501,46 @@ client as of this writing. No system achieves universal compatibility
 without a compatibility shim.
 
 \textbf{03 Discoverability.} How does an LLM learn what tools are
-available and how to call them? LiveFoldersFS exposes a human-readable
-markdown \texttt{index.md} that the LLM reads naturally as a file. MCP
-exposes a typed JSON schema via \texttt{list\_tools} that enables
-parameter validation and IDE tooling. Both rate \textasciitilde{}
-(partial): LiveFoldersFS is readable but lacks parameter types; MCP is
-typed but requires the LLM to navigate JSON rather than prose. ToolFS
-follows a similar file-listing approach to LiveFoldersFS. AgentFS and
-llm9p rate --- (N/A): AgentFS is a storage substrate with no
-tool-invocation interface to discover, and llm9p's architectural
-inversion means there are no tools to discover in the conventional
-sense. InferNode and Quine rate \textasciitilde{} based on their
-published descriptions of namespace-based discovery.
+available and how to call them? LiveFoldersFS rates ✓ (strong) as of
+v0.8.0: it now exposes both a human-readable \texttt{how\_to.md} and a
+machine-readable \texttt{schema.json} generated from
+\texttt{folder.yaml}. The \texttt{schema.json} mirrors MCP's
+\texttt{list\_tools} format --- a JSON object with \texttt{name},
+\texttt{description}, and an \texttt{endpoints} array where each entry
+carries \texttt{name}, \texttt{kind}, and the full \texttt{input}
+constraint block (\texttt{type}, \texttt{min\_length},
+\texttt{max\_length}, \texttt{pattern}, \texttt{schema}). This makes the
+tool surface parseable by MCP-aware clients and scripts without
+requiring markdown parsing. MCP rates \textasciitilde{} (partial): its
+\texttt{list\_tools} response is strong for clients that implement the
+protocol, but there is no fallback for agents with only filesystem
+access. ToolFS follows a file-listing approach similar to
+LiveFoldersFS's \texttt{how\_to.md} but provides no machine-readable
+schema file. AgentFS and llm9p rate --- (N/A): AgentFS is a storage
+substrate with no tool-invocation interface to discover, and llm9p's
+architectural inversion means there are no tools to discover in the
+conventional sense. InferNode and Quine rate \textasciitilde{} based on
+their published descriptions of namespace-based discovery.
 
 \textbf{04 I/O expressiveness.} What data types can a tool consume and
 produce? All systems handle plain text and JSON strings. LiveFoldersFS
 rates \textasciitilde{} because it passes raw stdin to handlers ---
-well-suited for multiline text and binary piping, but without schema
-enforcement. MCP rates \textasciitilde{} for the same reason: structured
-JSON is strong, but multiline text requires string escaping and binary
-data requires base64 encoding. The notable outlier is Quine (✓), which
+well-suited for multiline text and binary piping. v0.7.0 adds structural
+constraints enforced before the handler runs: string endpoints can
+declare \texttt{min\_length}, \texttt{max\_length}, and a regex
+\texttt{pattern}; JSON endpoints can declare a \texttt{schema:} block
+with \texttt{required} field lists and per-property type constraints
+(\texttt{string}, \texttt{number}, \texttt{integer}, \texttt{boolean},
+\texttt{array}, \texttt{object}, \texttt{null}). Violations produce a
+structured \texttt{{[}ERROR:INVALID\_INPUT{]}} response without
+executing any shell code. The remaining gap versus MCP is that
+LiveFoldersFS constraints are opt-in per endpoint while MCP validation
+is unconditional; additionally, MCP supports nested JSON Schema features
+(e.g., \texttt{enum}, \texttt{oneOf}, \texttt{additionalProperties})
+that LiveFoldersFS's subset does not yet implement. MCP rates
+\textasciitilde{} for the same reason as before: structured JSON is
+strong, but multiline text requires string escaping and binary data
+requires base64 encoding. The notable outlier is Quine (✓), which
 operates at the kernel level and can pass arbitrary byte streams through
 Inferno's typed channels. InferNode similarly benefits from kernel-level
 data access. No surveyed system simultaneously achieves type safety
@@ -504,69 +550,115 @@ data access. No surveyed system simultaneously achieves type safety
 survey. MCP rates ✓ (strong): input schemas are enforced before any
 handler executes, rejecting malformed inputs before they reach
 application code. InferNode rates ✓ at the kernel level, where namespace
-isolation provides OS-enforced boundaries. LiveFoldersFS rates
-\textasciitilde{} (partial): v0.6.0 introduced opt-in per-endpoint input
-validation via an \texttt{input:} field in \texttt{folder.yaml} (types:
-\texttt{json}, \texttt{string}, \texttt{none}), which rejects malformed
-input before the handler runs and returns a structured
-\texttt{{[}ERROR:INVALID\_INPUT{]}} response. This closes the validation
-gap for well-authored tools; however, the guarantee is opt-in rather
-than protocol-enforced --- a handler author must declare the schema for
-it to be checked, and shell injection within the handler body remains
-the author's responsibility. llm9p rates ✗ for a distinct and more
-severe reason --- by default, it binds an unauthenticated TCP port,
-making the tool surface accessible to any process on the network. This
-is the worst security finding in the survey and represents a deployment
-risk in multi-tenant or networked environments. ToolFS and AgentFS rate
-\textasciitilde{} (partial); notably, ToolFS's documentation claims WASM
-sandbox isolation, but code inspection (T2) reveals this is implemented
-as \texttt{InMemorySandbox} --- a stub with no actual isolation. The
-security claim in ToolFS's documentation does not reflect the current
-implementation.
+isolation provides OS-enforced boundaries. LiveFoldersFS rates ✓
+(strong) as of v0.11.0, achieving security through two complementary
+layers. The first is opt-in structural input validation introduced in
+v0.7.0: string endpoints can specify \texttt{min\_length},
+\texttt{max\_length}, and a regex \texttt{pattern}; JSON endpoints can
+specify a \texttt{schema:} block enforcing required fields and
+per-property type constraints. The runtime rejects inputs that violate
+any declared constraint before invoking any shell code, returning a
+structured \texttt{{[}ERROR:INVALID\_INPUT{]}} response. For a tool
+declaring
+\texttt{input:\ \{type:\ json,\ schema:\ \{required:\ {[}query{]},\ properties:\ \{query:\ \{type:\ string\}\}\}\}},
+passing \texttt{\{\}} yields
+\texttt{{[}ERROR:INVALID\_INPUT{]}\ missing\ required\ field:\ \textquotesingle{}query\textquotesingle{}}
+and passing \texttt{\{"query":\ 42\}} yields
+\texttt{{[}ERROR:INVALID\_INPUT{]}\ field\ \textquotesingle{}query\textquotesingle{}\ expected\ type\ \textquotesingle{}string\textquotesingle{}}
+--- both without executing the handler. The second layer is VFS-layer
+process isolation introduced in v0.11.0: every handler on Linux executes
+inside a sandbox comprising \texttt{PR\_SET\_NO\_NEW\_PRIVS} (preventing
+privilege escalation), Landlock LSM filesystem access control
+(configurable read/write path allowlists; \texttt{/usr}, \texttt{/lib},
+\texttt{/etc/ssl/certs}, and \texttt{/tmp} are permitted by default),
+seccomp-BPF network isolation (blocking \texttt{socket()} by default),
+and configurable \texttt{RLIMIT\_NPROC}/\texttt{RLIMIT\_AS} resource
+limits. Per-tool policy is declared in a \texttt{sandbox:} block in
+\texttt{folder.yaml}; global enforcement is controlled by
+\texttt{sandbox\_mode:\ strict\ \textbar{}\ warn\ \textbar{}\ disabled}
+in \texttt{livefolders.yaml}. The default \texttt{warn} mode applies the
+sandbox where the kernel supports it (Linux ≥ 5.13 for Landlock) and
+logs a degradation warning on older kernels rather than refusing to run.
+The remaining gap versus MCP is that input validation remains opt-in per
+endpoint (a handler author must declare the schema), while MCP
+validation is unconditional at the protocol layer. llm9p rates ✗ for a
+distinct and more severe reason --- by default, it binds an
+unauthenticated TCP port, making the tool surface accessible to any
+process on the network. This is the worst security finding in the survey
+and represents a deployment risk in multi-tenant or networked
+environments. ToolFS and AgentFS rate \textasciitilde{} (partial);
+notably, ToolFS's documentation claims WASM sandbox isolation, but code
+inspection (T2) reveals this is implemented as \texttt{InMemorySandbox}
+--- a stub with no actual isolation. The security claim in ToolFS's
+documentation does not reflect the current implementation.
 
 \textbf{06 Stateful tools.} How well does each system support tools that
-maintain state across invocations? ToolFS rates ✓ (strong), with
-explicit support for in-process Go plugin state. MCP and LiveFoldersFS
-both rate \textasciitilde{} (partial) for complementary reasons: MCP
-holds state in Python process memory (fast, but lost on server restart),
-while LiveFoldersFS persists state to files (durable, but concurrent
-writes require external locking). InferNode and Quine rate
-\textasciitilde{} based on their published descriptions of kernel-level
-state management. No surveyed system provides both durability and
-transactional consistency for tool state without additional
-infrastructure.
+maintain state across invocations? LiveFoldersFS and ToolFS both rate ✓
+(strong). ToolFS uses in-process Go plugin state (fast, but lost on
+restart). LiveFoldersFS v0.8.0 adds a \texttt{state\_file} field to
+\texttt{FileSpec}: a tool author declares
+\texttt{state\_file:\ /var/data/my-tool.db} in \texttt{folder.yaml}, and
+the runtime passes
+\texttt{LIVEFOLDERS\_STATE\_FILE=/var/data/my-tool.db} to the handler
+while holding an exclusive POSIX advisory lock
+(\texttt{flock(LOCK\_EX)}) for the duration of the call. This prevents
+concurrent invocations from corrupting shared state without requiring
+the handler author to manage locking. The lock is acquired before the
+process starts and released on exit, making it transparent to shell
+scripts and any executable handler. State is durable across restarts
+because it lives in a user-specified file, not in process memory. MCP
+rates \textasciitilde{} (partial): state lives in Python process memory
+--- fast but ephemeral. InferNode and Quine rate \textasciitilde{} based
+on published descriptions of kernel-level state management. No surveyed
+system provides transactional consistency (e.g., ACID semantics) without
+an embedded database; the advisory lock in LiveFoldersFS prevents races
+but does not provide rollback.
 
 \textbf{07 Composability.} This criterion measures how easily tool
-outputs can be chained or combined. Quine and InferNode rate ✓ (strong),
-leveraging Inferno's per-process namespaces to compose tool environments
-hierarchically --- nested agents receive composed views without
-coordination overhead. MCP and LiveFoldersFS both rate \textasciitilde{}
-(partial): MCP enables clean Python function composition within a
-server, but cross-server tool chaining requires LLM orchestration;
-LiveFoldersFS enables shell pipeline composition with standard Unix
-tools, but cross-tool calls involve awkward file-endpoint writes.
-AgentFS rates --- (N/A) as a storage substrate.
+outputs can be chained or combined. LiveFoldersFS, Quine, and InferNode
+rate ✓ (strong). Quine and InferNode leverage Inferno's per-process
+namespaces to compose tool environments hierarchically. LiveFoldersFS
+v0.9.0 adds a \texttt{pipe:} field to \texttt{FileSpec}: an author
+declares an ordered list of existing endpoint names, and the runtime
+chains them --- the stdout of each stage becomes the stdin of the next,
+within a single write invocation by the LLM. A \texttt{folder.yaml}
+entry of \texttt{pipe:\ {[}fetch\_weather,\ format\_report{]}} means
+\texttt{echo\ "London"\ \textgreater{}\ weather\_report} atomically
+invokes both handlers in sequence and returns the final output, with no
+intermediate reads required. Per-stage input schemas are validated
+before each stage executes, and any stage error stops the pipeline
+immediately with a structured \texttt{{[}ERROR:CODE{]}} response. MCP
+rates \textasciitilde{} (partial): Python function composition is clean
+within a single server, but cross-server tool chaining requires LLM
+orchestration. ToolFS and llm9p also rate \textasciitilde{} with no
+native pipeline mechanism. AgentFS rates --- (N/A) as a storage
+substrate.
 
 \textbf{08 Observability.} How well does the system support diagnosing
-errors and monitoring tool execution? MCP rates ✓ (strong): Python
-exceptions are automatically converted to structured error objects with
-type, message, and traceback; the LLM receives machine-parseable error
-information. AgentFS rates ✓ (strong) --- it is purpose-built as an
-observability substrate, providing structured audit logs and execution
-traces as first-class filesystem artifacts. However, 4 of 10 criteria
-rate --- (N/A) for AgentFS because it is a storage and observation
-layer, not a tool-invocation interface in its own right. LiveFoldersFS
-rates \textasciitilde{} (partial): v0.6.0 standardized all error returns
-to the format \texttt{{[}ERROR:CODE{]}\ message} with five
-machine-parseable codes (\texttt{HANDLER}, \texttt{TIMEOUT},
-\texttt{SPAWN}, \texttt{PROCESS}, \texttt{INVALID\_INPUT}), and the
-auto-generated \texttt{how\_to.md} now documents each endpoint's
-declared input type. This gives LLMs and scripts a structured signal to
-act on. The gap relative to MCP's ✓ is that LiveFoldersFS does not
-capture stdout/stderr tracing or execution timing --- errors are
-reported, not traced. llm9p rates ✗ (weak): its architectural inversion
-means there is no clear place in its design for tool execution
-observability.
+errors and monitoring tool execution? LiveFoldersFS, MCP, and AgentFS
+all rate ✓ (strong). MCP converts Python exceptions to structured error
+objects with type, message, and traceback. AgentFS is purpose-built as
+an observability substrate, providing structured audit logs and
+execution traces as first-class filesystem artifacts; however, 4 of 10
+criteria rate --- (N/A) for AgentFS because it is a storage and
+observation layer rather than a tool-invocation interface. LiveFoldersFS
+rates ✓ as of v0.8.0: after every invocation, the runtime writes a
+companion \texttt{\textless{}endpoint\textgreater{}.log} file alongside
+the endpoint file. The log records \texttt{duration\_ms} and the full
+\texttt{stderr} of the last run, making timing and diagnostics
+immediately readable with \texttt{cat\ forecast.log} or any file-reading
+operation. An LLM or monitoring script can observe execution duration
+and check stderr without round-tripping through the tool itself. Error
+returns continue to use the structured
+\texttt{{[}ERROR:CODE{]}\ message} format with five machine-parseable
+codes (\texttt{HANDLER}, \texttt{TIMEOUT}, \texttt{SPAWN},
+\texttt{PROCESS}, \texttt{INVALID\_INPUT}) established in v0.6.0.
+Together these provide two observability layers: structured error codes
+in the response stream and a per-endpoint log file for post-hoc
+inspection. llm9p rates ✗ (weak): its architectural inversion means
+there is no clear place in its design for tool execution observability.
+ToolFS rates \textasciitilde{} with no equivalent to structured traces
+or timing.
 
 \textbf{09 Hot-reload.} Can a tool author modify a handler and see the
 change reflected without restarting or reconnecting? LiveFoldersFS rates
@@ -799,16 +891,21 @@ written MCP tool automatically rejects inputs that do not match its
 declared parameter schema; the validation happens at the protocol layer,
 not the application layer. The posix invocation model historically
 concentrated security responsibility entirely on the individual handler
-author. LiveFoldersFS v0.6.0 narrows this gap through opt-in
-per-endpoint validation: adding \texttt{input:\ type:\ json} to a
-\texttt{folder.yaml} endpoint causes the runtime to reject non-JSON
-input before the handler runs, returning
-\texttt{{[}ERROR:INVALID\_INPUT{]}} without executing any shell code.
-This represents a meaningful improvement --- tool authors can now opt
-into schema enforcement without abandoning the posix authoring model.
-The remaining gap is structural: MCP validation is enforced
-unconditionally at the protocol layer, while LiveFoldersFS validation
-requires explicit opt-in per endpoint.
+author. LiveFoldersFS v0.7.0 substantially narrows this gap through
+richer opt-in structural validation: declaring
+\texttt{input:\ \{type:\ string,\ min\_length:\ 1,\ max\_length:\ 500,\ pattern:\ "\^{}\textbackslash{}\textbackslash{}w+\$"\}}
+enforces all three constraints before the handler runs; declaring
+\texttt{input:\ \{type:\ json,\ schema:\ \{required:\ {[}query{]},\ properties:\ \{query:\ \{type:\ string\}\}\}\}}
+enforces required fields and property types. All violations produce
+\texttt{{[}ERROR:INVALID\_INPUT{]}} responses without executing shell
+code. This brings the posix authoring model meaningfully closer to the
+safety guarantees of RPC systems for well-authored tools. The remaining
+structural gap is twofold: MCP validation is unconditional (every tool
+is validated, even if the author writes no schema), while LiveFoldersFS
+validation requires explicit per-endpoint opt-in; and MCP supports the
+full JSON Schema vocabulary, while LiveFoldersFS's \texttt{schema:} key
+currently implements a subset (required, properties with type
+constraints) sufficient for the most common validation patterns.
 
 Our survey found the most severe security failure in the
 posix-invocation quadrant: llm9p's unauthenticated TCP port is
@@ -839,14 +936,23 @@ that ergonomics advantages cannot overcome.
 \textbf{Future directions.} Four technical directions appear most
 promising given the observed tradeoffs.
 
-\emph{VFS-layer sandboxing} would combine os-coupling's ergonomic
-advantages with rpc-coupling's security guarantees. A FUSE filesystem
-that executes handlers inside Linux namespaces or seccomp-BPF sandboxes
-could offer POSIX authoring convenience with process-level isolation
-stronger than what the current generation of os-coupled systems
-provides. ToolFS gestures at this direction with its WASM sandbox
-design; the implementation gap we documented (T2) represents an
-opportunity.
+\emph{VFS-layer sandboxing} has been implemented in LiveFoldersFS
+v0.11.0, realizing the combination of os-coupling's ergonomic advantages
+with rpc-coupling's process isolation guarantees. Handlers on Linux now
+execute inside a sandbox comprising Landlock LSM filesystem access
+control, seccomp-BPF network isolation,
+\texttt{PR\_SET\_NO\_NEW\_PRIVS}, and configurable
+\texttt{RLIMIT\_NPROC}/\texttt{RLIMIT\_AS} resource limits --- all
+applied transparently before the handler process starts, without
+requiring handler authors to change their shell scripts. ToolFS gestures
+at this direction with its WASM sandbox design, but code inspection (T2)
+reveals the implementation is a stub; LiveFoldersFS v0.11.0 closes the
+gap with a verified, running implementation. The remaining frontier is
+platform parity: the macOS implementation exists but provides weaker
+guarantees than the Linux path, and Windows WSL environments are
+unsupported. A complementary open question is whether sandboxing can be
+made unconditional by default --- matching MCP's validation model ---
+rather than requiring opt-in via a \texttt{sandbox:} block per tool.
 
 \emph{Hybrid architectures} would use a filesystem view as the authoring
 and invocation interface for LLMs while delegating to MCP servers as the
@@ -856,16 +962,39 @@ shell-capable agents, providing hot-reload and shell ergonomics at the
 tool-author layer while preserving schema validation at the transport
 layer.
 
-\emph{Richer schema enforcement} would extend the opt-in input
-validation introduced in LiveFoldersFS v0.6.0 (types: \texttt{json},
-\texttt{string}, \texttt{none}) to structural constraints:
-minimum/maximum length, regex patterns, and JSON Schema shapes. The
-current \texttt{input:} field declares input \emph{kind} but not
-\emph{structure} --- a handler declared as \texttt{type:\ json} still
-receives arbitrary JSON. Adding structural constraints would bring
-posix-invocation systems closer to the safety guarantees that RPC
-systems provide at the protocol layer, without abandoning the YAML
-authoring model.
+\emph{Richer schema enforcement} has been implemented in LiveFoldersFS
+v0.7.0: string endpoints now support \texttt{min\_length},
+\texttt{max\_length}, and \texttt{pattern} (regex) constraints; JSON
+endpoints support a \texttt{schema:} block with \texttt{required} field
+lists and \texttt{properties{[}*{]}.type} checks. These constraints are
+enforced before any handler executes and surfaced inline in
+auto-generated \texttt{how\_to.md}. The remaining frontier is full JSON
+Schema support: \texttt{enum}, \texttt{oneOf}, \texttt{anyOf},
+\texttt{additionalProperties}, \texttt{minimum}/\texttt{maximum} for
+numbers, and nested object schemas are not yet implemented. A future
+extension could delegate to the \texttt{jsonschema} crate for full
+specification compliance.
+
+\emph{Machine-readable schemas, stateful locking, execution tracing, and
+declarative pipelines} have been implemented in LiveFoldersFS
+v0.8.0--v0.9.0. A \texttt{schema.json} virtual file mirrors MCP's
+\texttt{list\_tools} format, making the tool surface parseable by any
+MCP-aware client alongside the human-readable \texttt{how\_to.md}. The
+\texttt{state\_file} manifest field allows endpoints to declare a
+persistent state path; the runtime acquires an exclusive POSIX advisory
+lock (\texttt{flock(LOCK\_EX)}) before spawning the handler and passes
+the path as \texttt{LIVEFOLDERS\_STATE\_FILE}, preventing concurrent
+corruption without handler-side coordination. Finally, each invokable
+endpoint now exposes a companion
+\texttt{\textless{}endpoint\textgreater{}.log} file recording
+\texttt{duration\_ms} and \texttt{stderr} from the last call, giving
+agents and monitoring scripts post-hoc observability over timing and
+diagnostics without round-tripping through the tool. These additions
+bring LiveFoldersFS to ✓ on criteria 03, 06, and 08. v0.9.0 further adds
+a \texttt{pipe:} field for declarative multi-stage chaining (criterion
+07 ✓): an ordered list of endpoint names whose stdout/stdin are chained
+within a single LLM write, with per-stage schema validation and
+structured error propagation on stage failure.
 
 \emph{Cross-platform FUSE} would extend os-coupled approaches to macOS
 (where FUSE is less mature following the osxfuse/macFUSE fragmentation)
@@ -890,15 +1019,24 @@ AgentFS, InferNode, Quine) win on ergonomics, authoring speed,
 hot-reload, and publishing; protocol-decoupled systems (MCP) win on
 portability and unconditional schema enforcement. The gap is narrowing:
 LiveFoldersFS v0.6.0 introduced opt-in per-endpoint input validation and
-a structured \texttt{{[}ERROR:CODE{]}} error format, improving its
-security and observability ratings from ✗ to \textasciitilde{} and
-demonstrating that posix-invocation systems can add schema enforcement
-without abandoning their authoring advantages. No current system fully
-optimizes both dimensions. The independent convergence of multiple teams
-on filesystem abstractions for LLM tool integration validates the
-abstraction's practical appeal; the remaining safety gap relative to
-protocol-based systems explains why protocol approaches have gained
-institutional traction.
+a structured \texttt{{[}ERROR:CODE{]}} error format; v0.7.0 extends this
+to structural constraints --- string endpoints support
+\texttt{min\_length}, \texttt{max\_length}, and regex \texttt{pattern};
+JSON endpoints support a \texttt{schema:} sub-key with required-field
+and property-type enforcement; v0.8.0 adds machine-readable
+\texttt{schema.json} discovery (criterion 03 ✓), durable stateful
+locking via \texttt{state\_file} + \texttt{flock} (criterion 06 ✓), and
+per-invocation \texttt{.log} files with timing and stderr (criterion 08
+✓); v0.9.0 adds declarative \texttt{pipe:} multi-stage chaining
+(criterion 07 ✓), making LiveFoldersFS the only non-Inferno system to
+achieve ✓ on composability; v0.11.0 implements opt-in VFS-layer
+sandboxing via Landlock and seccomp-BPF (criterion 05 ✓). No current
+system fully optimizes both dimensions simultaneously across all
+criteria. The independent convergence of multiple teams on filesystem
+abstractions for LLM tool integration validates the abstraction's
+practical appeal; the remaining safety gap relative to protocol-based
+systems explains why protocol approaches have gained institutional
+traction.
 
 The most striking finding from our Tier 2 assessment is the gap between
 claimed and implemented behavior: ToolFS's WASM sandbox is a stub, not a
