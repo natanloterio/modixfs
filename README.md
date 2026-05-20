@@ -1,4 +1,4 @@
-# LiveFolders
+# 🗂️ LiveFoldersFS
 
 Expose any tool to an LLM as plain files. The LLM uses `cat` and `echo` — no JSON, no protocol, no SDK.
 
