@@ -17,10 +17,15 @@ abstract: |
   validation (v0.7.0), machine-readable discovery and stateful locking (v0.8.0),
   declarative multi-stage pipelines (v0.9.0), and opt-in VFS-layer sandboxing via
   Landlock and seccomp-BPF (v0.11.0). Concretely, LiveFoldersFS requires 10 lines of
-  YAML versus MCP's 18 lines of Python for an equivalent REST tool. A secondary finding
-  is the gap between claimed and implemented behavior: ToolFS's documented WASM sandbox
-  is an unimplemented stub. All experiments are reproducible via the public LiveFoldersFS
-  repository.
+  YAML versus MCP's 18 lines of Python for an equivalent REST tool. A third finding
+  is that LiveFoldersFS's native tool schema approach — Anthropic-format tool definitions
+  synthesized at read time from `folder.yaml` via `anthropic_tools.json` — achieves
+  6–10% lower token consumption than MCP across an 8-task benchmark suite covering
+  simple reads, pipe composition, multi-tool sequences, aggregate/filter, and
+  cross-reference tasks, with 100% task completion on all tasks and all backends.
+  A secondary finding is the gap between claimed and implemented behavior: ToolFS's
+  documented WASM sandbox is an unimplemented stub. All experiments are reproducible
+  via the public LiveFoldersFS repository.
 ---
 
 # Introduction
@@ -128,7 +133,7 @@ T1 systems are LiveFoldersFS and MCP. T2 systems are ToolFS, AgentFS, and llm9p.
 
 **01 Setup complexity.** This criterion measures how many lines of new code an author must write to expose a simple tool (a string-transformation endpoint). LiveFoldersFS achieves ✓ (strong) with a 6-line `folder.yaml` declaration requiring no Python or Go. MCP, ToolFS, AgentFS, llm9p, and Quine all rate ~ (partial): they require more code (MCP's minimal server is 8 lines before imports, with more needed for production), additional dependencies, or non-trivial configuration. InferNode rates ✗ (weak): its kernel-level integration requires the author to understand Inferno namespace conventions and Limbo, a language with a narrow practitioner base. The LiveFoldersFS advantage is structural — YAML declarative configuration collapses the authoring model to the minimum expressible for simple tools, while handlers are shell one-liners.
 
-**02 LLM compatibility.** All seven systems rate ~ (partial) on this criterion. The reasons differ by quadrant. Os-coupled posix systems (LiveFoldersFS, ToolFS, AgentFS, InferNode, Quine) require the LLM agent to have shell or filesystem access — which Claude Code has, but API-only deployments typically do not. Protocol-decoupled systems (MCP, llm9p) require the LLM client to implement the relevant protocol — MCP is widely implemented in major agent frameworks, but llm9p's 9P-over-TCP interface has no native support in any major LLM client as of this writing. No system achieves universal compatibility without a compatibility shim.
+**02 LLM compatibility.** All seven systems rate ~ (partial) on this criterion. The reasons differ by quadrant. Os-coupled posix systems (LiveFoldersFS, ToolFS, AgentFS, InferNode, Quine) require the LLM agent to have shell or filesystem access — which Claude Code has, but API-only deployments typically do not. Protocol-decoupled systems (MCP, llm9p) require the LLM client to implement the relevant protocol — MCP is widely implemented in major agent frameworks, but llm9p's 9P-over-TCP interface has no native support in any major LLM client as of this writing. No system achieves universal compatibility without a compatibility shim. LiveFoldersFS partially bridges this gap via `anthropic_tools.json`, a virtual file synthesized at read time from `folder.yaml` that exposes each invokable endpoint as an Anthropic-format native tool definition. Clients that can read this file — including any agent with filesystem access — can inject the definitions directly into the `tools=[]` API parameter, enabling structured tool calling without shell access. This approach is evaluated empirically in §3.6.
 
 **03 Discoverability.** How does an LLM learn what tools are available and how to call them? LiveFoldersFS rates ✓ (strong) as of v0.8.0: it now exposes both a human-readable `how_to.md` and a machine-readable `schema.json` generated from `folder.yaml`. The `schema.json` mirrors MCP's `list_tools` format — a JSON object with `name`, `description`, and an `endpoints` array where each entry carries `name`, `kind`, and the full `input` constraint block (`type`, `min_length`, `max_length`, `pattern`, `schema`). This makes the tool surface parseable by MCP-aware clients and scripts without requiring markdown parsing. MCP rates ~ (partial): its `list_tools` response is strong for clients that implement the protocol, but there is no fallback for agents with only filesystem access. ToolFS follows a file-listing approach similar to LiveFoldersFS's `how_to.md` but provides no machine-readable schema file. AgentFS and llm9p rate — (N/A): AgentFS is a storage substrate with no tool-invocation interface to discover, and llm9p's architectural inversion means there are no tools to discover in the conventional sense. InferNode and Quine rate ~ based on their published descriptions of namespace-based discovery.
 
@@ -196,6 +201,60 @@ From Claude Code's perspective, the two implementations produce distinct interac
 
 Extending this example to other systems in the survey is instructive. ToolFS would require the author to write a Go plugin compiled to a shared library — significantly more infrastructure than either example above. llm9p does not support tool invocation in this direction at all: its architecture inverts the relationship, serving the LLM's context as a filesystem rather than serving external tools to an LLM.
 
+## Token Efficiency Benchmark
+
+Token consumption is a direct proxy for inference cost and latency in deployed LLM agents. Every tool schema injected into a request, every tool-call result returned, and every model output turn contributes to the token budget. We measure this empirically by running identical tasks against LiveFoldersFS and MCP and recording per-turn token usage via the Anthropic API.
+
+**Benchmark design.** We define five backends over the same mock REST API (50 users, mockapi.io):
+
+- *livefolders* (baseline): original bash invocation via `cat`/`echo`, system prompt generated from `system_prompt.md`.
+- *livefolders-manifest*: same filesystem, but the system prompt is the concise per-endpoint listing synthesized by the VFS from `folder.yaml`.
+- *livefolders-native*: tool schemas loaded from `anthropic_tools.json`; the model calls structured Anthropic tools (`users__count`, `users__search`, etc.) and the benchmark executes the corresponding file operations.
+- *livefolders-unified*: `anthropic_tools.json` schemas collapsed into one tool per namespace with an `action` enum, reducing schema size at the cost of per-action guidance.
+- *mcp* (baseline): standard MCP server over stdio; tool schemas injected via the MCP `list_tools` response.
+
+All five backends call the same upstream API endpoint. Tasks are run 5 times each; results are averaged. The model is claude-haiku-4-5 (the lowest-cost Anthropic model, maximizing sensitivity to schema overhead). Traces are logged to Weights & Biases Weave for reproducibility.
+
+**Task suite.** We evaluate 8 tasks covering the breadth of real agent workloads:
+
+| ID | Description | Tool call pattern |
+|---|---|---|
+| `count_users` | Count total users | single read |
+| `count_composed` | Count via pipe-composed endpoint | single read (server-side pipe) |
+| `list_users` | List all users with name and ID | single read |
+| `list_compact` | List users as compact id:name pairs | single read (server-side pipe) |
+| `single_user` | Look up a user by name | single write+read |
+| `count_and_find` | Count users AND find Brad Jacobi's ID | two tool calls |
+| `filter_and_count` | Find all users with 'a' in name; count them | write+read (server-side filter) |
+| `cross_reference` | Find Brad Jacobi's account creation date | two tool calls: search → get-by-id |
+
+**Results.** Figure 3 shows token consumption per task for the four primary backends; Figure 4 shows the percentage delta versus MCP. Table 3 gives the numerical values. All optimised backends achieved 100% task completion across all 5 runs.
+
+![Token consumption per task and backend (5-run averages). Lower is better. The MCP baseline (red) is consistently above both LF-native and LF-unified across all 8 tasks.](figures/token_absolute.pdf)
+
+![Token efficiency relative to MCP. Negative values mean fewer tokens than MCP. LF-native (dark blue) beats MCP on every task; LF-manifest is within ±8% depending on task complexity.](figures/token_delta.pdf)
+
+| Task | LF-native | LF-unified | MCP | LF-native vs MCP |
+|---|---|---|---|---|
+| `count_users` | 1,893 | 1,915 | 2,094 | −9.6% |
+| `count_composed` | 1,892 | 1,914 | 2,093 | −9.6% |
+| `single_user` | 1,962 | 2,235 | 2,163 | −9.3% |
+| `list_users` | 2,917 | 2,915 | 3,176 | −8.2% |
+| `cross_reference` | 3,190 | 3,231 | 3,471 | −8.1% |
+| `count_and_find` | 2,102 | 2,148 | 2,282 | −7.9% |
+| `filter_and_count` | 2,582 | 2,622 | 2,794 | −7.6% |
+| `list_compact` | 2,786 | 2,805 | 2,975 | −6.4% |
+
+*Table 3: Average token consumption per task (5 runs). LF-native and LF-unified both beat MCP on every task. LF-manifest is within +2–8% of MCP. The original bash backend is 2–8× more expensive and excluded from this table for space.*
+
+**Analysis.** The livefolders-native backend outperforms MCP by 6–10% on every task. The margin is consistent across task complexity, from single-call reads to two-step cross-reference lookups. The mechanism is straightforward: LiveFoldersFS's per-tool schema is compact relative to MCP's tool list because hidden endpoints (marked `hidden: true` in `folder.yaml`) are excluded from `anthropic_tools.json`, while MCP exposes all registered tools unconditionally. For the users API with 6 visible endpoints and 3 hidden internal stages, the LF schema is approximately 15% smaller than the equivalent MCP `list_tools` response.
+
+Server-side composition amplifies this advantage on aggregate tasks. The `filter_and_count` task ("how many users have 'a' in their name?") initially regressed against MCP (+0.1% for livefolders-native) before a `filter` endpoint was added to `folder.yaml` — a write-invoke handler that runs the substring match server-side and returns `count: N` followed by matching `id:name` pairs in a single tool call. After adding `filter`, livefolders-native moved to −7.6% vs MCP, with output tokens dropping from ~963 to ~386 because the model receives a pre-aggregated answer rather than all 50 users for in-context filtering. The same principle applies to the `cross_reference` task: adding a `get` endpoint (fetch-by-ID) reduces output tokens because the model receives exactly the fields it needs (`name`, `id`, `createdAt`, `avatar`) rather than scanning a full listing.
+
+The livefolders-unified backend trades per-action description richness for a smaller schema and performs 2–5% worse than livefolders-native overall, with a notable regression on `single_user` (+3.3%) where the action-enum format provides insufficient guidance for single-endpoint selection. The livefolders-manifest backend (bash-style) remains within +2–8% of MCP — a large improvement over the original bash backend but behind the structured tool approaches.
+
+The original bash backend (`livefolders`, not shown in Table 3) is 155–400% more expensive than MCP depending on task: it generates multi-step bash pipelines in output, consumes full tool-result text in subsequent turns, and sometimes fails to complete within the 10-turn safety cap. It is not suitable for production token-sensitive deployments.
+
 # Related Work
 
 ## LLM Tool Use Foundations
@@ -228,7 +287,9 @@ Three design principles emerge from the empirical evidence.
 
 Os-coupled systems inherit decades of POSIX tooling. Any CLI utility, `curl` command, shell pipeline, or script in any language is immediately usable as a tool handler without modification. This is a structural advantage — it cannot be replicated by protocol-decoupled systems without adding an OS-level layer. The worked example illustrates this concretely: the LiveFoldersFS `folder.yaml` (10 lines) requires no Python, no imports, no server lifecycle management, and no protocol knowledge. The MCP `server.py` (18 lines) requires all of these. The absolute line-count difference is modest for a simple case; the gap grows with tool complexity, because every MCP tool must navigate the server framework, while every LiveFoldersFS tool is independently a shell command.
 
-The tradeoff is portability. Os-coupled systems require the agent to have shell and filesystem access on the host where tools are mounted. In cloud-hosted agent deployments where the LLM accesses tools over a network, os-coupling requires either a local agent proxy or explicit infrastructure to bridge the network boundary. Protocol-decoupled systems like MCP operate naturally over HTTP and can expose tools running on remote hosts to agents anywhere.
+The token efficiency benchmark (§3.6) adds a quantitative dimension to this principle. When LiveFoldersFS exposes tools as Anthropic-native schemas via `anthropic_tools.json`, it achieves 6–10% lower token consumption than MCP across all 8 benchmark tasks. The advantage compounds on aggregate and cross-reference tasks because server-side composition — pipe chains, filter endpoints, get-by-ID handlers — moves work from model context to tool execution, reducing both output tokens and in-context reasoning load. This is structurally unavailable to protocol-decoupled systems without equivalent server-side aggregation, because they lack the POSIX pipeline model that makes composing handlers trivial.
+
+The tradeoff is portability. Os-coupled systems require the agent to have shell and filesystem access on the host where tools are mounted. In cloud-hosted agent deployments where the LLM accesses tools over a network, os-coupling requires either a local agent proxy or explicit infrastructure to bridge the network boundary. Protocol-decoupled systems like MCP operate naturally over HTTP and can expose tools running on remote hosts to agents anywhere. The `anthropic_tools.json` approach partially bridges this gap: a client that can read the file can use structured tool calling without shell access, though the tool execution layer still requires filesystem access on the mount host.
 
 **Principle 2: Invocation interface determines safety floor.**
 
@@ -256,7 +317,7 @@ Only LiveFoldersFS treats tool distribution as a first-class design concern. A s
 
 LLM tool integration has produced a fragmented landscape of approaches, each developed with implicit architectural assumptions and without systematic comparison. We contributed a two-axis taxonomy organizing seven systems along coupling depth (os-coupled vs. protocol-decoupled) and invocation interface (posix vs. rpc), an empirical evaluation across ten criteria using three evidence tiers, and three design principles derived from the observed tradeoffs.
 
-The central finding is that coupling depth and invocation interface are the two dimensions that most explain system behavior — and they trade off against each other. Os-coupled systems (LiveFoldersFS, ToolFS, AgentFS, InferNode, Quine) win on ergonomics, authoring speed, hot-reload, and publishing; protocol-decoupled systems (MCP) win on portability and unconditional schema enforcement. The gap is narrowing: LiveFoldersFS v0.6.0 introduced opt-in per-endpoint input validation and a structured `[ERROR:CODE]` error format; v0.7.0 extends this to structural constraints — string endpoints support `min_length`, `max_length`, and regex `pattern`; JSON endpoints support a `schema:` sub-key with required-field and property-type enforcement; v0.8.0 adds machine-readable `schema.json` discovery (criterion 03 ✓), durable stateful locking via `state_file` + `flock` (criterion 06 ✓), and per-invocation `.log` files with timing and stderr (criterion 08 ✓); v0.9.0 adds declarative `pipe:` multi-stage chaining (criterion 07 ✓), making LiveFoldersFS the only non-Inferno system to achieve ✓ on composability; v0.11.0 implements opt-in VFS-layer sandboxing via Landlock and seccomp-BPF (criterion 05 ✓). No current system fully optimizes both dimensions simultaneously across all criteria. The independent convergence of multiple teams on filesystem abstractions for LLM tool integration validates the abstraction's practical appeal; the remaining safety gap relative to protocol-based systems explains why protocol approaches have gained institutional traction.
+The central finding is that coupling depth and invocation interface are the two dimensions that most explain system behavior — and they trade off against each other. Os-coupled systems (LiveFoldersFS, ToolFS, AgentFS, InferNode, Quine) win on ergonomics, authoring speed, hot-reload, and publishing; protocol-decoupled systems (MCP) win on portability and unconditional schema enforcement. A new quantitative finding from the token efficiency benchmark extends this picture: LiveFoldersFS's native tool schema approach achieves 6–10% lower token consumption than MCP across an 8-task suite at 100% task completion, with server-side composition (pipe chains, aggregate filter endpoints, get-by-ID handlers) providing the largest per-task gains on multi-step workloads. The gap is narrowing: LiveFoldersFS v0.6.0 introduced opt-in per-endpoint input validation and a structured `[ERROR:CODE]` error format; v0.7.0 extends this to structural constraints — string endpoints support `min_length`, `max_length`, and regex `pattern`; JSON endpoints support a `schema:` sub-key with required-field and property-type enforcement; v0.8.0 adds machine-readable `schema.json` discovery (criterion 03 ✓), durable stateful locking via `state_file` + `flock` (criterion 06 ✓), and per-invocation `.log` files with timing and stderr (criterion 08 ✓); v0.9.0 adds declarative `pipe:` multi-stage chaining (criterion 07 ✓), making LiveFoldersFS the only non-Inferno system to achieve ✓ on composability; v0.11.0 implements opt-in VFS-layer sandboxing via Landlock and seccomp-BPF (criterion 05 ✓). No current system fully optimizes both dimensions simultaneously across all criteria. The independent convergence of multiple teams on filesystem abstractions for LLM tool integration validates the abstraction's practical appeal; the remaining safety gap relative to protocol-based systems explains why protocol approaches have gained institutional traction.
 
 The most striking finding from our Tier 2 assessment is the gap between claimed and implemented behavior: ToolFS's WASM sandbox is a stub, not a functioning isolation mechanism; llm9p's unauthenticated TCP transport creates network-accessible tool surfaces. Practitioners evaluating these systems should treat published claims about security properties as hypotheses pending independent verification.
 

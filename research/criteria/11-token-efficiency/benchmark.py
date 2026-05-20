@@ -156,8 +156,8 @@ LF_SYSTEM_PROMPT_V2 = (
     "Return only the final answer.\n\n"
     "users — List users from the mock API.\n"
     "  cat {mount}/tools/users/count          # integer count\n"
-    "  cat {mount}/tools/users/list_compact   # id:name per line\n"
-    "  cat {mount}/tools/users/list           # full listing\n"
+    "  cat {mount}/tools/users/list_compact   # id:name per line (use for name/ID tasks)\n"
+    "  cat {mount}/tools/users/list_full      # full details: name, id, createdAt, avatar\n"
     "  echo NAME > {mount}/tools/users/search && cat {mount}/tools/users/search  # find by name → id:name\n"
 )
 
@@ -394,14 +394,25 @@ def _build_unified_tools(native_tools: list[dict]) -> tuple[list[dict], dict[str
             "input" in e["tool"].get("input_schema", {}).get("properties", {})
             for e in entries
         )
+        # Build per-action description lines for the enum description
+        action_lines = []
+        for e in entries:
+            desc = e["tool"].get("description", "")
+            line = f"{e['ep']}: {desc}" if desc else e["ep"]
+            action_lines.append(line)
+        action_desc = "; ".join(action_lines)
         props: dict = {
-            "action": {"type": "string", "enum": actions},
+            "action": {
+                "type": "string",
+                "enum": actions,
+                "description": action_desc,
+            },
         }
         if has_write:
-            props["query"] = {"type": "string"}
+            props["query"] = {"type": "string", "description": "input for write actions (search query, etc.)"}
         unified.append({
             "name": ns,
-            "description": f"{ns} API — action: {' | '.join(actions)}",
+            "description": f"{ns} API. Actions: {action_desc}",
             "input_schema": {"type": "object", "properties": props, "required": ["action"]},
         })
         dispatch[ns] = {e["ep"]: e["tool"]["name"] for e in entries}

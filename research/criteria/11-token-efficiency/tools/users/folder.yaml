@@ -2,9 +2,9 @@ name: users
 description: List users from the mock API.
 
 files:
-  - name: list
+  - name: list_full
     type: read_invoke
-    description: "full user listing — name, id, createdAt, avatar (markdown)"
+    description: "full details per user: name, id, createdAt, avatar (verbose markdown)"
     handler: >-
       curl -s https://6a0b5d085aa893e1015a2d32.mockapi.io/users
       | jq -r '"# Users\n", (.[] | "## \(.name)\nID: \(.id)\nCreated: \(.createdAt)\nAvatar: \(.avatar)\n")'
@@ -36,11 +36,29 @@ files:
     description: "integer count of all users"
     pipe: [fetch, format_count]
 
-  # Search endpoint — finds a user by name (case-insensitive substring)
+  # Search/filter endpoints
   - name: search
     type: write_invoke
-    description: "find user by name → id:name (case-insensitive)"
+    description: "filter users by name substring → matching id:name lines (case-insensitive; use for lookup or bulk filtering)"
     handler: >-
       QUERY=$(cat);
       curl -s https://6a0b5d085aa893e1015a2d32.mockapi.io/users
       | jq -r --arg q "$QUERY" '.[] | select(.name | ascii_downcase | contains($q | ascii_downcase)) | "\(.id):\(.name)"'
+
+  - name: get
+    type: write_invoke
+    description: "fetch full details for one user by ID → name, createdAt, avatar"
+    handler: >-
+      ID=$(cat);
+      curl -s "https://6a0b5d085aa893e1015a2d32.mockapi.io/users/$ID"
+      | jq -r '"name: \(.name)\nid: \(.id)\ncreatedAt: \(.createdAt)\navatar: \(.avatar)"'
+
+  - name: filter
+    type: write_invoke
+    description: "aggregate filter: returns 'count: N' then matching id:name pairs — use when you need both the count and the list"
+    handler: >-
+      QUERY=$(cat);
+      MATCHES=$(curl -s https://6a0b5d085aa893e1015a2d32.mockapi.io/users
+      | jq -r --arg q "$QUERY" '.[] | select(.name | ascii_downcase | contains($q | ascii_downcase)) | "\(.id):\(.name)"');
+      COUNT=$(printf '%s\n' "$MATCHES" | grep -c . || echo 0);
+      printf 'count: %s\n%s\n' "$COUNT" "$MATCHES"
