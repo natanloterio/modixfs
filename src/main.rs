@@ -157,6 +157,7 @@ const AGENT_SNIPPET: &str = "\
 LiveFolders tools are plain files: no SDK, no protocol — just `cat` and `echo`.
 
 The mounted directory is set by `mount` in `livefolders.yaml` (default: `.livefolders`).
+To find the tools directory: `grep 'tools_dir' livefolders.yaml`
 Available tools are defined in the `tools_dir` path from `livefolders.yaml`.
 
 How to use:
