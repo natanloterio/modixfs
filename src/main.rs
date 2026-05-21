@@ -314,12 +314,13 @@ fn prompt_agent_integration(base: &std::path::Path, project_name: &str) -> Resul
             append_agent_snippet(&path)?;
             println!("Added LiveFolders instructions to CLAUDE.md");
             let home = std::env::var("HOME").unwrap_or_default();
-            let settings = PathBuf::from(home).join(".claude").join("settings.json");
-            let server_name = format!("livefolders-{}", project_name);
+            let claude_json = PathBuf::from(&home).join(".claude.json");
+            let server_name = format!("livefolders-{}", sanitize_mcp_name(project_name));
             let config_path = base.join("livefolders.yaml");
             let abs_config = config_path.canonicalize().unwrap_or(config_path);
-            match register_claude_mcp(&settings, &server_name, Some(&abs_config)) {
-                Ok(()) => println!("Registered MCP server '{}' in {}", server_name, settings.display()),
+            let bin = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("livefolders"));
+            match register_claude_mcp(&claude_json, &server_name, &bin, Some(&abs_config)) {
+                Ok(()) => println!("Registered MCP server '{}' in {}", server_name, claude_json.display()),
                 Err(e) => println!("Could not register MCP server ({}). Add manually — see `livefolders mcp register livefolders.yaml`.", e),
             }
         }
@@ -449,7 +450,7 @@ fn cmd_mount(args: &[String]) -> Result<()> {
 fn cmd_mcp(args: &[String]) -> Result<()> {
     if args.get(2).map(|s| s.as_str()) == Some("register") {
         let home = std::env::var("HOME").context("$HOME is not set")?;
-        let settings = PathBuf::from(home).join(".claude").join("settings.json");
+        let claude_json = PathBuf::from(&home).join(".claude.json");
 
         let config_arg = args.get(3).map(PathBuf::from);
         let (server_name, abs_config) = if let Some(ref cp) = config_arg {
@@ -457,19 +458,20 @@ fn cmd_mcp(args: &[String]) -> Result<()> {
                 .with_context(|| format!("reading config {}", cp.display()))?;
             let abs = cp.canonicalize()
                 .with_context(|| format!("resolving path {}", cp.display()))?;
-            let name = cfg.name.unwrap_or_else(|| {
+            let raw_name = cfg.name.unwrap_or_else(|| {
                 abs.parent()
                     .and_then(|p| p.file_name())
                     .map(|n| n.to_string_lossy().into_owned())
                     .unwrap_or_else(|| "livefolders".to_string())
             });
-            (format!("livefolders-{}", name), Some(abs))
+            (format!("livefolders-{}", sanitize_mcp_name(&raw_name)), Some(abs))
         } else {
             ("livefolders".to_string(), None)
         };
 
-        register_claude_mcp(&settings, &server_name, abs_config.as_deref())?;
-        println!("Registered MCP server '{}' in {}", server_name, settings.display());
+        let bin = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("livefolders"));
+        register_claude_mcp(&claude_json, &server_name, &bin, abs_config.as_deref())?;
+        println!("Registered MCP server '{}' in {}", server_name, claude_json.display());
         return Ok(());
     }
 
@@ -506,35 +508,51 @@ fn cmd_mcp(args: &[String]) -> Result<()> {
     mcp::run(mount)
 }
 
-/// Merge an `mcpServers` entry into a Claude Code settings.json without
-/// disturbing existing keys.
-fn register_claude_mcp(settings_path: &Path, server_name: &str, config_path: Option<&Path>) -> Result<()> {
-    let mut settings: serde_json::Value = if settings_path.exists() {
-        let content = std::fs::read_to_string(settings_path)
-            .with_context(|| format!("reading {}", settings_path.display()))?;
+/// Replace characters not allowed in Claude Code MCP server names with hyphens.
+fn sanitize_mcp_name(name: &str) -> String {
+    name.chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .collect()
+}
+
+/// Merge an `mcpServers` entry into ~/.claude.json (the Claude Code MCP registry).
+///
+/// Uses the format `claude mcp add --scope user` would produce:
+/// `{ "type": "stdio", "command": "<bin>", "args": [...], "env": {} }`
+fn register_claude_mcp(
+    claude_json: &Path,
+    server_name: &str,
+    bin: &Path,
+    config_path: Option<&Path>,
+) -> Result<()> {
+    let mut root: serde_json::Value = if claude_json.exists() {
+        let content = std::fs::read_to_string(claude_json)
+            .with_context(|| format!("reading {}", claude_json.display()))?;
         serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
     } else {
         serde_json::json!({})
     };
 
-    let args = if let Some(cp) = config_path {
+    let mcp_args = if let Some(cp) = config_path {
         serde_json::json!(["mcp", "--config", cp.to_string_lossy()])
     } else {
         serde_json::json!(["mcp"])
     };
 
-    settings["mcpServers"][server_name] = serde_json::json!({
-        "command": "livefolders",
-        "args": args
+    root["mcpServers"][server_name] = serde_json::json!({
+        "type": "stdio",
+        "command": bin.to_string_lossy(),
+        "args": mcp_args,
+        "env": {}
     });
 
-    if let Some(parent) = settings_path.parent() {
+    if let Some(parent) = claude_json.parent() {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("creating {}", parent.display()))?;
     }
-    let serialized = serde_json::to_string_pretty(&settings)?;
-    std::fs::write(settings_path, serialized)
-        .with_context(|| format!("writing {}", settings_path.display()))?;
+    let serialized = serde_json::to_string_pretty(&root)?;
+    std::fs::write(claude_json, serialized)
+        .with_context(|| format!("writing {}", claude_json.display()))?;
     Ok(())
 }
 
@@ -664,28 +682,35 @@ mod tests {
         assert!(err.is_none());
     }
 
+    use std::path::PathBuf;
+
+    fn bin() -> PathBuf { PathBuf::from("/usr/local/bin/livefolders") }
+
     #[test]
-    fn register_claude_mcp_creates_settings_with_entry() {
+    fn register_claude_mcp_creates_entry_with_correct_format() {
         let tmp = tempfile::tempdir().unwrap();
-        let settings = tmp.path().join("settings.json");
-        super::register_claude_mcp(&settings, "livefolders", None).unwrap();
+        let claude_json = tmp.path().join(".claude.json");
+        super::register_claude_mcp(&claude_json, "livefolders", &bin(), None).unwrap();
         let v: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(&settings).unwrap()).unwrap();
-        assert_eq!(v["mcpServers"]["livefolders"]["command"], "livefolders");
-        assert_eq!(v["mcpServers"]["livefolders"]["args"][0], "mcp");
+            serde_json::from_str(&std::fs::read_to_string(&claude_json).unwrap()).unwrap();
+        let entry = &v["mcpServers"]["livefolders"];
+        assert_eq!(entry["type"], "stdio");
+        assert_eq!(entry["command"], "/usr/local/bin/livefolders");
+        assert_eq!(entry["args"][0], "mcp");
+        assert!(entry["env"].is_object());
     }
 
     #[test]
     fn register_claude_mcp_with_config_path_embeds_config_arg() {
         let tmp = tempfile::tempdir().unwrap();
-        let settings = tmp.path().join("settings.json");
+        let claude_json = tmp.path().join(".claude.json");
         let config = tmp.path().join("livefolders.yaml");
         std::fs::write(&config, "").unwrap();
-        super::register_claude_mcp(&settings, "livefolders-myproject", Some(&config)).unwrap();
+        super::register_claude_mcp(&claude_json, "livefolders-myproject", &bin(), Some(&config)).unwrap();
         let v: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(&settings).unwrap()).unwrap();
+            serde_json::from_str(&std::fs::read_to_string(&claude_json).unwrap()).unwrap();
         let entry = &v["mcpServers"]["livefolders-myproject"];
-        assert_eq!(entry["command"], "livefolders");
+        assert_eq!(entry["type"], "stdio");
         assert_eq!(entry["args"][0], "mcp");
         assert_eq!(entry["args"][1], "--config");
         assert!(entry["args"][2].as_str().unwrap().ends_with("livefolders.yaml"));
@@ -694,54 +719,53 @@ mod tests {
     #[test]
     fn register_claude_mcp_preserves_existing_keys() {
         let tmp = tempfile::tempdir().unwrap();
-        let settings = tmp.path().join("settings.json");
-        std::fs::write(&settings, r#"{"theme":"dark","permissions":{"allow":[]}}"#).unwrap();
-        super::register_claude_mcp(&settings, "livefolders", None).unwrap();
+        let claude_json = tmp.path().join(".claude.json");
+        std::fs::write(&claude_json, r#"{"oauthToken":"tok","someOtherKey":true}"#).unwrap();
+        super::register_claude_mcp(&claude_json, "livefolders", &bin(), None).unwrap();
         let v: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(&settings).unwrap()).unwrap();
-        assert_eq!(v["theme"], "dark");
-        assert_eq!(v["mcpServers"]["livefolders"]["command"], "livefolders");
+            serde_json::from_str(&std::fs::read_to_string(&claude_json).unwrap()).unwrap();
+        assert_eq!(v["oauthToken"], "tok");
+        assert_eq!(v["mcpServers"]["livefolders"]["type"], "stdio");
     }
 
     #[test]
     fn register_claude_mcp_multiple_projects_coexist() {
         let tmp = tempfile::tempdir().unwrap();
-        let settings = tmp.path().join("settings.json");
-        super::register_claude_mcp(&settings, "livefolders-a", None).unwrap();
-        super::register_claude_mcp(&settings, "livefolders-b", None).unwrap();
+        let claude_json = tmp.path().join(".claude.json");
+        super::register_claude_mcp(&claude_json, "livefolders-a", &bin(), None).unwrap();
+        super::register_claude_mcp(&claude_json, "livefolders-b", &bin(), None).unwrap();
         let v: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(&settings).unwrap()).unwrap();
-        assert_eq!(v["mcpServers"]["livefolders-a"]["command"], "livefolders");
-        assert_eq!(v["mcpServers"]["livefolders-b"]["command"], "livefolders");
+            serde_json::from_str(&std::fs::read_to_string(&claude_json).unwrap()).unwrap();
+        assert_eq!(v["mcpServers"]["livefolders-a"]["type"], "stdio");
+        assert_eq!(v["mcpServers"]["livefolders-b"]["type"], "stdio");
     }
 
     #[test]
     fn register_claude_mcp_overwrites_existing_entry() {
         let tmp = tempfile::tempdir().unwrap();
-        let settings = tmp.path().join("settings.json");
-        std::fs::write(&settings, r#"{"mcpServers":{"livefolders":{"command":"old"}}}"#).unwrap();
-        super::register_claude_mcp(&settings, "livefolders", None).unwrap();
+        let claude_json = tmp.path().join(".claude.json");
+        std::fs::write(&claude_json, r#"{"mcpServers":{"livefolders":{"type":"stdio","command":"old"}}}"#).unwrap();
+        super::register_claude_mcp(&claude_json, "livefolders", &bin(), None).unwrap();
         let v: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(&settings).unwrap()).unwrap();
-        assert_eq!(v["mcpServers"]["livefolders"]["command"], "livefolders");
-    }
-
-    #[test]
-    fn register_claude_mcp_creates_parent_dirs() {
-        let tmp = tempfile::tempdir().unwrap();
-        let settings = tmp.path().join("nested").join("dir").join("settings.json");
-        super::register_claude_mcp(&settings, "livefolders", None).unwrap();
-        assert!(settings.exists());
+            serde_json::from_str(&std::fs::read_to_string(&claude_json).unwrap()).unwrap();
+        assert_eq!(v["mcpServers"]["livefolders"]["command"], "/usr/local/bin/livefolders");
     }
 
     #[test]
     fn register_claude_mcp_tolerates_malformed_json() {
         let tmp = tempfile::tempdir().unwrap();
-        let settings = tmp.path().join("settings.json");
-        std::fs::write(&settings, b"not json at all").unwrap();
-        super::register_claude_mcp(&settings, "livefolders", None).unwrap();
+        let claude_json = tmp.path().join(".claude.json");
+        std::fs::write(&claude_json, b"not json at all").unwrap();
+        super::register_claude_mcp(&claude_json, "livefolders", &bin(), None).unwrap();
         let v: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(&settings).unwrap()).unwrap();
-        assert_eq!(v["mcpServers"]["livefolders"]["command"], "livefolders");
+            serde_json::from_str(&std::fs::read_to_string(&claude_json).unwrap()).unwrap();
+        assert_eq!(v["mcpServers"]["livefolders"]["type"], "stdio");
+    }
+
+    #[test]
+    fn sanitize_mcp_name_replaces_dots_and_spaces() {
+        assert_eq!(super::sanitize_mcp_name("pitaia.me"), "pitaia-me");
+        assert_eq!(super::sanitize_mcp_name("my project"), "my-project");
+        assert_eq!(super::sanitize_mcp_name("valid-name_123"), "valid-name_123");
     }
 }
