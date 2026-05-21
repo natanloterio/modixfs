@@ -164,6 +164,73 @@ pub fn install(url: &str, cfg: &crate::config::Config) -> Result<()> {
     Ok(())
 }
 
+/// Install a tool directly from a tarball URL (used by registry installs).
+pub fn install_from_tarball_url(
+    tarball_url: &str,
+    tool_name: &str,
+    cfg: &crate::config::Config,
+) -> anyhow::Result<()> {
+    use std::io::Write;
+
+    let tools_dir = cfg.resolved_tools_dir()?.ok_or_else(|| {
+        anyhow::anyhow!(
+            "tools_dir is not configured. Add:\n  tools_dir: ~/.config/livefolders/tools"
+        )
+    })?;
+
+    println!("Downloading {}...", tool_name);
+
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("livefolders")
+        .redirect(reqwest::redirect::Policy::limited(10))
+        .build()?;
+
+    let mut req = client.get(tarball_url);
+    if let Ok(token) = std::env::var("GITHUB_TOKEN") {
+        req = req.header("Authorization", format!("Bearer {}", token));
+    }
+
+    let bytes = req
+        .send()
+        .context("downloading tarball")?
+        .error_for_status()
+        .context("tarball download failed")?
+        .bytes()
+        .context("reading response body")?;
+
+    println!("Extracting...");
+    let tmp = tempfile::tempdir()?;
+    let gz = flate2::read::GzDecoder::new(bytes.as_ref());
+    let mut archive = tar::Archive::new(gz);
+    archive.unpack(tmp.path())?;
+
+    let top_level = std::fs::read_dir(tmp.path())?
+        .flatten()
+        .find(|e| e.path().is_dir())
+        .context("unexpected tarball structure: no top-level directory")?
+        .path();
+
+    std::fs::create_dir_all(&tools_dir)?;
+    let dest = tools_dir.join(tool_name);
+
+    if dest.exists() {
+        print!("Tool '{}' already exists. Overwrite? [y/N]: ", tool_name);
+        std::io::stdout().flush()?;
+        let mut ans = String::new();
+        std::io::stdin().read_line(&mut ans)?;
+        if !ans.trim().eq_ignore_ascii_case("y") {
+            println!("Aborted.");
+            return Ok(());
+        }
+        std::fs::remove_dir_all(&dest)?;
+    }
+
+    copy_dir_all(&top_level, &dest)?;
+    println!("Installed {} → {}", tool_name, dest.display());
+    println!("Run `livefolders mount` to start using it.");
+    Ok(())
+}
+
 fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> Result<()> {
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)?.flatten() {

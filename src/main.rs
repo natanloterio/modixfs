@@ -81,14 +81,41 @@ fn main() -> Result<()> {
             daemon::stop(&mountpoint)
         }
         "install" => {
-            let url = args.get(2).map(|s| s.as_str()).unwrap_or("");
-            if url.is_empty() {
-                eprintln!("Usage: livefolders install <github-url>");
-                eprintln!("Example: livefolders install github.com/owner/repo");
+            let arg = args.get(2).map(|s| s.as_str()).unwrap_or("");
+            if arg.is_empty() {
+                eprintln!("Usage: livefolders install <owner/name[@version] | github-url>");
                 std::process::exit(1);
             }
             let cfg = load_config_for_install(&args);
-            installer::install(url, &cfg)
+            // Detect registry format: owner/name or owner/name@version (no github.com prefix)
+            if !arg.contains("github.com") && !arg.starts_with("http") {
+                let (slug, version) = if let Some((s, v)) = arg.split_once('@') {
+                    (s, Some(v))
+                } else {
+                    (arg, None)
+                };
+                let (owner, name) = slug.split_once('/').ok_or_else(|| {
+                    anyhow::anyhow!("[ERROR:INVALID] expected owner/name or owner/name@version")
+                })?;
+                let resolved = marketplace::resolve::resolve(owner, name, version)
+                    .context("registry lookup failed")?;
+                println!("Resolved {}/{}@{}", owner, name, resolved.version);
+                installer::install_from_tarball_url(&resolved.tarball_url, name, &cfg)?;
+                // Increment download counter (fire and forget)
+                let _ = reqwest::blocking::Client::builder()
+                    .user_agent("livefolders")
+                    .build()
+                    .and_then(|c| {
+                        c.post(format!(
+                            "{}/api/tools/{}/{}/downloads",
+                            marketplace::REGISTRY_URL, owner, name
+                        ))
+                        .send()
+                    });
+                Ok(())
+            } else {
+                installer::install(arg, &cfg)
+            }
         }
         "search" => {
             let query = args.get(2).map(|s| s.as_str()).unwrap_or("");
