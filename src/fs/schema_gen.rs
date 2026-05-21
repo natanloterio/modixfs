@@ -42,6 +42,9 @@ pub fn generate_schema_json(manifest: &Manifest) -> String {
                 }
                 ep["input"] = input_obj;
             }
+            if let Some(ref desc) = spec.description {
+                ep["description"] = serde_json::json!(desc);
+            }
             if let Some(ref sf) = spec.state_file {
                 ep["state_file"] = serde_json::json!(sf);
             }
@@ -291,5 +294,54 @@ mod tests {
         let out = generate_anthropic_tools_json("myservice", &m);
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v[0]["name"], "myservice__ep");
+    }
+
+    #[test]
+    fn schema_json_includes_endpoint_description() {
+        let m = Manifest {
+            name: Some("svc".into()),
+            description: None,
+            version: None,
+            env: vec![],
+            files: vec![FileSpec {
+                name: "search".into(),
+                kind: FileKind::WriteInvoke,
+                handler: Some("cat".into()),
+                input: None,
+                state_file: None,
+                pipe: None,
+                description: Some("Find items by keyword".into()),
+                hidden: false,
+            }],
+            ..Default::default()
+        };
+        let out = generate_schema_json(&m);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["endpoints"][0]["description"], "Find items by keyword");
+    }
+
+    #[test]
+    fn schema_json_omits_description_when_absent() {
+        let m = Manifest {
+            name: Some("svc".into()),
+            description: None,
+            version: None,
+            env: vec![],
+            files: vec![FileSpec {
+                name: "run".into(),
+                kind: FileKind::ReadInvoke,
+                handler: Some("cat".into()),
+                input: None,
+                state_file: None,
+                pipe: None,
+                description: None,
+                hidden: false,
+            }],
+            ..Default::default()
+        };
+        let out = generate_schema_json(&m);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert!(v["endpoints"][0].get("description").is_none()
+            || v["endpoints"][0]["description"].is_null());
     }
 }

@@ -2,6 +2,7 @@ mod config;
 mod daemon;
 mod error;
 mod doctor;
+mod mcp;
 mod fs;
 mod installer;
 mod manifest;
@@ -11,7 +12,7 @@ mod secrets;
 mod tools;
 mod watcher;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 use anyhow::{bail, Context, Result};
@@ -33,7 +34,10 @@ Commands:
   stop [path]            Stop the background mount
   install <url>          Install a tool from GitHub
   doctor                 Check setup and print actionable fixes
+  mcp                    Expose LiveFolders tools as an MCP server over stdio
+  mcp register           Register the MCP server in ~/.claude/settings.json
   help                   Show this help
+  --version, -v          Print version
 
 Options:
   --config, -c <file>   Path to livefolders.yaml (default: ./livefolders.yaml)
@@ -49,6 +53,7 @@ fn main() -> Result<()> {
             tracing_subscriber::EnvFilter::from_default_env()
                 .add_directive("livefolders=info".parse()?),
         )
+        .with_writer(std::io::stderr)
         .init();
 
     secrets::load_secrets_env()
@@ -95,6 +100,11 @@ fn main() -> Result<()> {
                 }
             };
             doctor::run_doctor(&cfg);
+            Ok(())
+        }
+        "mcp" => cmd_mcp(&args),
+        "--version" | "-v" => {
+            println!("{}", env!("CARGO_PKG_VERSION"));
             Ok(())
         }
         "help" | "--help" | "-h" => {
@@ -200,6 +210,12 @@ fn prompt_agent_integration(base: &std::path::Path) -> Result<()> {
             let path = base.join("CLAUDE.md");
             append_agent_snippet(&path)?;
             println!("Added LiveFolders instructions to CLAUDE.md");
+            let home = std::env::var("HOME").unwrap_or_default();
+            let settings = PathBuf::from(home).join(".claude").join("settings.json");
+            match register_claude_mcp(&settings) {
+                Ok(()) => println!("Registered MCP server in {}", settings.display()),
+                Err(e) => println!("Could not register MCP server ({}). Add manually — see `livefolders mcp register`.", e),
+            }
         }
         "2" => {
             let path = base.join("AGENTS.md");
@@ -324,6 +340,62 @@ fn cmd_mount(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+fn cmd_mcp(args: &[String]) -> Result<()> {
+    if args.get(2).map(|s| s.as_str()) == Some("register") {
+        let home = std::env::var("HOME").context("$HOME is not set")?;
+        let settings = PathBuf::from(home).join(".claude").join("settings.json");
+        register_claude_mcp(&settings)?;
+        println!("Registered MCP server in {}", settings.display());
+        return Ok(());
+    }
+
+    let (cli_mount, config_path, _) = parse_mount_args(args);
+
+    let cfg = match config_path {
+        Some(p) => Config::load(&p)?,
+        None => {
+            let default_path = PathBuf::from("livefolders.yaml");
+            if default_path.exists() {
+                Config::load(&default_path)?
+            } else {
+                Config::default_config()
+            }
+        }
+    };
+
+    let mount = cli_mount
+        .or_else(|| cfg.mount.clone())
+        .unwrap_or_else(|| PathBuf::from(".livefolders"));
+
+    mcp::run(mount)
+}
+
+/// Merge `mcpServers.livefolders` into a Claude Code settings.json without
+/// disturbing existing keys.
+fn register_claude_mcp(settings_path: &Path) -> Result<()> {
+    let mut settings: serde_json::Value = if settings_path.exists() {
+        let content = std::fs::read_to_string(settings_path)
+            .with_context(|| format!("reading {}", settings_path.display()))?;
+        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+
+    settings["mcpServers"]["livefolders"] = serde_json::json!({
+        "command": "livefolders",
+        "args": ["mcp"]
+    });
+
+    if let Some(parent) = settings_path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
+    let serialized = serde_json::to_string_pretty(&settings)?;
+    std::fs::write(settings_path, serialized)
+        .with_context(|| format!("writing {}", settings_path.display()))?;
+    Ok(())
+}
+
 fn load_external_tools(cfg: &Config, registry: &mut ToolRegistry, sandbox_mode: crate::sandbox::SandboxMode) -> Result<()> {
     let tools_dir = match cfg.resolved_tools_dir()? {
         Some(p) => p,
@@ -392,7 +464,7 @@ fn parse_mount_args(args: &[String]) -> (Option<PathBuf>, Option<PathBuf>, bool)
             }
             "--foreground" | "-f" => foreground = true,
             // skip subcommand tokens themselves
-            "mount" | "install" | "stop" | "doctor" | "init" | "help" => {}
+            "mount" | "install" | "stop" | "doctor" | "init" | "help" | "mcp" => {}
             arg if !arg.starts_with('-') => {
                 mount = Some(PathBuf::from(arg));
             }
@@ -446,5 +518,59 @@ mod tests {
         ).unwrap();
         let err = super::validation_error_for_tool(tmp.path());
         assert!(err.is_none());
+    }
+
+    #[test]
+    fn register_claude_mcp_creates_settings_with_entry() {
+        let tmp = tempfile::tempdir().unwrap();
+        let settings = tmp.path().join("settings.json");
+        super::register_claude_mcp(&settings).unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&settings).unwrap()).unwrap();
+        assert_eq!(v["mcpServers"]["livefolders"]["command"], "livefolders");
+        assert_eq!(v["mcpServers"]["livefolders"]["args"][0], "mcp");
+    }
+
+    #[test]
+    fn register_claude_mcp_preserves_existing_keys() {
+        let tmp = tempfile::tempdir().unwrap();
+        let settings = tmp.path().join("settings.json");
+        std::fs::write(&settings, r#"{"theme":"dark","permissions":{"allow":[]}}"#).unwrap();
+        super::register_claude_mcp(&settings).unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&settings).unwrap()).unwrap();
+        assert_eq!(v["theme"], "dark");
+        assert_eq!(v["mcpServers"]["livefolders"]["command"], "livefolders");
+    }
+
+    #[test]
+    fn register_claude_mcp_overwrites_existing_entry() {
+        let tmp = tempfile::tempdir().unwrap();
+        let settings = tmp.path().join("settings.json");
+        std::fs::write(&settings, r#"{"mcpServers":{"livefolders":{"command":"old"}}}"#).unwrap();
+        super::register_claude_mcp(&settings).unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&settings).unwrap()).unwrap();
+        assert_eq!(v["mcpServers"]["livefolders"]["command"], "livefolders");
+    }
+
+    #[test]
+    fn register_claude_mcp_creates_parent_dirs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let settings = tmp.path().join("nested").join("dir").join("settings.json");
+        super::register_claude_mcp(&settings).unwrap();
+        assert!(settings.exists());
+    }
+
+    #[test]
+    fn register_claude_mcp_tolerates_malformed_json() {
+        let tmp = tempfile::tempdir().unwrap();
+        let settings = tmp.path().join("settings.json");
+        std::fs::write(&settings, b"not json at all").unwrap();
+        // Should not error — falls back to empty object and writes fresh settings
+        super::register_claude_mcp(&settings).unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&settings).unwrap()).unwrap();
+        assert_eq!(v["mcpServers"]["livefolders"]["command"], "livefolders");
     }
 }
