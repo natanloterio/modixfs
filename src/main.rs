@@ -161,6 +161,31 @@ fn main() -> Result<()> {
             doctor::run_doctor(&cfg);
             Ok(())
         }
+        "info" => {
+            let pkg = args.get(2).map(|s| s.as_str()).unwrap_or("");
+            if pkg.is_empty() {
+                eprintln!("Usage: livefolders info <owner/name>");
+                std::process::exit(1);
+            }
+            let (owner, name) = pkg.split_once('/').ok_or_else(|| {
+                anyhow::anyhow!("[ERROR:INVALID] expected owner/name")
+            })?;
+            match marketplace::info::get_info(owner, name) {
+                Ok(info) => {
+                    println!("{}/{}", info.owner, info.name);
+                    println!("  Description: {}", info.description.as_deref().unwrap_or("—"));
+                    println!("  Repository:  {}", info.repo_url);
+                    println!("  Downloads:   {}", info.downloads);
+                    println!("  Updated:     {}", info.updated_at);
+                    println!("  Install:     livefolders install {}/{}", owner, name);
+                }
+                Err(e) => {
+                    eprintln!("[ERROR:REGISTRY] {}", e);
+                    std::process::exit(1);
+                }
+            }
+            Ok(())
+        }
         "mcp" => cmd_mcp(&args),
         "--version" | "-v" => {
             println!("{}", env!("CARGO_PKG_VERSION"));
