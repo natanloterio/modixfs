@@ -10,6 +10,7 @@ mod registry;
 mod sandbox;
 mod secrets;
 mod tools;
+mod marketplace;
 mod watcher;
 
 use std::path::{Path, PathBuf};
@@ -33,6 +34,9 @@ Commands:
   mount [path]           Mount the filesystem in the background (default)
   stop [path]            Stop the background mount
   install <url>          Install a tool from GitHub
+  search <query>         Search the LiveFolders tool registry
+  info <owner/name>      Show tool info from the registry
+  publish                Publish this repo to the registry
   doctor                 Check setup and print actionable fixes
   mcp                    Expose LiveFolders tools as an MCP server over stdio
   mcp register [config]  Register the MCP server in ~/.claude/settings.json
@@ -85,6 +89,34 @@ fn main() -> Result<()> {
             }
             let cfg = load_config_for_install(&args);
             installer::install(url, &cfg)
+        }
+        "search" => {
+            let query = args.get(2).map(|s| s.as_str()).unwrap_or("");
+            if query.is_empty() {
+                eprintln!("Usage: livefolders search <query>");
+                std::process::exit(1);
+            }
+            match marketplace::search::search(query) {
+                Ok(results) if results.is_empty() => {
+                    println!("No tools found for \"{}\".", query);
+                }
+                Ok(results) => {
+                    for t in results {
+                        println!(
+                            "{}/{}\t— {}\t({} installs)",
+                            t.owner,
+                            t.name,
+                            t.description.as_deref().unwrap_or("no description"),
+                            t.downloads
+                        );
+                    }
+                }
+                Err(e) => {
+                    eprintln!("[ERROR:REGISTRY] {}", e);
+                    std::process::exit(1);
+                }
+            }
+            Ok(())
         }
         "doctor" => {
             let config_path = parse_mount_args(&args).1; // .1 = config path
