@@ -186,6 +186,10 @@ fn main() -> Result<()> {
             }
             Ok(())
         }
+        "publish" => {
+            marketplace::publish::publish()?;
+            Ok(())
+        }
         "mcp" => cmd_mcp(&args),
         "--version" | "-v" => {
             println!("{}", env!("CARGO_PKG_VERSION"));

@@ -1,4 +1,5 @@
 pub mod info;
+pub mod publish;
 pub mod resolve;
 pub mod search;
 
