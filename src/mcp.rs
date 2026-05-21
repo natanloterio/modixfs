@@ -115,7 +115,10 @@ fn handle_tools_call(id: &Value, mount: &Path, params: &Value) -> Value {
 pub fn list_tools(mount: &Path) -> Result<Vec<Value>> {
     let tools_dir = mount.join("tools");
     if !tools_dir.is_dir() {
-        anyhow::bail!("mount tools dir not found: {}", tools_dir.display());
+        anyhow::bail!(
+            "livefolders is not mounted at '{}' — run 'livefolders mount' first",
+            mount.display()
+        );
     }
 
     let mut entries: Vec<_> = std::fs::read_dir(&tools_dir)?
@@ -201,7 +204,15 @@ pub fn list_tools(mount: &Path) -> Result<Vec<Value>> {
 pub fn call_tool(mount: &Path, mcp_name: &str, arguments: &Value) -> Result<String> {
     let (tool_name, ep_name) = split_tool_name(mcp_name)?;
 
-    let schema_path = mount.join("tools").join(tool_name).join("schema.json");
+    let tools_dir = mount.join("tools");
+    if !tools_dir.is_dir() {
+        anyhow::bail!(
+            "livefolders is not mounted at '{}' — run 'livefolders mount' first",
+            mount.display()
+        );
+    }
+
+    let schema_path = tools_dir.join(tool_name).join("schema.json");
     let schema_str = std::fs::read_to_string(&schema_path)
         .with_context(|| format!("reading schema.json for '{}'", tool_name))?;
     let schema: Value = serde_json::from_str(&schema_str)?;
@@ -211,7 +222,7 @@ pub fn call_tool(mount: &Path, mcp_name: &str, arguments: &Value) -> Result<Stri
         .and_then(|ep| ep["kind"].as_str())
         .unwrap_or("read_invoke");
 
-    let ep_path = mount.join("tools").join(tool_name).join(ep_name);
+    let ep_path = tools_dir.join(tool_name).join(ep_name);
 
     if ep_kind == "write_invoke" {
         let input = arguments["input"].as_str().unwrap_or("");
