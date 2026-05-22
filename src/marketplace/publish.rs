@@ -19,7 +19,7 @@ pub fn publish(repo_arg: Option<&str>) -> anyhow::Result<()> {
         };
         bootstrap_and_publish(&slug, &cwd)
     } else {
-        publish_from_dir(&cwd)
+        publish_from_dir(&cwd, None)
     }
 }
 
@@ -95,10 +95,10 @@ fn bootstrap_and_publish(slug: &str, src: &Path) -> anyhow::Result<()> {
         println!("Pushed to GitHub.");
     }
 
-    publish_from_dir(&clone_dir)
+    publish_from_dir(&clone_dir, None)
 }
 
-fn publish_from_dir(dir: &Path) -> anyhow::Result<()> {
+fn publish_from_dir(dir: &Path, token: Option<String>) -> anyhow::Result<()> {
     let repo_slug = get_remote_slug(dir)?;
 
     let no_tags = std::process::Command::new("git")
@@ -113,7 +113,10 @@ fn publish_from_dir(dir: &Path) -> anyhow::Result<()> {
 
     println!("Publishing {} to the LiveFolders registry.", repo_slug);
 
-    let token = github_device_flow()?;
+    let token = match token {
+        Some(t) => t,
+        None => github_device_flow()?,
+    };
     post_to_registry(&repo_slug, &token)
 }
 
