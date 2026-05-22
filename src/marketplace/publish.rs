@@ -65,16 +65,16 @@ fn bootstrap_and_publish(slug: &str, src: &Path) -> anyhow::Result<()> {
         run_git(&clone_dir, &["add", "."])?;
         run_git(&clone_dir, &["commit", "-m", "feat: add tool definition"])?;
 
-        let tags = std::process::Command::new("git")
+        let tag_out = std::process::Command::new("git")
             .args(["tag", "--list"])
             .current_dir(&clone_dir)
             .output()
-            .map(|o| o.stdout)
+            .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
             .unwrap_or_default();
-        if tags.is_empty() {
-            run_git(&clone_dir, &["tag", "v0.1.0"])?;
-            println!("Created tag v0.1.0.");
-        }
+        let existing: Vec<&str> = tag_out.lines().collect();
+        let new_tag = next_version_tag(&existing);
+        run_git(&clone_dir, &["tag", &new_tag])?;
+        println!("Created tag {}.", new_tag);
 
         if let Err(e) = run_git(&clone_dir, &["push"])
             .and_then(|_| run_git(&clone_dir, &["push", "--tags"]))
@@ -221,6 +221,18 @@ fn endpoint_names_from_manifest(src: &Path) -> HashSet<String> {
     manifest.files.iter().map(|f| f.name.clone()).collect()
 }
 
+fn next_version_tag(tags: &[&str]) -> String {
+    let latest = tags.iter().filter_map(|t| {
+        let s = t.trim_start_matches('v');
+        let parts: Vec<u64> = s.split('.').filter_map(|p| p.parse().ok()).collect();
+        if parts.len() == 3 { Some((parts[0], parts[1], parts[2])) } else { None }
+    }).max();
+    match latest {
+        Some((maj, min, patch)) => format!("v{}.{}.{}", maj, min, patch + 1),
+        None => "v0.1.0".to_string(),
+    }
+}
+
 fn prompt_repo_slug() -> anyhow::Result<String> {
     use std::io::Write;
     print!("GitHub repository (owner/name): ");
@@ -343,6 +355,37 @@ fn extract_slug(remote_url: &str) -> Option<String> {
         return Some(path.to_string());
     }
     None
+}
+
+#[cfg(test)]
+mod version_tests {
+    use super::*;
+
+    #[test]
+    fn next_tag_with_no_existing_tags_returns_v0_1_0() {
+        assert_eq!(next_version_tag(&[]), "v0.1.0");
+    }
+
+    #[test]
+    fn next_tag_bumps_patch() {
+        assert_eq!(next_version_tag(&["v0.1.0"]), "v0.1.1");
+        assert_eq!(next_version_tag(&["v1.2.3"]), "v1.2.4");
+    }
+
+    #[test]
+    fn next_tag_picks_highest_when_multiple_tags() {
+        assert_eq!(next_version_tag(&["v0.1.0", "v0.2.0", "v0.1.5"]), "v0.2.1");
+    }
+
+    #[test]
+    fn next_tag_ignores_non_semver_tags() {
+        assert_eq!(next_version_tag(&["latest", "v0.1.0", "nightly"]), "v0.1.1");
+    }
+
+    #[test]
+    fn next_tag_all_non_semver_falls_back_to_v0_1_0() {
+        assert_eq!(next_version_tag(&["latest", "nightly"]), "v0.1.0");
+    }
 }
 
 #[cfg(test)]
