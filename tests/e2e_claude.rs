@@ -248,3 +248,43 @@ fn test_mcp_create_and_call() {
         assert!(ok2, "claude install+call failed. Output:\n{}", out2);
     }
 }
+
+#[test]
+#[ignore]
+fn test_claude_md_discover_and_call() {
+    if prerequisites_missing() {
+        return;
+    }
+
+    let fixture = E2eFixture::new();
+
+    fixture.write_claude_md(
+        "# LiveFolders Tools\n\
+         \n\
+         Tools are exposed as files under `.livefolders/tools/` in your working directory.\n\
+         \n\
+         To discover available tools:\n\
+         ```bash\n\
+         cat .livefolders/tools/index.md\n\
+         ```\n\
+         \n\
+         To use a `write_invoke` tool (e.g. `shout`):\n\
+         ```bash\n\
+         echo \"your text\" > .livefolders/tools/shout/shout\n\
+         cat .livefolders/tools/shout/shout\n\
+         ```\n\
+         The file simultaneously holds the input (write) and output (read).\n\
+         Always write first, then read in two separate commands.\n",
+    );
+
+    let (output, ok) = fixture.run_claude(
+        "Use the shout tool to shout 'hello world' and tell me what it returned.",
+    );
+
+    assert!(ok, "claude exited with failure. Output:\n{}", output);
+    assert!(
+        output.to_uppercase().contains("HELLO WORLD"),
+        "expected 'HELLO WORLD' in claude output, got:\n{}",
+        output,
+    );
+}
