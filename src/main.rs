@@ -187,7 +187,8 @@ fn main() -> Result<()> {
             Ok(())
         }
         "publish" => {
-            marketplace::publish::publish()?;
+            let repo_arg = args.get(2).map(|s| s.as_str());
+            marketplace::publish::publish(repo_arg)?;
             Ok(())
         }
         "mcp" => cmd_mcp(&args),

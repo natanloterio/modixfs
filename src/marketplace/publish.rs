@@ -1,37 +1,109 @@
 use anyhow::Context;
 use serde_json::json;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 // Set via env var LIVEFOLDERS_GITHUB_CLIENT_ID or register an OAuth App at
 // https://github.com/settings/developers and hard-code the client_id here.
 const DEFAULT_CLIENT_ID: &str = "Ov23litjBhDq65tLjGoP";
 
-pub fn publish() -> anyhow::Result<()> {
-    // 1. Detect repo slug from git remote
-    let remote_out = std::process::Command::new("git")
-        .args(["remote", "get-url", "origin"])
-        .output()
-        .context("failed to run git — are you in a git repository?")?;
+pub fn publish(repo_arg: Option<&str>) -> anyhow::Result<()> {
+    let cwd = std::env::current_dir().context("could not determine current directory")?;
+    let in_tool_dir = cwd.join("folder.yaml").exists() && !cwd.join(".git").exists();
 
-    if !remote_out.status.success() {
-        anyhow::bail!("[ERROR:CONFIG] no git remote 'origin' found. Add one with: git remote add origin https://github.com/owner/repo");
+    if in_tool_dir {
+        let slug = match repo_arg {
+            Some(s) => s.to_string(),
+            None => prompt_repo_slug()?,
+        };
+        bootstrap_and_publish(&slug, &cwd)
+    } else {
+        publish_from_dir(&cwd)
+    }
+}
+
+fn bootstrap_and_publish(slug: &str, src: &Path) -> anyhow::Result<()> {
+    println!("Bootstrapping repository for {}...", slug);
+
+    let tmp = tempfile::tempdir().context("failed to create temp directory")?;
+    let clone_dir = tmp.path().join("repo");
+
+    // Clone the GitHub repo
+    let clone_url = format!("https://github.com/{}", slug);
+    println!("Cloning {}...", clone_url);
+    let status = std::process::Command::new("git")
+        .args(["clone", &clone_url, clone_dir.to_str().context("non-UTF8 temp path")?])
+        .status()
+        .context("failed to run git clone")?;
+    if !status.success() {
+        anyhow::bail!(
+            "[ERROR:GIT] git clone failed — check that {} exists and you have access",
+            clone_url
+        );
     }
 
-    let remote_url = String::from_utf8(remote_out.stdout)
-        .context("non-UTF8 remote URL")?
-        .trim()
-        .to_string();
+    // Collect and copy publishable files
+    let files = collect_publishable_files(src)?;
+    println!("Copying {} file(s)...", files.len());
+    for file in &files {
+        let dest = clone_dir.join(file.file_name().context("file has no name")?);
+        std::fs::copy(file, &dest)
+            .with_context(|| format!("failed to copy {}", file.display()))?;
+    }
 
-    let repo_slug = extract_slug(&remote_url).ok_or_else(|| {
-        anyhow::anyhow!(
-            "[ERROR:CONFIG] could not parse GitHub remote URL: {}\nExpected: https://github.com/owner/repo or git@github.com:owner/repo",
-            remote_url
-        )
-    })?;
+    // Commit if there are changes
+    let status_out = std::process::Command::new("git")
+        .args(["status", "--porcelain"])
+        .current_dir(&clone_dir)
+        .output()
+        .context("failed to run git status")?;
 
-    // 2. Warn if no git tags
+    if status_out.stdout.is_empty() {
+        println!("No changes to commit — files already up to date.");
+    } else {
+        run_git(&clone_dir, &["add", "."])?;
+        run_git(&clone_dir, &["commit", "-m", "feat: add tool definition"])?;
+
+        let tags = std::process::Command::new("git")
+            .args(["tag", "--list"])
+            .current_dir(&clone_dir)
+            .output()
+            .map(|o| o.stdout)
+            .unwrap_or_default();
+        if tags.is_empty() {
+            run_git(&clone_dir, &["tag", "v0.1.0"])?;
+            println!("Created tag v0.1.0.");
+        }
+
+        if let Err(e) = run_git(&clone_dir, &["push"])
+            .and_then(|_| run_git(&clone_dir, &["push", "--tags"]))
+        {
+            let saved = tmp.into_path();
+            anyhow::bail!(
+                "{}\n\n\
+                 The committed repo was saved to: {}\n\
+                 Fix credentials (e.g. gh auth login) then run:\n  \
+                 cd {} && git push && git push --tags\n  \
+                 livefolders publish {}",
+                e,
+                saved.join("repo").display(),
+                saved.join("repo").display(),
+                slug
+            );
+        }
+        println!("Pushed to GitHub.");
+    }
+
+    publish_from_dir(&clone_dir)
+}
+
+fn publish_from_dir(dir: &Path) -> anyhow::Result<()> {
+    let repo_slug = get_remote_slug(dir)?;
+
     let no_tags = std::process::Command::new("git")
         .args(["tag", "--list"])
+        .current_dir(dir)
         .output()
         .map(|o| o.stdout.is_empty())
         .unwrap_or(true);
@@ -41,10 +113,37 @@ pub fn publish() -> anyhow::Result<()> {
 
     println!("Publishing {} to the LiveFolders registry.", repo_slug);
 
-    // 3. Obtain a GitHub token via device flow
     let token = github_device_flow()?;
+    post_to_registry(&repo_slug, &token)
+}
 
-    // 4. POST to registry
+fn get_remote_slug(dir: &Path) -> anyhow::Result<String> {
+    let out = std::process::Command::new("git")
+        .args(["remote", "get-url", "origin"])
+        .current_dir(dir)
+        .output()
+        .context("failed to run git — are you in a git repository?")?;
+
+    if !out.status.success() {
+        anyhow::bail!(
+            "[ERROR:CONFIG] no git remote 'origin' found. Add one with: git remote add origin https://github.com/owner/repo"
+        );
+    }
+
+    let url = String::from_utf8(out.stdout)
+        .context("non-UTF8 remote URL")?
+        .trim()
+        .to_string();
+
+    extract_slug(&url).ok_or_else(|| {
+        anyhow::anyhow!(
+            "[ERROR:CONFIG] could not parse GitHub remote URL: {}\nExpected: https://github.com/owner/repo or git@github.com:owner/repo",
+            url
+        )
+    })
+}
+
+fn post_to_registry(repo_slug: &str, token: &str) -> anyhow::Result<()> {
     let client = reqwest::blocking::Client::builder()
         .user_agent("livefolders")
         .build()?;
@@ -81,6 +180,69 @@ pub fn publish() -> anyhow::Result<()> {
         println!("Published successfully.");
     }
 
+    Ok(())
+}
+
+fn collect_publishable_files(src: &Path) -> anyhow::Result<Vec<PathBuf>> {
+    let endpoint_names = endpoint_names_from_manifest(src);
+    let always_exclude: HashSet<&str> = ["how_to.md", "schema.json"].iter().copied().collect();
+
+    let mut result = Vec::new();
+    for entry in std::fs::read_dir(src)
+        .with_context(|| format!("reading directory {}", src.display()))?
+    {
+        let entry = entry?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+
+        if name_str.ends_with(".log") {
+            continue;
+        }
+        if always_exclude.contains(name_str.as_ref()) {
+            continue;
+        }
+        if endpoint_names.contains(name_str.as_ref()) {
+            continue;
+        }
+
+        result.push(path);
+    }
+    Ok(result)
+}
+
+fn endpoint_names_from_manifest(src: &Path) -> HashSet<String> {
+    let Ok(Some(manifest)) = crate::manifest::Manifest::load(src) else {
+        return HashSet::new();
+    };
+    manifest.files.iter().map(|f| f.name.clone()).collect()
+}
+
+fn prompt_repo_slug() -> anyhow::Result<String> {
+    use std::io::Write;
+    print!("GitHub repository (owner/name): ");
+    std::io::stdout().flush()?;
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+    let slug = input.trim().to_string();
+    if slug.is_empty() || !slug.contains('/') {
+        anyhow::bail!("[ERROR:CONFIG] expected owner/name format (e.g. alice/my-tool)");
+    }
+    Ok(slug)
+}
+
+fn run_git(dir: &Path, args: &[&str]) -> anyhow::Result<()> {
+    let status = std::process::Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .status()
+        .with_context(|| format!("failed to run: git {}", args.join(" ")))?;
+    if !status.success() {
+        anyhow::bail!("[ERROR:GIT] git {} failed", args.join(" "));
+    }
     Ok(())
 }
 
@@ -181,6 +343,77 @@ fn extract_slug(remote_url: &str) -> Option<String> {
         return Some(path.to_string());
     }
     None
+}
+
+#[cfg(test)]
+mod bootstrap_tests {
+    use super::*;
+
+    fn make_tool_dir(manifest_yaml: &str, files: &[(&str, &[u8])]) -> tempfile::TempDir {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("folder.yaml"), manifest_yaml).unwrap();
+        for (name, content) in files {
+            std::fs::write(tmp.path().join(name), content).unwrap();
+        }
+        tmp
+    }
+
+    #[test]
+    fn collect_publishable_excludes_endpoint_names() {
+        let yaml = "files:\n  - name: data\n    type: write_invoke\n    handler: cat\n  - name: report\n    type: write_invoke\n    handler: cat\n";
+        let tmp = make_tool_dir(yaml, &[("data", b""), ("report", b""), ("fmt.py", b"print(1)")]);
+        let files = collect_publishable_files(tmp.path()).unwrap();
+        let names: Vec<_> = files.iter().map(|p| p.file_name().unwrap().to_str().unwrap().to_string()).collect();
+        assert!(!names.contains(&"data".to_string()), "should exclude endpoint 'data'");
+        assert!(!names.contains(&"report".to_string()), "should exclude endpoint 'report'");
+        assert!(names.contains(&"fmt.py".to_string()), "should include companion script");
+        assert!(names.contains(&"folder.yaml".to_string()), "should include folder.yaml");
+    }
+
+    #[test]
+    fn collect_publishable_excludes_log_files() {
+        let yaml = "files:\n  - name: data\n    type: write_invoke\n    handler: cat\n";
+        let tmp = make_tool_dir(yaml, &[("data.log", b"exit=0"), ("helper.sh", b"#!/bin/sh")]);
+        let files = collect_publishable_files(tmp.path()).unwrap();
+        let names: Vec<_> = files.iter().map(|p| p.file_name().unwrap().to_str().unwrap().to_string()).collect();
+        assert!(!names.contains(&"data.log".to_string()), "should exclude .log files");
+        assert!(names.contains(&"helper.sh".to_string()));
+    }
+
+    #[test]
+    fn collect_publishable_excludes_generated_files() {
+        let yaml = "files:\n  - name: data\n    type: write_invoke\n    handler: cat\n";
+        let tmp = make_tool_dir(yaml, &[("how_to.md", b"# How to"), ("schema.json", b"{}")]);
+        let files = collect_publishable_files(tmp.path()).unwrap();
+        let names: Vec<_> = files.iter().map(|p| p.file_name().unwrap().to_str().unwrap().to_string()).collect();
+        assert!(!names.contains(&"how_to.md".to_string()), "should exclude generated how_to.md");
+        assert!(!names.contains(&"schema.json".to_string()), "should exclude generated schema.json");
+    }
+
+    #[test]
+    fn collect_publishable_includes_companion_files() {
+        let yaml = "files:\n  - name: data\n    type: write_invoke\n    handler: ./fetch.sh\n";
+        let tmp = make_tool_dir(yaml, &[
+            ("fetch.sh", b"#!/bin/sh\ncurl https://example.com"),
+            ("config.json", b"{\"timeout\": 30}"),
+            ("requirements.txt", b"requests==2.31.0"),
+        ]);
+        let files = collect_publishable_files(tmp.path()).unwrap();
+        let names: Vec<_> = files.iter().map(|p| p.file_name().unwrap().to_str().unwrap().to_string()).collect();
+        assert!(names.contains(&"fetch.sh".to_string()));
+        assert!(names.contains(&"config.json".to_string()));
+        assert!(names.contains(&"requirements.txt".to_string()));
+        assert!(names.contains(&"folder.yaml".to_string()));
+    }
+
+    #[test]
+    fn collect_publishable_always_includes_folder_yaml() {
+        let yaml = "files: []\n";
+        let tmp = make_tool_dir(yaml, &[]);
+        let files = collect_publishable_files(tmp.path()).unwrap();
+        let names: Vec<_> = files.iter().map(|p| p.file_name().unwrap().to_str().unwrap().to_string()).collect();
+        assert!(names.contains(&"folder.yaml".to_string()));
+    }
 }
 
 #[cfg(test)]
