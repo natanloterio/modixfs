@@ -180,3 +180,28 @@ impl Drop for E2eFixture {
             .status();
     }
 }
+
+// ── Tests ──────────────────────────────────────────────────────────────────────
+
+#[test]
+#[ignore]
+fn test_mcp_discover_and_call() {
+    if prerequisites_missing() {
+        return;
+    }
+
+    let fixture = E2eFixture::new();
+    fixture.write_mcp_settings();
+
+    let (output, ok) = fixture.run_claude(
+        "Use the livefolders MCP server. Call the shout tool with the input 'hello world' \
+         and tell me what it returned.",
+    );
+
+    assert!(ok, "claude exited with failure. Output:\n{}", output);
+    assert!(
+        output.to_uppercase().contains("HELLO WORLD"),
+        "expected 'HELLO WORLD' in claude output, got:\n{}",
+        output,
+    );
+}
