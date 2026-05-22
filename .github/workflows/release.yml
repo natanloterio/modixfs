@@ -41,6 +41,10 @@ jobs:
         if: matrix.os == 'ubuntu-22.04' && !matrix.use_cross
         run: sudo apt-get install -y libfuse3-dev pkg-config
 
+      - name: Install macFUSE (macOS)
+        if: runner.os == 'macOS'
+        run: brew install macfuse
+
       - name: Build (cross)
         if: matrix.use_cross
         run: cross build --release --target ${{ matrix.target }}
