@@ -3,6 +3,7 @@ mod daemon;
 mod error;
 mod doctor;
 mod mcp;
+mod mcp_proxy;
 mod fs;
 mod installer;
 mod manifest;
