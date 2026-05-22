@@ -20,6 +20,20 @@ fn prerequisites_missing() -> bool {
         eprintln!("Skipping: claude CLI not found on PATH");
         return true;
     }
+    let has_fusermount = Command::new("fusermount")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+        || Command::new("fusermount3")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    if !has_fusermount {
+        eprintln!("Skipping: neither fusermount nor fusermount3 found on PATH");
+        return true;
+    }
     false
 }
 
@@ -59,6 +73,7 @@ impl E2eFixture {
 
         fs::create_dir_all(&tools_dir).unwrap();
         fs::create_dir_all(&work_dir).unwrap();
+        fs::create_dir_all(&mount_dir).unwrap();
 
         // Copy shout fixture into tools_dir
         let shout_dir = tools_dir.join("shout");
@@ -79,7 +94,7 @@ impl E2eFixture {
         fs::write(&config_path, &config_yaml).unwrap();
 
         // Spawn FUSE mount in foreground
-        let mount_proc = Command::new(&bin)
+        let mut mount_proc = Command::new(&bin)
             .args(["mount", "--foreground", "--config"])
             .arg(&config_path)
             .spawn()
@@ -88,13 +103,19 @@ impl E2eFixture {
         // Poll until mount is ready (index.md synthesized by FUSE)
         let deadline = Instant::now() + Duration::from_secs(5);
         let index_md = mount_dir.join("tools").join("index.md");
-        while Instant::now() < deadline {
+        loop {
             if index_md.exists() {
                 break;
             }
+            if let Ok(Some(status)) = mount_proc.try_wait() {
+                panic!("livefolders mount exited early with status: {}", status);
+            }
+            if Instant::now() >= deadline {
+                let _ = mount_proc.kill();
+                panic!("FUSE mount did not come up within 5 seconds (process still running — check FUSE availability and livefolders.yaml)");
+            }
             std::thread::sleep(Duration::from_millis(100));
         }
-        assert!(index_md.exists(), "FUSE mount did not come up within 5 seconds");
 
         E2eFixture {
             _tmp_dir: tmp,
@@ -115,8 +136,8 @@ impl E2eFixture {
             "mcpServers": {
                 "livefolders": {
                     "type": "stdio",
-                    "command": self.livefolders_bin.to_string_lossy(),
-                    "args": ["mcp", "--config", self.config_path.to_string_lossy()]
+                    "command": self.livefolders_bin.to_str().unwrap(),
+                    "args": ["mcp", "--config", self.config_path.to_str().unwrap()]
                 }
             }
         });
@@ -138,7 +159,10 @@ impl E2eFixture {
             .args(["90", "claude", "--print", "--dangerously-skip-permissions", "-p", prompt])
             .current_dir(&self.work_dir)
             .output()
-            .expect("spawn claude via timeout");
+            .expect("failed to spawn claude via timeout");
+        if output.status.code() == Some(124) {
+            panic!("claude timed out after 90 seconds");
+        }
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         (stdout, output.status.success())
     }
