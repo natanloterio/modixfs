@@ -106,6 +106,42 @@ impl E2eFixture {
             mount_proc,
         }
     }
+
+    /// Writes .claude/settings.json with MCP server entry for this fixture.
+    fn write_mcp_settings(&self) {
+        let dot_claude = self.work_dir.join(".claude");
+        fs::create_dir_all(&dot_claude).unwrap();
+        let settings = serde_json::json!({
+            "mcpServers": {
+                "livefolders": {
+                    "type": "stdio",
+                    "command": self.livefolders_bin.to_string_lossy(),
+                    "args": ["mcp", "--config", self.config_path.to_string_lossy()]
+                }
+            }
+        });
+        fs::write(
+            dot_claude.join("settings.json"),
+            serde_json::to_string_pretty(&settings).unwrap(),
+        ).unwrap();
+    }
+
+    /// Writes CLAUDE.md in work_dir.
+    fn write_claude_md(&self, content: &str) {
+        fs::write(self.work_dir.join("CLAUDE.md"), content).unwrap();
+    }
+
+    /// Spawns `claude --print --dangerously-skip-permissions -p <prompt>` with
+    /// a 90-second timeout. Returns (stdout, exit_success).
+    fn run_claude(&self, prompt: &str) -> (String, bool) {
+        let output = Command::new("timeout")
+            .args(["90", "claude", "--print", "--dangerously-skip-permissions", "-p", prompt])
+            .current_dir(&self.work_dir)
+            .output()
+            .expect("spawn claude via timeout");
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        (stdout, output.status.success())
+    }
 }
 
 impl Drop for E2eFixture {
