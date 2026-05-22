@@ -534,7 +534,7 @@ fn parse_mcp_call_args(args: &[String]) -> McpCallArgs {
         if args[i] == "--arg" {
             i += 1;
             if i < args.len() {
-                if let Some((k, v)) = args[i].splitn(2, '=').collect::<Vec<_>>().as_slice().split_first().and_then(|(k, rest)| rest.first().map(|v| (*k, *v))) {
+                if let Some((k, v)) = args[i].split_once('=') {
                     arg_pairs.insert(k.to_string(), v.to_string());
                 }
             }
