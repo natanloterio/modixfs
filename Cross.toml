@@ -1,6 +1,9 @@
 [target.aarch64-unknown-linux-gnu]
 pre-build = [
     "dpkg --add-architecture arm64",
+    "sed -i 's/^deb /deb [arch=amd64,i386] /' /etc/apt/sources.list",
+    "echo 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal main restricted universe multiverse' >> /etc/apt/sources.list",
+    "echo 'deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports focal-updates main restricted universe multiverse' >> /etc/apt/sources.list",
     "apt-get update",
     "apt-get install -y libfuse3-dev:arm64 pkg-config",
 ]
