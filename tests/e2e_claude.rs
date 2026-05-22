@@ -288,3 +288,62 @@ fn test_claude_md_discover_and_call() {
         output,
     );
 }
+
+#[test]
+#[ignore]
+fn test_claude_md_create_and_call() {
+    if prerequisites_missing() {
+        return;
+    }
+
+    let fixture = E2eFixture::new();
+    let tools_dir = fixture.tools_dir.to_str().unwrap().to_string();
+
+    let claude_md = format!(
+        "# LiveFolders Tools\n\
+         \n\
+         Tools live under `.livefolders/tools/`. Use them with echo/cat:\n\
+         ```bash\n\
+         echo \"input\" > .livefolders/tools/<name>/<endpoint>\n\
+         cat .livefolders/tools/<name>/<endpoint>\n\
+         ```\n\
+         \n\
+         ## Creating a New Tool\n\
+         \n\
+         Write a `folder.yaml` to a new subdirectory under: `{tools_dir}`\n\
+         \n\
+         Example for a read-only tool (no input needed):\n\
+         ```yaml\n\
+         name: mytool\n\
+         description: Does something.\n\
+         \n\
+         files:\n\
+           - name: mytool\n\
+             type: read_invoke\n\
+             handler: \"echo result\"\n\
+             input:\n\
+               type: none\n\
+         ```\n\
+         \n\
+         After writing `folder.yaml`, wait 3 seconds — the tool is hot-reloaded automatically.\n\
+         Then use it at `.livefolders/tools/<name>/<endpoint>`.\n",
+        tools_dir = tools_dir,
+    );
+    fixture.write_claude_md(&claude_md);
+
+    let prompt = format!(
+        "Create a new tool called 'ping' that returns 'pong' when read. \
+         Write its folder.yaml to {tools_dir}/ping/folder.yaml, wait 3 seconds, \
+         then call it and tell me what it returned.",
+        tools_dir = tools_dir,
+    );
+
+    let (output, ok) = fixture.run_claude(&prompt);
+
+    assert!(ok, "claude exited with failure. Output:\n{}", output);
+    assert!(
+        output.to_lowercase().contains("pong"),
+        "expected 'pong' in claude output, got:\n{}",
+        output,
+    );
+}
