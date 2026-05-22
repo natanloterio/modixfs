@@ -34,6 +34,7 @@ Commands:
   mount [path]           Mount the filesystem in the background (default)
   stop [path]            Stop the background mount
   install <url>          Install a tool from GitHub
+  tools list             List all installed tools
   search <query>         Search the LiveFolders tool registry
   info <owner/name>      Show tool info from the registry
   publish                Publish this repo to the registry
@@ -50,6 +51,27 @@ Options:
 Environment:
   GITHUB_TOKEN      GitHub personal access token (for livefolders install)
 ";
+
+fn list_installed_tools(tools_dir: &std::path::Path) -> anyhow::Result<Vec<String>> {
+    let mut lines = Vec::new();
+    for entry in std::fs::read_dir(tools_dir)
+        .with_context(|| format!("reading tools dir {}", tools_dir.display()))?
+    {
+        let entry = entry?;
+        let path = entry.path();
+        if !path.is_dir() || !path.join("folder.yaml").exists() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let description = manifest::Manifest::load(&path)
+            .ok()
+            .flatten()
+            .and_then(|m| m.description)
+            .unwrap_or_else(|| "—".to_string());
+        lines.push(format!("{:<20} — {}", name, description));
+    }
+    Ok(lines)
+}
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -190,6 +212,45 @@ fn main() -> Result<()> {
             let repo_arg = args.get(2).map(|s| s.as_str());
             marketplace::publish::publish(repo_arg)?;
             Ok(())
+        }
+        "tools" => {
+            let sub = args.get(2).map(|s| s.as_str()).unwrap_or("help");
+            match sub {
+                "list" => {
+                    let cfg = {
+                        let p = PathBuf::from("livefolders.yaml");
+                        if p.exists() {
+                            Config::load(&p).unwrap_or_else(|_| Config::default_config())
+                        } else {
+                            Config::default_config()
+                        }
+                    };
+                    let tools_dir = cfg.resolved_tools_dir()
+                        .context("could not resolve tools_dir")?;
+                    let Some(tools_dir) = tools_dir else {
+                        println!("No tools installed.");
+                        return Ok(());
+                    };
+                    if !tools_dir.exists() {
+                        println!("No tools installed.");
+                        return Ok(());
+                    }
+                    let mut lines = list_installed_tools(&tools_dir)?;
+                    if lines.is_empty() {
+                        println!("No tools installed.");
+                    } else {
+                        lines.sort();
+                        for line in lines {
+                            println!("{}", line);
+                        }
+                    }
+                    Ok(())
+                }
+                _ => {
+                    eprintln!("Usage: livefolders tools list");
+                    std::process::exit(1);
+                }
+            }
         }
         "mcp" => cmd_mcp(&args),
         "--version" | "-v" => {
@@ -634,6 +695,52 @@ fn parse_mount_args(args: &[String]) -> (Option<PathBuf>, Option<PathBuf>, bool)
         i += 1;
     }
     (mount, config, foreground)
+}
+
+#[cfg(test)]
+mod tools_list_tests {
+    use super::*;
+    use std::fs;
+
+    fn make_tool(tools_dir: &std::path::Path, name: &str, description: Option<&str>) {
+        let dir = tools_dir.join(name);
+        fs::create_dir_all(&dir).unwrap();
+        let desc_line = description
+            .map(|d| format!("description: {}\n", d))
+            .unwrap_or_default();
+        fs::write(dir.join("folder.yaml"), format!("{}files: []\n", desc_line)).unwrap();
+    }
+
+    #[test]
+    fn list_tools_returns_name_and_description() {
+        let tmp = tempfile::tempdir().unwrap();
+        make_tool(tmp.path(), "weather", Some("Get the weather"));
+        make_tool(tmp.path(), "echo", Some("Echo input back"));
+        let mut out = list_installed_tools(tmp.path()).unwrap();
+        out.sort();
+        assert_eq!(out.len(), 2);
+        assert!(out[0].contains("echo") && out[0].contains("Echo input back"));
+        assert!(out[1].contains("weather") && out[1].contains("Get the weather"));
+    }
+
+    #[test]
+    fn list_tools_skips_dirs_without_folder_yaml() {
+        let tmp = tempfile::tempdir().unwrap();
+        make_tool(tmp.path(), "real-tool", Some("A real tool"));
+        fs::create_dir_all(tmp.path().join("not-a-tool")).unwrap();
+        let out = list_installed_tools(tmp.path()).unwrap();
+        assert_eq!(out.len(), 1);
+        assert!(out[0].contains("real-tool"));
+    }
+
+    #[test]
+    fn list_tools_no_description_shows_dash() {
+        let tmp = tempfile::tempdir().unwrap();
+        make_tool(tmp.path(), "minimal", None);
+        let out = list_installed_tools(tmp.path()).unwrap();
+        assert_eq!(out.len(), 1);
+        assert!(out[0].contains("minimal") && out[0].contains("—"));
+    }
 }
 
 #[cfg(test)]
