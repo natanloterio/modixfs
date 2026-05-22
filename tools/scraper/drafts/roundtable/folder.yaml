@@ -1,0 +1,33 @@
+name: roundtable
+description: Unifies multiple AI coding assistants (Codex, Claude Code, Cursor, Gemini) through intelligent auto-discovery and standardized interface
+
+mcp:
+  server: roundtable
+  command: npx
+  args: ["-y", "roundtable-mcp"]
+
+files:
+  - name: run_task
+    type: write_invoke
+    handler: livefolders mcp call roundtable run_task --arg task="$INPUT"
+    input:
+      type: string
+      description: Task or coding request to send to all available AI assistants
+
+  - name: list_assistants
+    type: read_invoke
+    handler: livefolders mcp call roundtable list_assistants
+
+  - name: ask_assistant
+    type: write_invoke
+    handler: livefolders mcp call roundtable ask_assistant --arg prompt="$INPUT"
+    input:
+      type: string
+      description: Prompt to send to a specific or auto-selected AI coding assistant
+
+  - name: get_status
+    type: read_invoke
+    handler: livefolders mcp call roundtable get_status
+
+  - name: how_to.md
+    type: readonly

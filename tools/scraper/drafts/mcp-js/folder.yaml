@@ -1,0 +1,70 @@
+name: mcp-js
+description: Execute JavaScript in a persistent V8 runtime via MCP
+
+mcp:
+  server: mcp-js
+  command: npx
+  args: ["-y", "mcp-js"]
+
+env:
+  - name: AWS_ACCESS_KEY_ID
+    description: AWS access key for S3 heap snapshot storage (optional)
+    secret: true
+    required: false
+  - name: AWS_SECRET_ACCESS_KEY
+    description: AWS secret key for S3 heap snapshot storage (optional)
+    secret: true
+    required: false
+  - name: AWS_REGION
+    description: AWS region for S3 bucket (optional)
+    secret: false
+    required: false
+  - name: S3_BUCKET
+    description: S3 bucket name for persisting heap snapshots (optional)
+    secret: false
+    required: false
+  - name: SNAPSHOT_DIR
+    description: Local filesystem directory for heap snapshots (optional)
+    secret: false
+    required: false
+
+files:
+  - name: evaluate
+    type: write_invoke
+    handler: livefolders mcp call mcp-js evaluate --arg code="$INPUT"
+    input:
+      type: string
+      description: JavaScript code to execute in the V8 runtime
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcp-js
+
+      A LiveFolders wrapper for the mcp-js MCP server, which exposes a persistent
+      V8 JavaScript runtime as a tool for AI agents like Claude and Cursor.
+
+      ## Usage
+
+      ### evaluate
+      Submit JavaScript code as input. The code runs inside a persistent V8 heap,
+      so variables and state defined in one call are available in subsequent calls.
+
+      Example input:
+      ```js
+      const x = 42;
+      x * 2;
+      ```
+
+      ## Persistent State (optional)
+
+      Heap snapshots can be persisted between sessions using either:
+
+      - **S3**: Set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`,
+        and `S3_BUCKET` environment variables.
+      - **Local filesystem**: Set `SNAPSHOT_DIR` to a writable directory path.
+
+      If neither is configured, state is held only for the lifetime of the process.
+
+      ## References
+      - GitHub: https://github.com/r33drichards/mcp-js

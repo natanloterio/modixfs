@@ -1,0 +1,70 @@
+name: mermaid-mcp
+description: Generate Mermaid diagrams from text descriptions via MCP
+
+mcp:
+  server: mermaid-mcp
+  command: npx
+  args: ["-y", "mermaid-mcp-server"]
+
+files:
+  - name: generate_diagram
+    type: write_invoke
+    handler: livefolders mcp call mermaid-mcp generate_diagram --arg diagram_definition="$INPUT"
+    input:
+      type: string
+      description: Mermaid diagram definition text (e.g. "graph TD; A-->B; B-->C")
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mermaid-mcp
+
+      Generate Mermaid diagrams from diagram definition text.
+
+      ## Usage
+
+      Write a Mermaid diagram definition into `generate_diagram` to render it.
+
+      ### Example inputs
+
+      **Flowchart:**
+      ```
+      graph TD
+        A[Start] --> B{Decision}
+        B -->|Yes| C[Do something]
+        B -->|No| D[Do something else]
+        C --> E[End]
+        D --> E
+      ```
+
+      **Sequence diagram:**
+      ```
+      sequenceDiagram
+        Alice->>John: Hello John, how are you?
+        John-->>Alice: Great!
+      ```
+
+      **Class diagram:**
+      ```
+      classDiagram
+        Animal <|-- Duck
+        Animal : +String name
+        Animal: +makeSound()
+        Duck: +quack()
+      ```
+
+      ## Supported diagram types
+
+      - Flowcharts (`graph` / `flowchart`)
+      - Sequence diagrams (`sequenceDiagram`)
+      - Class diagrams (`classDiagram`)
+      - State diagrams (`stateDiagram`)
+      - Entity Relationship diagrams (`erDiagram`)
+      - Gantt charts (`gantt`)
+      - Pie charts (`pie`)
+      - Git graphs (`gitGraph`)
+
+      ## References
+
+      - GitHub: https://github.com/Narasimhaponnada/mermaid-mcp
+      - Mermaid docs: https://mermaid.js.org/

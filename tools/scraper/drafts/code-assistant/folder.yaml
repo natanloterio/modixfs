@@ -1,0 +1,57 @@
+name: code-assistant
+description: An LLM-powered, autonomous coding assistant with MCP and ACP mode support
+
+mcp:
+  server: code-assistant
+  command: npx
+  args: ["-y", "code-assistant-mcp"]
+
+files:
+  - name: read_files
+    type: write_invoke
+    handler: livefolders mcp call code-assistant read_files --arg paths="$INPUT"
+    input:
+      type: string
+      description: Comma-separated list of file paths to read
+
+  - name: write_file
+    type: write_invoke
+    handler: livefolders mcp call code-assistant write_file --arg path="$INPUT"
+    input:
+      type: string
+      description: File path to write content to
+
+  - name: list_files
+    type: write_invoke
+    handler: livefolders mcp call code-assistant list_files --arg path="$INPUT"
+    input:
+      type: string
+      description: Directory path to list files in
+
+  - name: search_files
+    type: write_invoke
+    handler: livefolders mcp call code-assistant search_files --arg pattern="$INPUT"
+    input:
+      type: string
+      description: Search pattern or query to find relevant files or code
+
+  - name: execute_command
+    type: write_invoke
+    handler: livefolders mcp call code-assistant execute_command --arg command="$INPUT"
+    input:
+      type: string
+      description: Shell command to execute in the project environment
+
+  - name: search_and_replace
+    type: write_invoke
+    handler: livefolders mcp call code-assistant search_and_replace --arg search="$INPUT"
+    input:
+      type: string
+      description: Search string or regex pattern to find and replace in files
+
+  - name: get_project_overview
+    type: read_invoke
+    handler: livefolders mcp call code-assistant get_project_overview
+
+  - name: how_to.md
+    type: readonly

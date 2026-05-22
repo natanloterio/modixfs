@@ -1,0 +1,74 @@
+name: line-bot-mcp-server
+description: Integrates the LINE Messaging API to connect an AI Agent to a LINE Official Account.
+
+mcp:
+  server: line-bot-mcp-server
+  command: npx
+  args: ["-y", "@line/line-bot-mcp-server"]
+
+env:
+  - name: CHANNEL_ACCESS_TOKEN
+    description: LINE Channel Access Token for the Official Account
+    secret: true
+    required: true
+  - name: CHANNEL_SECRET
+    description: LINE Channel Secret for the Official Account
+    secret: true
+    required: true
+  - name: DESTINATION_USER_ID
+    description: Default LINE User ID to send messages to
+    secret: false
+    required: false
+
+files:
+  - name: push_text_message
+    type: write_invoke
+    handler: livefolders mcp call line-bot-mcp-server push_text_message --arg userId="$INPUT"
+    input:
+      type: string
+      description: LINE User ID to send a text message to
+
+  - name: push_flex_message
+    type: write_invoke
+    handler: livefolders mcp call line-bot-mcp-server push_flex_message --arg userId="$INPUT"
+    input:
+      type: string
+      description: LINE User ID to send a flex message to
+
+  - name: reply_text_message
+    type: write_invoke
+    handler: livefolders mcp call line-bot-mcp-server reply_text_message --arg replyToken="$INPUT"
+    input:
+      type: string
+      description: Reply token from a LINE webhook event to reply with a text message
+
+  - name: reply_flex_message
+    type: write_invoke
+    handler: livefolders mcp call line-bot-mcp-server reply_flex_message --arg replyToken="$INPUT"
+    input:
+      type: string
+      description: Reply token from a LINE webhook event to reply with a flex message
+
+  - name: get_profile
+    type: write_invoke
+    handler: livefolders mcp call line-bot-mcp-server get_profile --arg userId="$INPUT"
+    input:
+      type: string
+      description: LINE User ID to retrieve profile information for
+
+  - name: get_message_content
+    type: write_invoke
+    handler: livefolders mcp call line-bot-mcp-server get_message_content --arg messageId="$INPUT"
+    input:
+      type: string
+      description: Message ID of the media content to retrieve
+
+  - name: broadcast_text_message
+    type: write_invoke
+    handler: livefolders mcp call line-bot-mcp-server broadcast_text_message --arg message="$INPUT"
+    input:
+      type: string
+      description: Text message content to broadcast to all followers
+
+  - name: how_to.md
+    type: readonly

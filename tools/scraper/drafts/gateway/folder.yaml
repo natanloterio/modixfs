@@ -1,0 +1,118 @@
+name: gateway
+description: Universal MCP server for databases optimized for LLMs and AI agents
+
+mcp:
+  server: gateway
+  command: npx
+  args: ["-y", "@centralmind/gateway-mcp"]
+
+env:
+  - name: GATEWAY_CONNECTION_STRING
+    description: Database connection string (e.g. postgres://user:pass@host/db)
+    secret: true
+    required: true
+
+files:
+  - name: query
+    type: write_invoke
+    handler: livefolders mcp call gateway query --arg sql="$INPUT"
+    input:
+      type: string
+      description: SQL query to execute against the connected database
+
+  - name: list_tables
+    type: read_invoke
+    handler: livefolders mcp call gateway list_tables
+    description: List all available tables in the connected database
+
+  - name: describe_table
+    type: write_invoke
+    handler: livefolders mcp call gateway describe_table --arg table="$INPUT"
+    input:
+      type: string
+      description: Table name to describe (returns schema and column info)
+
+  - name: insert_row
+    type: write_invoke
+    handler: livefolders mcp call gateway insert_row --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON object with table name and row data to insert
+
+  - name: update_row
+    type: write_invoke
+    handler: livefolders mcp call gateway update_row --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON object with table name, filter conditions, and updated fields
+
+  - name: delete_row
+    type: write_invoke
+    handler: livefolders mcp call gateway delete_row --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON object with table name and filter conditions for rows to delete
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # Gateway MCP — Database Tool
+
+      Universal MCP server that connects AI agents and LLMs to your databases.
+
+      ## Setup
+
+      Set the `GATEWAY_CONNECTION_STRING` environment variable to your database URL:
+
+      ```
+      # PostgreSQL
+      GATEWAY_CONNECTION_STRING=postgres://user:password@localhost:5432/mydb
+
+      # MySQL
+      GATEWAY_CONNECTION_STRING=mysql://user:password@localhost:3306/mydb
+
+      # SQLite
+      GATEWAY_CONNECTION_STRING=sqlite:///path/to/database.db
+      ```
+
+      ## Available Tools
+
+      | Tool | Description |
+      |------|-------------|
+      | `query` | Run any SQL query and return results |
+      | `list_tables` | Show all tables in the connected database |
+      | `describe_table` | Get schema info for a specific table |
+      | `insert_row` | Insert a new row into a table |
+      | `update_row` | Update existing rows matching filter conditions |
+      | `delete_row` | Delete rows matching filter conditions |
+
+      ## Examples
+
+      **Run a query:**
+      ```
+      SELECT * FROM users LIMIT 10
+      ```
+
+      **Describe a table:**
+      ```
+      users
+      ```
+
+      **Insert a row (JSON):**
+      ```json
+      {"table": "users", "row": {"name": "Alice", "email": "alice@example.com"}}
+      ```
+
+      **Update rows (JSON):**
+      ```json
+      {"table": "users", "filter": {"id": 42}, "update": {"email": "new@example.com"}}
+      ```
+
+      **Delete rows (JSON):**
+      ```json
+      {"table": "users", "filter": {"id": 42}}
+      ```
+
+      ## More Info
+
+      GitHub: https://github.com/centralmind/gateway

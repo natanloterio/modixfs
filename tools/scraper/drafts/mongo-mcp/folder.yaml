@@ -1,0 +1,137 @@
+name: mongo-mcp
+description: A MongoDB server for the Model Context Protocol (MCP)
+
+mcp:
+  server: mongo-mcp
+  command: npx
+  args: ["-y", "mongo-mcp", "$MONGODB_URI"]
+
+env:
+  - name: MONGODB_URI
+    description: MongoDB connection URI (e.g. mongodb://localhost:27017/mydb)
+    secret: true
+    required: true
+
+files:
+  - name: find
+    type: write_invoke
+    handler: livefolders mcp call mongo-mcp find --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to query (optionally include filter JSON as second arg)
+
+  - name: insert_one
+    type: write_invoke
+    handler: livefolders mcp call mongo-mcp insertOne --arg document="$INPUT"
+    input:
+      type: string
+      description: JSON document to insert into the collection
+
+  - name: insert_many
+    type: write_invoke
+    handler: livefolders mcp call mongo-mcp insertMany --arg documents="$INPUT"
+    input:
+      type: string
+      description: JSON array of documents to insert
+
+  - name: update_one
+    type: write_invoke
+    handler: livefolders mcp call mongo-mcp updateOne --arg filter="$INPUT"
+    input:
+      type: string
+      description: JSON filter to match the document to update
+
+  - name: update_many
+    type: write_invoke
+    handler: livefolders mcp call mongo-mcp updateMany --arg filter="$INPUT"
+    input:
+      type: string
+      description: JSON filter to match documents to update
+
+  - name: delete_one
+    type: write_invoke
+    handler: livefolders mcp call mongo-mcp deleteOne --arg filter="$INPUT"
+    input:
+      type: string
+      description: JSON filter to match the document to delete
+
+  - name: delete_many
+    type: write_invoke
+    handler: livefolders mcp call mongo-mcp deleteMany --arg filter="$INPUT"
+    input:
+      type: string
+      description: JSON filter to match documents to delete
+
+  - name: aggregate
+    type: write_invoke
+    handler: livefolders mcp call mongo-mcp aggregate --arg pipeline="$INPUT"
+    input:
+      type: string
+      description: JSON aggregation pipeline array
+
+  - name: list_collections
+    type: read_invoke
+    handler: livefolders mcp call mongo-mcp listCollections
+
+  - name: drop_collection
+    type: write_invoke
+    handler: livefolders mcp call mongo-mcp dropCollection --arg collection="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to drop
+
+  - name: create_index
+    type: write_invoke
+    handler: livefolders mcp call mongo-mcp createIndex --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name on which to create an index
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mongo-mcp LiveFolder
+
+      This folder wraps the `mongo-mcp` MCP server, giving you direct MongoDB
+      access from LiveFolders.
+
+      ## Setup
+
+      Set the `MONGODB_URI` environment variable to your MongoDB connection string,
+      for example:
+        mongodb://localhost:27017/mydb
+        mongodb+srv://user:pass@cluster.mongodb.net/mydb
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | find | Query documents from a collection |
+      | insert_one | Insert a single JSON document |
+      | insert_many | Insert multiple JSON documents |
+      | update_one | Update the first matching document |
+      | update_many | Update all matching documents |
+      | delete_one | Delete the first matching document |
+      | delete_many | Delete all matching documents |
+      | aggregate | Run an aggregation pipeline |
+      | list_collections | List all collections in the database |
+      | drop_collection | Drop a collection by name |
+      | create_index | Create an index on a collection |
+
+      ## Examples
+
+      **List all collections:**
+        Read `list_collections`
+
+      **Find documents:**
+        Write to `find` with input: `myCollection`
+
+      **Insert a document:**
+        Write to `insert_one` with input: `{"name": "Alice", "age": 30}`
+
+      **Aggregate:**
+        Write to `aggregate` with input: `[{"$match": {"status": "active"}}, {"$count": "total"}]`
+
+      ## Source
+
+      https://github.com/QuantGeekDev/mongo-mcp

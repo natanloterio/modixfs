@@ -1,0 +1,79 @@
+name: jmap-mcp
+description: Interact with JMAP email servers using the JSON Meta Application Protocol
+
+mcp:
+  server: jmap-mcp
+  command: npx
+  args: ["-y", "jmap-mcp"]
+
+env:
+  - name: JMAP_BASE_URL
+    description: Base URL of your JMAP server
+    secret: false
+    required: true
+  - name: JMAP_USERNAME
+    description: JMAP account username or email
+    secret: false
+    required: true
+  - name: JMAP_PASSWORD
+    description: JMAP account password
+    secret: true
+    required: true
+
+files:
+  - name: list_mailboxes
+    type: read_invoke
+    handler: livefolders mcp call jmap-mcp list_mailboxes
+    description: List all mailboxes/folders in the JMAP account
+
+  - name: get_emails
+    type: write_invoke
+    handler: livefolders mcp call jmap-mcp get_emails --arg mailboxId="$INPUT"
+    input:
+      type: string
+      description: Mailbox ID to retrieve emails from
+
+  - name: get_email
+    type: write_invoke
+    handler: livefolders mcp call jmap-mcp get_email --arg emailId="$INPUT"
+    input:
+      type: string
+      description: Email ID to retrieve full content of
+
+  - name: search_emails
+    type: write_invoke
+    handler: livefolders mcp call jmap-mcp search_emails --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query string to find matching emails
+
+  - name: send_email
+    type: write_invoke
+    handler: livefolders mcp call jmap-mcp send_email --arg to="$INPUT"
+    input:
+      type: string
+      description: Recipient email address for the new email
+
+  - name: move_email
+    type: write_invoke
+    handler: livefolders mcp call jmap-mcp move_email --arg emailId="$INPUT"
+    input:
+      type: string
+      description: Email ID to move to another mailbox
+
+  - name: delete_email
+    type: write_invoke
+    handler: livefolders mcp call jmap-mcp delete_email --arg emailId="$INPUT"
+    input:
+      type: string
+      description: Email ID to delete or move to trash
+
+  - name: mark_email_read
+    type: write_invoke
+    handler: livefolders mcp call jmap-mcp mark_email_read --arg emailId="$INPUT"
+    input:
+      type: string
+      description: Email ID to mark as read
+
+  - name: how_to.md
+    type: readonly

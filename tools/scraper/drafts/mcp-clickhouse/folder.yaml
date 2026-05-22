@@ -1,0 +1,98 @@
+name: mcp-clickhouse
+description: Connect ClickHouse to your AI assistants for querying and exploring databases.
+
+mcp:
+  server: mcp-clickhouse
+  command: npx
+  args: ["-y", "mcp-clickhouse"]
+
+env:
+  - name: CLICKHOUSE_HOST
+    description: ClickHouse server hostname or IP address
+    secret: false
+    required: true
+  - name: CLICKHOUSE_PORT
+    description: ClickHouse server port (default 8443 for HTTPS or 8123 for HTTP)
+    secret: false
+    required: false
+  - name: CLICKHOUSE_USER
+    description: ClickHouse username for authentication
+    secret: false
+    required: true
+  - name: CLICKHOUSE_PASSWORD
+    description: ClickHouse password for authentication
+    secret: true
+    required: true
+  - name: CLICKHOUSE_DATABASE
+    description: Default ClickHouse database to connect to
+    secret: false
+    required: false
+  - name: CLICKHOUSE_SECURE
+    description: Use HTTPS/TLS connection (true or false)
+    secret: false
+    required: false
+
+files:
+  - name: run_query
+    type: write_invoke
+    handler: livefolders mcp call mcp-clickhouse run_select_query --arg query="$INPUT"
+    input:
+      type: string
+      description: SQL SELECT query to execute against ClickHouse
+
+  - name: list_databases
+    type: read_invoke
+    handler: livefolders mcp call mcp-clickhouse list_databases
+
+  - name: list_tables
+    type: write_invoke
+    handler: livefolders mcp call mcp-clickhouse list_tables --arg database="$INPUT"
+    input:
+      type: string
+      description: Database name to list tables from
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcp-clickhouse
+
+      Connect your AI assistant to a ClickHouse database for querying and exploration.
+
+      ## Setup
+
+      Configure the following environment variables before use:
+
+      | Variable             | Required | Description                                      |
+      |----------------------|----------|--------------------------------------------------|
+      | CLICKHOUSE_HOST      | Yes      | Hostname or IP of your ClickHouse server         |
+      | CLICKHOUSE_PORT      | No       | Port number (8443 for HTTPS, 8123 for HTTP)      |
+      | CLICKHOUSE_USER      | Yes      | Username for authentication                      |
+      | CLICKHOUSE_PASSWORD  | Yes      | Password for authentication                      |
+      | CLICKHOUSE_DATABASE  | No       | Default database to use                          |
+      | CLICKHOUSE_SECURE    | No       | Set to `true` to enable TLS/HTTPS                |
+
+      ## Available Tools
+
+      ### `run_query`
+      Execute a SQL SELECT query against your ClickHouse instance.
+
+      **Example input:**
+      ```sql
+      SELECT * FROM system.tables LIMIT 10
+      ```
+
+      ### `list_databases`
+      List all databases available on the ClickHouse server. No input required.
+
+      ### `list_tables`
+      List all tables within a specific database.
+
+      **Example input:**
+      ```
+      my_database
+      ```
+
+      ## Notes
+      - Only SELECT queries are supported for safety; DDL and DML statements are not permitted.
+      - Ensure your ClickHouse instance is network-accessible from the environment running this server.
+      - For ClickHouse Cloud, use port `8443` and set `CLICKHOUSE_SECURE=true`.

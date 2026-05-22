@@ -1,0 +1,140 @@
+name: mysql_mcp_server_pro
+description: Secure MySQL database interaction with anomaly analysis capabilities via MCP
+
+mcp:
+  server: mysql_mcp_server_pro
+  command: npx
+  args: ["-y", "mysql_mcp_server_pro"]
+
+env:
+  - name: MYSQL_HOST
+    description: MySQL server hostname
+    secret: false
+    required: true
+  - name: MYSQL_PORT
+    description: MySQL server port (default 3306)
+    secret: false
+    required: false
+  - name: MYSQL_USER
+    description: MySQL username
+    secret: false
+    required: true
+  - name: MYSQL_PASSWORD
+    description: MySQL password
+    secret: true
+    required: true
+  - name: MYSQL_DATABASE
+    description: MySQL database name
+    secret: false
+    required: true
+
+files:
+  - name: execute_sql
+    type: write_invoke
+    handler: livefolders mcp call mysql_mcp_server_pro execute_sql --arg sql="$INPUT"
+    input:
+      type: string
+      description: SQL query to execute against the MySQL database
+
+  - name: list_tables
+    type: read_invoke
+    handler: livefolders mcp call mysql_mcp_server_pro list_tables
+
+  - name: describe_table
+    type: write_invoke
+    handler: livefolders mcp call mysql_mcp_server_pro describe_table --arg table_name="$INPUT"
+    input:
+      type: string
+      description: Table name to describe (show columns and schema)
+
+  - name: analyze_anomalies
+    type: write_invoke
+    handler: livefolders mcp call mysql_mcp_server_pro analyze_anomalies --arg table_name="$INPUT"
+    input:
+      type: string
+      description: Table name to analyze for anomalies and data quality issues
+
+  - name: get_table_indexes
+    type: write_invoke
+    handler: livefolders mcp call mysql_mcp_server_pro get_table_indexes --arg table_name="$INPUT"
+    input:
+      type: string
+      description: Table name to retrieve index information for
+
+  - name: get_slow_queries
+    type: read_invoke
+    handler: livefolders mcp call mysql_mcp_server_pro get_slow_queries
+
+  - name: explain_sql
+    type: write_invoke
+    handler: livefolders mcp call mysql_mcp_server_pro explain_sql --arg sql="$INPUT"
+    input:
+      type: string
+      description: SQL query to run EXPLAIN on for performance analysis
+
+  - name: get_database_status
+    type: read_invoke
+    handler: livefolders mcp call mysql_mcp_server_pro get_database_status
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # MySQL MCP Server Pro
+
+      A powerful MCP server for secure MySQL database interaction with anomaly analysis capabilities.
+
+      ## Setup
+
+      Set the following environment variables before use:
+
+      ```
+      MYSQL_HOST=your-mysql-host
+      MYSQL_PORT=3306
+      MYSQL_USER=your-username
+      MYSQL_PASSWORD=your-password
+      MYSQL_DATABASE=your-database
+      ```
+
+      ## Available Tools
+
+      ### execute_sql
+      Run any SQL query (SELECT, INSERT, UPDATE, DELETE, etc.) against the connected database.
+      - Input: SQL string, e.g. `SELECT * FROM users LIMIT 10`
+
+      ### list_tables
+      List all tables in the current database. No input required.
+
+      ### describe_table
+      Show the schema and column definitions for a given table.
+      - Input: Table name, e.g. `users`
+
+      ### analyze_anomalies
+      Analyze a table for data anomalies, null distributions, outliers, and data quality issues.
+      - Input: Table name, e.g. `orders`
+
+      ### get_table_indexes
+      Retrieve all index definitions for a given table to assist with query optimization.
+      - Input: Table name, e.g. `products`
+
+      ### get_slow_queries
+      Retrieve slow query log entries from the MySQL server for performance diagnostics. No input required.
+
+      ### explain_sql
+      Run EXPLAIN on a SQL query to analyze its execution plan and identify performance bottlenecks.
+      - Input: SQL query, e.g. `SELECT * FROM orders WHERE status = 'pending'`
+
+      ### get_database_status
+      Retrieve current MySQL server status, uptime, connections, and key metrics. No input required.
+
+      ## Use Cases
+
+      - **Development**: Quickly inspect schemas, run queries, and validate data
+      - **Performance tuning**: Use explain_sql and get_slow_queries to find bottlenecks
+      - **Data quality**: Use analyze_anomalies to detect issues in your data
+      - **Monitoring**: Check database health with get_database_status
+
+      ## Security Notes
+
+      - Use a read-only MySQL user when only SELECT access is needed
+      - Never expose MYSQL_PASSWORD in plain text; use the secret env var mechanism
+      - Prefer scoped database users with minimal privileges

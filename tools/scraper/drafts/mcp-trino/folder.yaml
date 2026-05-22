@@ -1,0 +1,111 @@
+name: mcp-trino
+description: Query and explore Trino data warehouses via the MCP Trino server
+
+mcp:
+  server: mcp-trino
+  command: npx
+  args: ["-y", "mcp-trino"]
+
+env:
+  - name: TRINO_HOST
+    description: Trino server hostname or IP address
+    required: true
+  - name: TRINO_PORT
+    description: Trino server port (default 8080)
+    required: false
+  - name: TRINO_USER
+    description: Trino username for authentication
+    required: true
+  - name: TRINO_PASSWORD
+    description: Trino password for authentication
+    secret: true
+    required: false
+  - name: TRINO_CATALOG
+    description: Default Trino catalog to use
+    required: false
+  - name: TRINO_SCHEMA
+    description: Default Trino schema to use
+    required: false
+
+files:
+  - name: execute_query
+    type: write_invoke
+    handler: livefolders mcp call mcp-trino execute_query --arg query="$INPUT"
+    input:
+      type: string
+      description: SQL query to execute against Trino
+
+  - name: list_catalogs
+    type: read_invoke
+    handler: livefolders mcp call mcp-trino list_catalogs
+
+  - name: list_schemas
+    type: write_invoke
+    handler: livefolders mcp call mcp-trino list_schemas --arg catalog="$INPUT"
+    input:
+      type: string
+      description: Catalog name to list schemas from
+
+  - name: list_tables
+    type: write_invoke
+    handler: livefolders mcp call mcp-trino list_tables --arg schema="$INPUT"
+    input:
+      type: string
+      description: Schema name (optionally prefixed with catalog, e.g. catalog.schema) to list tables from
+
+  - name: describe_table
+    type: write_invoke
+    handler: livefolders mcp call mcp-trino describe_table --arg table="$INPUT"
+    input:
+      type: string
+      description: Fully qualified table name (catalog.schema.table) to describe
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcp-trino
+
+      Query and explore Trino data warehouses using the MCP Trino server.
+
+      ## Setup
+
+      Set the following environment variables before use:
+
+      | Variable        | Required | Description                        |
+      |-----------------|----------|------------------------------------|
+      | TRINO_HOST      | Yes      | Trino server hostname or IP        |
+      | TRINO_PORT      | No       | Trino port (default: 8080)         |
+      | TRINO_USER      | Yes      | Trino username                     |
+      | TRINO_PASSWORD  | No       | Trino password (if auth enabled)   |
+      | TRINO_CATALOG   | No       | Default catalog                    |
+      | TRINO_SCHEMA    | No       | Default schema                     |
+
+      ## Available Tools
+
+      ### execute_query
+      Run any SQL query against Trino and get results back.
+      - Input: A valid Trino SQL query string
+
+      ### list_catalogs
+      List all available catalogs registered in the Trino cluster.
+      - No input required
+
+      ### list_schemas
+      List all schemas within a given catalog.
+      - Input: Catalog name (e.g. `hive`)
+
+      ### list_tables
+      List all tables within a given schema.
+      - Input: Schema reference, e.g. `hive.default` or just `default` if a default catalog is set
+
+      ### describe_table
+      Show column definitions and types for a specific table.
+      - Input: Fully qualified table name, e.g. `hive.default.my_table`
+
+      ## Example Queries
+
+      ```sql
+      SELECT * FROM hive.default.orders LIMIT 10;
+      SHOW TABLES IN hive.default;
+      DESCRIBE hive.default.orders;
+      ```

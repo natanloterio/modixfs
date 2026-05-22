@@ -1,0 +1,107 @@
+name: anilist-mcp
+description: AniList MCP server for accessing anime and manga data
+
+mcp:
+  server: anilist-mcp
+  command: npx
+  args: ["-y", "anilist-mcp"]
+
+files:
+  - name: search_anime
+    type: write_invoke
+    handler: livefolders mcp call anilist-mcp search_anime --arg query="$INPUT"
+    input:
+      type: string
+      description: Anime title to search for
+
+  - name: search_manga
+    type: write_invoke
+    handler: livefolders mcp call anilist-mcp search_manga --arg query="$INPUT"
+    input:
+      type: string
+      description: Manga title to search for
+
+  - name: get_anime
+    type: write_invoke
+    handler: livefolders mcp call anilist-mcp get_anime --arg id="$INPUT"
+    input:
+      type: string
+      description: AniList anime ID to retrieve details for
+
+  - name: get_manga
+    type: write_invoke
+    handler: livefolders mcp call anilist-mcp get_manga --arg id="$INPUT"
+    input:
+      type: string
+      description: AniList manga ID to retrieve details for
+
+  - name: get_character
+    type: write_invoke
+    handler: livefolders mcp call anilist-mcp get_character --arg id="$INPUT"
+    input:
+      type: string
+      description: AniList character ID to retrieve details for
+
+  - name: search_characters
+    type: write_invoke
+    handler: livefolders mcp call anilist-mcp search_characters --arg query="$INPUT"
+    input:
+      type: string
+      description: Character name to search for
+
+  - name: get_staff
+    type: write_invoke
+    handler: livefolders mcp call anilist-mcp get_staff --arg id="$INPUT"
+    input:
+      type: string
+      description: AniList staff ID to retrieve details for
+
+  - name: search_staff
+    type: write_invoke
+    handler: livefolders mcp call anilist-mcp search_staff --arg query="$INPUT"
+    input:
+      type: string
+      description: Staff member name to search for
+
+  - name: get_studio
+    type: write_invoke
+    handler: livefolders mcp call anilist-mcp get_studio --arg id="$INPUT"
+    input:
+      type: string
+      description: AniList studio ID to retrieve details for
+
+  - name: search_studios
+    type: write_invoke
+    handler: livefolders mcp call anilist-mcp search_studios --arg query="$INPUT"
+    input:
+      type: string
+      description: Studio name to search for
+
+  - name: get_user
+    type: write_invoke
+    handler: livefolders mcp call anilist-mcp get_user --arg name="$INPUT"
+    input:
+      type: string
+      description: AniList username to retrieve profile for
+
+  - name: get_current_user
+    type: read_invoke
+    handler: livefolders mcp call anilist-mcp get_current_user
+
+  - name: get_anime_trending
+    type: read_invoke
+    handler: livefolders mcp call anilist-mcp get_anime_trending
+
+  - name: get_manga_trending
+    type: read_invoke
+    handler: livefolders mcp call anilist-mcp get_manga_trending
+
+  - name: get_anime_seasonal
+    type: write_invoke
+    handler: livefolders mcp call anilist-mcp get_anime_seasonal --arg season="$INPUT"
+    input:
+      type: string
+      description: Season to retrieve anime for (e.g. WINTER, SPRING, SUMMER, FALL)
+
+  - name: how_to.md
+    type: readonly

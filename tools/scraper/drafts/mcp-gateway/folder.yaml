@@ -1,0 +1,56 @@
+name: mcp-gateway
+description: Universal MCP Gateway - Single-port multiplexing with Meta-MCP for ~95% context token savings
+
+mcp:
+  server: mcp-gateway
+  command: npx
+  args: ["-y", "mcp-gateway"]
+
+files:
+  - name: list_servers
+    type: read_invoke
+    handler: livefolders mcp call mcp-gateway list_servers
+    description: List all registered MCP servers available through the gateway
+
+  - name: call_tool
+    type: write_invoke
+    handler: livefolders mcp call mcp-gateway call_tool --arg tool="$INPUT"
+    input:
+      type: string
+      description: Tool name and arguments to invoke on a registered MCP server (e.g. server/tool_name with JSON args)
+
+  - name: list_tools
+    type: write_invoke
+    handler: livefolders mcp call mcp-gateway list_tools --arg server="$INPUT"
+    input:
+      type: string
+      description: Server name to list available tools for (leave empty for all servers)
+
+  - name: get_tool_schema
+    type: write_invoke
+    handler: livefolders mcp call mcp-gateway get_tool_schema --arg tool="$INPUT"
+    input:
+      type: string
+      description: Fully qualified tool name (server/tool_name) to retrieve the input schema for
+
+  - name: register_server
+    type: write_invoke
+    handler: livefolders mcp call mcp-gateway register_server --arg config="$INPUT"
+    input:
+      type: string
+      description: JSON config for registering a new MCP server with the gateway (name, command, args)
+
+  - name: unregister_server
+    type: write_invoke
+    handler: livefolders mcp call mcp-gateway unregister_server --arg server="$INPUT"
+    input:
+      type: string
+      description: Server name to remove from the gateway registry
+
+  - name: gateway_status
+    type: read_invoke
+    handler: livefolders mcp call mcp-gateway gateway_status
+    description: Get current gateway status including uptime, registered servers, and multiplexing stats
+
+  - name: how_to.md
+    type: readonly

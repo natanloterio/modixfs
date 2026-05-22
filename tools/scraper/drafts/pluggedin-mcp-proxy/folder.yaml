@@ -1,0 +1,60 @@
+name: pluggedin-mcp-proxy
+description: Plugged.in MCP Server manages all your other MCPs in one MCP.
+
+mcp:
+  server: pluggedin-mcp-proxy
+  command: npx
+  args: ["-y", "pluggedin-mcp-proxy"]
+
+env:
+  - name: PLUGGEDIN_API_KEY
+    secret: true
+    required: true
+  - name: PLUGGEDIN_API_BASE_URL
+    secret: false
+    required: false
+
+files:
+  - name: list_mcp_servers
+    type: read_invoke
+    handler: livefolders mcp call pluggedin-mcp-proxy list_mcp_servers
+    description: List all MCP servers managed by Plugged.in
+
+  - name: call_tool
+    type: write_invoke
+    handler: livefolders mcp call pluggedin-mcp-proxy call_tool --arg tool_name="$INPUT"
+    input:
+      type: string
+      description: Name of the tool to call on a managed MCP server
+
+  - name: list_tools
+    type: read_invoke
+    handler: livefolders mcp call pluggedin-mcp-proxy list_tools
+    description: List all available tools across all managed MCP servers
+
+  - name: list_resources
+    type: read_invoke
+    handler: livefolders mcp call pluggedin-mcp-proxy list_resources
+    description: List all resources available across managed MCP servers
+
+  - name: read_resource
+    type: write_invoke
+    handler: livefolders mcp call pluggedin-mcp-proxy read_resource --arg uri="$INPUT"
+    input:
+      type: string
+      description: URI of the resource to read from a managed MCP server
+
+  - name: list_prompts
+    type: read_invoke
+    handler: livefolders mcp call pluggedin-mcp-proxy list_prompts
+    description: List all prompts available across managed MCP servers
+
+  - name: get_prompt
+    type: write_invoke
+    handler: livefolders mcp call pluggedin-mcp-proxy get_prompt --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the prompt to retrieve from a managed MCP server
+
+  - name: how_to.md
+    type: readonly

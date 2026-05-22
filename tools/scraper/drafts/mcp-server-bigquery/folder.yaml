@@ -1,0 +1,96 @@
+name: mcp-server-bigquery
+description: Query and explore Google BigQuery datasets via the Model Context Protocol
+
+mcp:
+  server: mcp-server-bigquery
+  command: uvx
+  args: ["mcp-server-bigquery", "--project", "$(echo $BIGQUERY_PROJECT_ID)", "--location", "$(echo $BIGQUERY_LOCATION)"]
+
+env:
+  - name: GOOGLE_APPLICATION_CREDENTIALS
+    description: Path to Google Cloud service account JSON key file
+    secret: false
+    required: true
+  - name: BIGQUERY_PROJECT_ID
+    description: Google Cloud project ID that contains your BigQuery datasets
+    secret: false
+    required: true
+  - name: BIGQUERY_LOCATION
+    description: BigQuery location/region (e.g. US, EU, us-central1)
+    secret: false
+    required: true
+
+files:
+  - name: execute_query
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-bigquery execute_query --arg query="$INPUT"
+    input:
+      type: string
+      description: SQL query to execute against BigQuery
+
+  - name: list_datasets
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-bigquery list_datasets
+
+  - name: list_tables
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-bigquery list_tables --arg dataset_id="$INPUT"
+    input:
+      type: string
+      description: Dataset ID to list tables from
+
+  - name: get_table_schema
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-bigquery get_table_schema --arg table_id="$INPUT"
+    input:
+      type: string
+      description: "Fully qualified table ID in the format: dataset_id.table_id"
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcp-server-bigquery
+
+      This folder wraps the [mcp-server-bigquery](https://github.com/LucasHild/mcp-server-bigquery)
+      MCP server, giving you live access to Google BigQuery from LiveFolders.
+
+      ## Setup
+
+      ### 1. Google Cloud Credentials
+      Set `GOOGLE_APPLICATION_CREDENTIALS` to the path of your service account JSON key file.
+      The service account must have BigQuery Data Viewer and BigQuery Job User roles.
+
+      ### 2. Project & Location
+      Set `BIGQUERY_PROJECT_ID` to your GCP project ID and `BIGQUERY_LOCATION` to your
+      preferred region (e.g. `US`, `EU`, `us-central1`).
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | `execute_query` | Run a SQL query and get results |
+      | `list_datasets` | List all datasets in the project |
+      | `list_tables` | List all tables within a dataset |
+      | `get_table_schema` | Get the schema for a specific table |
+
+      ## Usage Examples
+
+      **List all datasets:**
+      ```
+      (invoke list_datasets)
+      ```
+
+      **List tables in a dataset:**
+      ```
+      my_dataset
+      ```
+
+      **Get table schema:**
+      ```
+      my_dataset.my_table
+      ```
+
+      **Run a query:**
+      ```sql
+      SELECT * FROM `my_dataset.my_table` LIMIT 10
+      ```

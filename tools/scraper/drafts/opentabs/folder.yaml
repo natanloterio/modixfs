@@ -1,0 +1,69 @@
+name: opentabs
+description: Browser automation clicks buttons. OpenTabs calls APIs.
+
+mcp:
+  server: opentabs
+  command: npx
+  args: ["-y", "@opentabs/mcp-server"]
+
+env:
+  - name: OPENTABS_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: open_tab
+    type: write_invoke
+    handler: livefolders mcp call opentabs open_tab --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to open in a new tab
+
+  - name: click_element
+    type: write_invoke
+    handler: livefolders mcp call opentabs click_element --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element to click
+
+  - name: fill_form
+    type: write_invoke
+    handler: livefolders mcp call opentabs fill_form --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the form field to fill
+
+  - name: get_page_content
+    type: write_invoke
+    handler: livefolders mcp call opentabs get_page_content --arg tab_id="$INPUT"
+    input:
+      type: string
+      description: Tab ID to retrieve page content from
+
+  - name: list_tabs
+    type: read_invoke
+    handler: livefolders mcp call opentabs list_tabs
+
+  - name: close_tab
+    type: write_invoke
+    handler: livefolders mcp call opentabs close_tab --arg tab_id="$INPUT"
+    input:
+      type: string
+      description: Tab ID to close
+
+  - name: call_api
+    type: write_invoke
+    handler: livefolders mcp call opentabs call_api --arg url="$INPUT"
+    input:
+      type: string
+      description: API endpoint URL to call
+
+  - name: screenshot
+    type: write_invoke
+    handler: livefolders mcp call opentabs screenshot --arg tab_id="$INPUT"
+    input:
+      type: string
+      description: Tab ID to take a screenshot of
+
+  - name: how_to.md
+    type: readonly

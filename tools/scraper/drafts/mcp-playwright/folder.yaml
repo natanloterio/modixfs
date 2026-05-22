@@ -1,0 +1,108 @@
+name: mcp-playwright
+description: Automate browsers and APIs using Playwright via the MCP server
+
+mcp:
+  server: mcp-playwright
+  command: npx
+  args: ["-y", "@executeautomation/playwright-mcp-server"]
+
+files:
+  - name: playwright_navigate
+    type: write_invoke
+    handler: livefolders mcp call mcp-playwright playwright_navigate --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to navigate to in the browser
+
+  - name: playwright_screenshot
+    type: write_invoke
+    handler: livefolders mcp call mcp-playwright playwright_screenshot --arg name="$INPUT"
+    input:
+      type: string
+      description: Name for the screenshot file
+
+  - name: playwright_click
+    type: write_invoke
+    handler: livefolders mcp call mcp-playwright playwright_click --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element to click
+
+  - name: playwright_fill
+    type: write_invoke
+    handler: livefolders mcp call mcp-playwright playwright_fill --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the input field to fill (use --arg value= for text)
+
+  - name: playwright_select
+    type: write_invoke
+    handler: livefolders mcp call mcp-playwright playwright_select --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the dropdown element to select
+
+  - name: playwright_hover
+    type: write_invoke
+    handler: livefolders mcp call mcp-playwright playwright_hover --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element to hover over
+
+  - name: playwright_evaluate
+    type: write_invoke
+    handler: livefolders mcp call mcp-playwright playwright_evaluate --arg script="$INPUT"
+    input:
+      type: string
+      description: JavaScript code to evaluate in the browser context
+
+  - name: playwright_get_visible_text
+    type: read_invoke
+    handler: livefolders mcp call mcp-playwright playwright_get_visible_text
+
+  - name: playwright_get_visible_html
+    type: read_invoke
+    handler: livefolders mcp call mcp-playwright playwright_get_visible_html
+
+  - name: playwright_go_back
+    type: read_invoke
+    handler: livefolders mcp call mcp-playwright playwright_go_back
+
+  - name: playwright_go_forward
+    type: read_invoke
+    handler: livefolders mcp call mcp-playwright playwright_go_forward
+
+  - name: playwright_close
+    type: read_invoke
+    handler: livefolders mcp call mcp-playwright playwright_close
+
+  - name: playwright_api_get
+    type: write_invoke
+    handler: livefolders mcp call mcp-playwright playwright_api_get --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to send an HTTP GET request to
+
+  - name: playwright_api_post
+    type: write_invoke
+    handler: livefolders mcp call mcp-playwright playwright_api_post --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to send an HTTP POST request to
+
+  - name: playwright_api_put
+    type: write_invoke
+    handler: livefolders mcp call mcp-playwright playwright_api_put --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to send an HTTP PUT request to
+
+  - name: playwright_api_delete
+    type: write_invoke
+    handler: livefolders mcp call mcp-playwright playwright_api_delete --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to send an HTTP DELETE request to
+
+  - name: how_to.md
+    type: readonly

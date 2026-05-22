@@ -1,0 +1,86 @@
+name: terminator
+description: Playwright for Windows computer use - automate desktop UI interactions
+
+mcp:
+  server: terminator
+  command: npx
+  args: ["-y", "terminator-mcp"]
+
+files:
+  - name: get_screen
+    type: read_invoke
+    handler: livefolders mcp call terminator get_screen
+
+  - name: click_element
+    type: write_invoke
+    handler: livefolders mcp call terminator click_element --arg selector="$INPUT"
+    input:
+      type: string
+      description: Selector or description of the UI element to click
+
+  - name: type_text
+    type: write_invoke
+    handler: livefolders mcp call terminator type_text --arg text="$INPUT"
+    input:
+      type: string
+      description: Text to type into the currently focused element
+
+  - name: find_element
+    type: write_invoke
+    handler: livefolders mcp call terminator find_element --arg selector="$INPUT"
+    input:
+      type: string
+      description: Selector or description of the UI element to find
+
+  - name: get_text
+    type: write_invoke
+    handler: livefolders mcp call terminator get_text --arg selector="$INPUT"
+    input:
+      type: string
+      description: Selector or description of the element to get text from
+
+  - name: open_application
+    type: write_invoke
+    handler: livefolders mcp call terminator open_application --arg name="$INPUT"
+    input:
+      type: string
+      description: Name or path of the application to open
+
+  - name: press_key
+    type: write_invoke
+    handler: livefolders mcp call terminator press_key --arg key="$INPUT"
+    input:
+      type: string
+      description: Key or key combination to press (e.g. Enter, Ctrl+C)
+
+  - name: scroll
+    type: write_invoke
+    handler: livefolders mcp call terminator scroll --arg selector="$INPUT"
+    input:
+      type: string
+      description: Selector or direction/amount to scroll
+
+  - name: right_click_element
+    type: write_invoke
+    handler: livefolders mcp call terminator right_click_element --arg selector="$INPUT"
+    input:
+      type: string
+      description: Selector or description of the UI element to right-click
+
+  - name: double_click_element
+    type: write_invoke
+    handler: livefolders mcp call terminator double_click_element --arg selector="$INPUT"
+    input:
+      type: string
+      description: Selector or description of the UI element to double-click
+
+  - name: get_focused_element
+    type: read_invoke
+    handler: livefolders mcp call terminator get_focused_element
+
+  - name: take_screenshot
+    type: read_invoke
+    handler: livefolders mcp call terminator take_screenshot
+
+  - name: how_to.md
+    type: readonly

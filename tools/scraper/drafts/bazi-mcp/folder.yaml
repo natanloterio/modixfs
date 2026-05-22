@@ -1,0 +1,66 @@
+name: bazi-mcp
+description: MCP server for Bazi (八字) Chinese astrology information
+
+mcp:
+  server: bazi-mcp
+  command: npx
+  args: ["-y", "bazi-mcp"]
+
+files:
+  - name: get_bazi
+    type: write_invoke
+    handler: livefolders mcp call bazi-mcp get_bazi --arg birthday="$INPUT"
+    input:
+      type: string
+      description: "Birthday in format YYYY-MM-DD HH:MM (e.g. 1990-05-15 08:30)"
+
+  - name: get_bazi_analysis
+    type: write_invoke
+    handler: livefolders mcp call bazi-mcp get_bazi_analysis --arg birthday="$INPUT"
+    input:
+      type: string
+      description: "Birthday in format YYYY-MM-DD HH:MM to get full Bazi analysis"
+
+  - name: get_current_dayun
+    type: write_invoke
+    handler: livefolders mcp call bazi-mcp get_current_dayun --arg birthday="$INPUT"
+    input:
+      type: string
+      description: "Birthday in format YYYY-MM-DD HH:MM to get current Da Yun (major luck cycle)"
+
+  - name: get_liunian
+    type: write_invoke
+    handler: livefolders mcp call bazi-mcp get_liunian --arg birthday="$INPUT"
+    input:
+      type: string
+      description: "Birthday in format YYYY-MM-DD HH:MM to get Liu Nian (annual luck) information"
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # Bazi MCP (八字)
+
+      This folder wraps the `bazi-mcp` server, providing tools for Chinese Four Pillars of Destiny (八字 Bazi) astrology calculations.
+
+      ## Tools
+
+      ### get_bazi
+      Returns the four pillars (year, month, day, hour) in Heavenly Stems and Earthly Branches for a given birthday.
+      - **Input**: Birthday string in `YYYY-MM-DD HH:MM` format
+
+      ### get_bazi_analysis
+      Returns a detailed Bazi analysis including the five elements balance, ten gods, and personality interpretation.
+      - **Input**: Birthday string in `YYYY-MM-DD HH:MM` format
+
+      ### get_current_dayun
+      Returns the current Da Yun (大运, major 10-year luck cycle) for a given birthday.
+      - **Input**: Birthday string in `YYYY-MM-DD HH:MM` format
+
+      ### get_liunian
+      Returns the Liu Nian (流年, annual luck pillar) information for a given birthday.
+      - **Input**: Birthday string in `YYYY-MM-DD HH:MM` format
+
+      ## Notes
+      - Time is important in Bazi calculations — always provide the hour if known.
+      - All times should be in local solar time (not timezone-adjusted).
+      - GitHub: https://github.com/cantian-ai/bazi-mcp

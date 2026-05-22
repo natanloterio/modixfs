@@ -1,0 +1,18 @@
+name: web-search
+description: Web search using free Google search (no API keys required)
+
+mcp:
+  server: web-search
+  command: npx
+  args: ["-y", "web-search-mcp"]
+
+files:
+  - name: search
+    type: write_invoke
+    handler: livefolders mcp call web-search web_search --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to look up on Google
+
+  - name: how_to.md
+    type: readonly

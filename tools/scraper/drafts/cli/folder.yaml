@@ -1,0 +1,130 @@
+name: planetscale-cli
+description: Manage PlanetScale databases, branches, deploy requests, and more via the PlanetScale CLI MCP server
+
+mcp:
+  server: planetscale-cli
+  command: pscale
+  args: ["mcp", "serve"]
+
+env:
+  - name: PLANETSCALE_SERVICE_TOKEN
+    secret: true
+    required: true
+  - name: PLANETSCALE_SERVICE_TOKEN_ID
+    secret: true
+    required: true
+  - name: PLANETSCALE_ORG
+    secret: false
+    required: true
+
+files:
+  - name: list_databases
+    type: read_invoke
+    handler: livefolders mcp call planetscale-cli list_databases
+    description: List all databases in the organization
+
+  - name: get_database
+    type: write_invoke
+    handler: livefolders mcp call planetscale-cli get_database --arg database="$INPUT"
+    input:
+      type: string
+      description: Name of the database to retrieve details for
+
+  - name: create_database
+    type: write_invoke
+    handler: livefolders mcp call planetscale-cli create_database --arg database="$INPUT"
+    input:
+      type: string
+      description: Name of the new database to create
+
+  - name: delete_database
+    type: write_invoke
+    handler: livefolders mcp call planetscale-cli delete_database --arg database="$INPUT"
+    input:
+      type: string
+      description: Name of the database to delete
+
+  - name: list_branches
+    type: write_invoke
+    handler: livefolders mcp call planetscale-cli list_branches --arg database="$INPUT"
+    input:
+      type: string
+      description: Name of the database to list branches for
+
+  - name: get_branch
+    type: write_invoke
+    handler: livefolders mcp call planetscale-cli get_branch --arg database="$INPUT"
+    input:
+      type: string
+      description: Database name (also specify branch via --arg branch=<name>)
+
+  - name: create_branch
+    type: write_invoke
+    handler: livefolders mcp call planetscale-cli create_branch --arg database="$INPUT"
+    input:
+      type: string
+      description: Database name in which to create a new branch
+
+  - name: delete_branch
+    type: write_invoke
+    handler: livefolders mcp call planetscale-cli delete_branch --arg database="$INPUT"
+    input:
+      type: string
+      description: Database name for the branch to delete
+
+  - name: list_deploy_requests
+    type: write_invoke
+    handler: livefolders mcp call planetscale-cli list_deploy_requests --arg database="$INPUT"
+    input:
+      type: string
+      description: Name of the database to list deploy requests for
+
+  - name: create_deploy_request
+    type: write_invoke
+    handler: livefolders mcp call planetscale-cli create_deploy_request --arg database="$INPUT"
+    input:
+      type: string
+      description: Database name for which to create a deploy request
+
+  - name: get_deploy_request
+    type: write_invoke
+    handler: livefolders mcp call planetscale-cli get_deploy_request --arg database="$INPUT"
+    input:
+      type: string
+      description: Database name for the deploy request to retrieve
+
+  - name: merge_deploy_request
+    type: write_invoke
+    handler: livefolders mcp call planetscale-cli merge_deploy_request --arg database="$INPUT"
+    input:
+      type: string
+      description: Database name for the deploy request to merge
+
+  - name: close_deploy_request
+    type: write_invoke
+    handler: livefolders mcp call planetscale-cli close_deploy_request --arg database="$INPUT"
+    input:
+      type: string
+      description: Database name for the deploy request to close
+
+  - name: get_schema
+    type: write_invoke
+    handler: livefolders mcp call planetscale-cli get_schema --arg database="$INPUT"
+    input:
+      type: string
+      description: Database name to retrieve the schema for
+
+  - name: execute_query
+    type: write_invoke
+    handler: livefolders mcp call planetscale-cli execute_query --arg query="$INPUT"
+    input:
+      type: string
+      description: SQL query to execute against the PlanetScale database
+
+  - name: list_organizations
+    type: read_invoke
+    handler: livefolders mcp call planetscale-cli list_organizations
+    description: List all organizations accessible with the current credentials
+
+  - name: how_to.md
+    type: readonly

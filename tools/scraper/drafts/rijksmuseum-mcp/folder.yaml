@@ -1,0 +1,89 @@
+name: rijksmuseum-mcp
+description: Rijksmuseum MCP integration for artwork exploration and analysis
+
+mcp:
+  server: rijksmuseum-mcp
+  command: npx
+  args: ["-y", "rijksmuseum-mcp"]
+
+env:
+  - name: RIJKSMUSEUM_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: search_artworks
+    type: write_invoke
+    handler: livefolders mcp call rijksmuseum-mcp search_artworks --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find artworks in the Rijksmuseum collection
+
+  - name: get_artwork_details
+    type: write_invoke
+    handler: livefolders mcp call rijksmuseum-mcp get_artwork_details --arg objectNumber="$INPUT"
+    input:
+      type: string
+      description: Object number (e.g. SK-C-5) to retrieve full details for a specific artwork
+
+  - name: get_artwork_image
+    type: write_invoke
+    handler: livefolders mcp call rijksmuseum-mcp get_artwork_image --arg objectNumber="$INPUT"
+    input:
+      type: string
+      description: Object number of the artwork to retrieve its image tiles and zoom levels
+
+  - name: get_user_sets
+    type: write_invoke
+    handler: livefolders mcp call rijksmuseum-mcp get_user_sets --arg page="$INPUT"
+    input:
+      type: string
+      description: Page number (default 0) to list user-created sets from the Rijksmuseum
+
+  - name: get_user_set_details
+    type: write_invoke
+    handler: livefolders mcp call rijksmuseum-mcp get_user_set_details --arg id="$INPUT"
+    input:
+      type: string
+      description: ID of the user set to retrieve its details and artworks
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # Rijksmuseum MCP
+
+      Explore and analyze artworks from the Rijksmuseum collection using the Rijksmuseum public API.
+
+      ## Setup
+
+      Set your Rijksmuseum API key as the `RIJKSMUSEUM_API_KEY` environment variable.
+      You can request a free API key at https://data.rijksmuseum.nl/object-metadata/api/
+
+      ## Available Tools
+
+      ### search_artworks
+      Search the Rijksmuseum collection by keyword, artist name, or theme.
+      - Input: a search query string (e.g. "Rembrandt", "night watch", "landscape")
+
+      ### get_artwork_details
+      Retrieve full metadata for a specific artwork using its object number.
+      - Input: object number string (e.g. `SK-C-5` for The Night Watch)
+
+      ### get_artwork_image
+      Retrieve image tile URLs and zoom levels for a specific artwork.
+      - Input: object number string
+
+      ### get_user_sets
+      List user-created collections from the Rijksmuseum platform.
+      - Input: page number (e.g. `0` for the first page)
+
+      ### get_user_set_details
+      Get the artworks and metadata for a specific user-created set.
+      - Input: user set ID string
+
+      ## Example Workflow
+
+      1. Use `search_artworks` with a query like "Vermeer" to find relevant works.
+      2. Copy an object number from the results (e.g. `SK-A-2344`).
+      3. Use `get_artwork_details` to retrieve full provenance, materials, and description.
+      4. Use `get_artwork_image` to access high-resolution image tiles.

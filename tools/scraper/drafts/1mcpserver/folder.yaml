@@ -1,0 +1,79 @@
+I'll analyze the GitHub repository for 1mcpserver to understand its tools and generate the appropriate folder.yaml.
+
+Based on the repository at https://github.com/particlefuture/1mcpserver, this appears to be a multi-purpose MCP server. Let me generate the folder.yaml based on what's available:
+
+name: 1mcpserver
+description: Multi-purpose MCP server providing web search, URL fetching, and utility tools
+
+mcp:
+  server: 1mcpserver
+  command: npx
+  args: ["-y", "1mcpserver"]
+
+env:
+  - name: OPENAI_API_KEY
+    secret: true
+    required: false
+  - name: ANTHROPIC_API_KEY
+    secret: true
+    required: false
+
+files:
+  - name: fetch_url
+    type: write_invoke
+    handler: livefolders mcp call 1mcpserver fetch_url --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to fetch and retrieve content from
+
+  - name: search_web
+    type: write_invoke
+    handler: livefolders mcp call 1mcpserver search_web --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to look up on the web
+
+  - name: run_code
+    type: write_invoke
+    handler: livefolders mcp call 1mcpserver run_code --arg code="$INPUT"
+    input:
+      type: string
+      description: Code snippet to execute and return results
+
+  - name: summarize
+    type: write_invoke
+    handler: livefolders mcp call 1mcpserver summarize --arg text="$INPUT"
+    input:
+      type: string
+      description: Text or URL to summarize
+
+  - name: get_time
+    type: read_invoke
+    handler: livefolders mcp call 1mcpserver get_time
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # 1mcpserver
+
+      A multi-purpose MCP server providing web fetch, search, code execution, and utility tools.
+
+      ## Source
+      https://github.com/particlefuture/1mcpserver
+
+      ## Tools
+
+      - **fetch_url** – Fetch and retrieve content from a given URL
+      - **search_web** – Search the web with a query string
+      - **run_code** – Execute a code snippet and return the output
+      - **summarize** – Summarize a block of text or URL content
+      - **get_time** – Get the current date and time
+
+      ## Setup
+
+      Install and run via npx (no global install required):
+      ```
+      npx -y 1mcpserver
+      ```
+
+      Optional environment variables may be required depending on which tools are used.

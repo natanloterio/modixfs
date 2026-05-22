@@ -1,0 +1,92 @@
+name: mysql-mcp-server
+description: Secure interaction with MySQL databases via the MCP MySQL server
+
+mcp:
+  server: mysql_mcp_server
+  command: uvx
+  args: ["mysql_mcp_server"]
+
+env:
+  - name: MYSQL_HOST
+    description: MySQL database host
+    secret: false
+    required: true
+  - name: MYSQL_PORT
+    description: MySQL database port (default 3306)
+    secret: false
+    required: false
+  - name: MYSQL_USER
+    description: MySQL database username
+    secret: false
+    required: true
+  - name: MYSQL_PASSWORD
+    description: MySQL database password
+    secret: true
+    required: true
+  - name: MYSQL_DATABASE
+    description: MySQL database name
+    secret: false
+    required: true
+
+files:
+  - name: execute_query
+    type: write_invoke
+    handler: livefolders mcp call mysql_mcp_server execute_query --arg query="$INPUT"
+    input:
+      type: string
+      description: SQL query to execute against the MySQL database
+
+  - name: list_tables
+    type: read_invoke
+    handler: livefolders mcp call mysql_mcp_server list_tables
+
+  - name: describe_table
+    type: write_invoke
+    handler: livefolders mcp call mysql_mcp_server describe_table --arg table_name="$INPUT"
+    input:
+      type: string
+      description: Name of the table to describe (returns schema and column details)
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # MySQL MCP Server
+
+      This folder wraps the [mysql_mcp_server](https://github.com/designcomputer/mysql_mcp_server),
+      enabling secure interaction with a MySQL database through the Model Context Protocol.
+
+      ## Configuration
+
+      Set the following environment variables before use:
+
+      | Variable         | Required | Description                          |
+      |------------------|----------|--------------------------------------|
+      | MYSQL_HOST       | Yes      | Hostname or IP of the MySQL server   |
+      | MYSQL_PORT       | No       | Port number (default: 3306)          |
+      | MYSQL_USER       | Yes      | MySQL username                       |
+      | MYSQL_PASSWORD   | Yes      | MySQL password (stored as secret)    |
+      | MYSQL_DATABASE   | Yes      | Name of the database to connect to   |
+
+      ## Available Tools
+
+      ### execute_query
+      Run any SQL query against the connected MySQL database.
+      - **Input:** A SQL query string (e.g., `SELECT * FROM users LIMIT 10;`)
+      - **Returns:** Query results as structured data
+
+      ### list_tables
+      Retrieve a list of all tables in the connected database.
+      - **No input required**
+      - **Returns:** List of table names
+
+      ### describe_table
+      Get the schema and column details for a specific table.
+      - **Input:** Table name (e.g., `users`)
+      - **Returns:** Column names, types, nullability, keys, and defaults
+
+      ## Usage Tips
+
+      - Use `list_tables` first to explore the database structure.
+      - Use `describe_table` to understand column types before writing queries.
+      - Prefer `SELECT` queries for read-only exploration; use `INSERT`/`UPDATE`/`DELETE` with caution.
+      - Ensure the MySQL user has appropriate permissions for the operations you intend to perform.

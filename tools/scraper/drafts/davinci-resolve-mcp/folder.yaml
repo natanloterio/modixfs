@@ -1,0 +1,114 @@
+name: davinci-resolve-mcp
+description: MCP server integration for DaVinci Resolve Studio
+
+mcp:
+  server: davinci-resolve-mcp
+  command: npx
+  args: ["-y", "davinci-resolve-mcp"]
+
+files:
+  - name: get_project_info
+    type: read_invoke
+    handler: livefolders mcp call davinci-resolve-mcp get_project_info
+
+  - name: get_timeline_info
+    type: read_invoke
+    handler: livefolders mcp call davinci-resolve-mcp get_timeline_info
+
+  - name: get_media_pool_info
+    type: read_invoke
+    handler: livefolders mcp call davinci-resolve-mcp get_media_pool_info
+
+  - name: list_timelines
+    type: read_invoke
+    handler: livefolders mcp call davinci-resolve-mcp list_timelines
+
+  - name: set_current_timeline
+    type: write_invoke
+    handler: livefolders mcp call davinci-resolve-mcp set_current_timeline --arg timeline_name="$INPUT"
+    input:
+      type: string
+      description: Name of the timeline to switch to
+
+  - name: create_timeline
+    type: write_invoke
+    handler: livefolders mcp call davinci-resolve-mcp create_timeline --arg timeline_name="$INPUT"
+    input:
+      type: string
+      description: Name for the new timeline to create
+
+  - name: add_marker
+    type: write_invoke
+    handler: livefolders mcp call davinci-resolve-mcp add_marker --arg frame_id="$INPUT"
+    input:
+      type: string
+      description: Frame number at which to add a marker
+
+  - name: get_markers
+    type: read_invoke
+    handler: livefolders mcp call davinci-resolve-mcp get_markers
+
+  - name: delete_marker
+    type: write_invoke
+    handler: livefolders mcp call davinci-resolve-mcp delete_marker --arg frame_id="$INPUT"
+    input:
+      type: string
+      description: Frame number of the marker to delete
+
+  - name: import_media
+    type: write_invoke
+    handler: livefolders mcp call davinci-resolve-mcp import_media --arg file_path="$INPUT"
+    input:
+      type: string
+      description: Absolute file path of the media to import into the media pool
+
+  - name: export_project
+    type: write_invoke
+    handler: livefolders mcp call davinci-resolve-mcp export_project --arg file_path="$INPUT"
+    input:
+      type: string
+      description: Absolute file path where the project archive should be exported
+
+  - name: render_current_timeline
+    type: write_invoke
+    handler: livefolders mcp call davinci-resolve-mcp render_current_timeline --arg preset_name="$INPUT"
+    input:
+      type: string
+      description: Name of the render preset to use for rendering the current timeline
+
+  - name: get_render_jobs
+    type: read_invoke
+    handler: livefolders mcp call davinci-resolve-mcp get_render_jobs
+
+  - name: start_render
+    type: read_invoke
+    handler: livefolders mcp call davinci-resolve-mcp start_render
+
+  - name: stop_render
+    type: read_invoke
+    handler: livefolders mcp call davinci-resolve-mcp stop_render
+
+  - name: get_render_status
+    type: read_invoke
+    handler: livefolders mcp call davinci-resolve-mcp get_render_status
+
+  - name: set_project_setting
+    type: write_invoke
+    handler: livefolders mcp call davinci-resolve-mcp set_project_setting --arg setting_name="$INPUT"
+    input:
+      type: string
+      description: Project setting name and value as JSON, e.g. {"setting_name":"timelineFrameRate","value":"24"}
+
+  - name: get_current_playhead_position
+    type: read_invoke
+    handler: livefolders mcp call davinci-resolve-mcp get_current_playhead_position
+
+  - name: set_playhead_position
+    type: write_invoke
+    handler: livefolders mcp call davinci-resolve-mcp set_playhead_position --arg frame_id="$INPUT"
+    input:
+      type: string
+      description: Frame number to move the playhead to
+
+  - name: how_to.md
+    type: readonly

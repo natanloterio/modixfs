@@ -1,0 +1,66 @@
+name: mcp-rubber-duck
+description: Query multiple OpenAI-compatible LLMs as AI "rubber ducks" for debugging and getting different perspectives
+
+mcp:
+  server: mcp-rubber-duck
+  command: npx
+  args: ["-y", "mcp-rubber-duck"]
+
+env:
+  - name: OPENAI_API_KEY
+    description: OpenAI API key for LLM access
+    secret: true
+    required: true
+
+files:
+  - name: ask_duck
+    type: write_invoke
+    handler: livefolders mcp call mcp-rubber-duck ask_duck --arg question="$INPUT"
+    input:
+      type: string
+      description: The problem or question to explain to the rubber duck AI
+
+  - name: list_ducks
+    type: read_invoke
+    handler: livefolders mcp call mcp-rubber-duck list_ducks
+
+  - name: ask_all_ducks
+    type: write_invoke
+    handler: livefolders mcp call mcp-rubber-duck ask_all_ducks --arg question="$INPUT"
+    input:
+      type: string
+      description: Question to send to all configured LLM ducks simultaneously for multiple perspectives
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcp-rubber-duck
+
+      This folder wraps the **mcp-rubber-duck** MCP server, which lets you query
+      multiple OpenAI-compatible LLMs like rubber ducks — explain your problems
+      and get different AI perspectives back.
+
+      ## Tools
+
+      ### ask_duck
+      Send a question or problem description to a single rubber duck LLM.
+      - Input: Your question or problem statement
+
+      ### list_ducks
+      List all configured LLM "ducks" available for querying.
+      - No input required
+
+      ### ask_all_ducks
+      Broadcast your question to all configured ducks at once and collect
+      multiple perspectives.
+      - Input: Your question or problem statement
+
+      ## Setup
+
+      Set your `OPENAI_API_KEY` environment variable (or equivalent API key
+      for your configured OpenAI-compatible endpoint) before using this folder.
+
+      ## Tips
+      - Use `list_ducks` first to see which models are available
+      - Use `ask_all_ducks` when you want diverse opinions on a hard problem
+      - Great for rubber duck debugging — just explain what your code is doing!

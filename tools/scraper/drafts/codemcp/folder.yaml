@@ -1,0 +1,60 @@
+name: codemcp
+description: Coding assistant MCP for Claude Desktop
+
+mcp:
+  server: codemcp
+  command: uvx
+  args: ["codemcp"]
+
+files:
+  - name: init_project
+    type: write_invoke
+    handler: livefolders mcp call codemcp codemcp --arg subtool="InitProject" --arg project_dir="$INPUT"
+    input:
+      type: string
+      description: Path to the project directory to initialize
+
+  - name: read_file
+    type: write_invoke
+    handler: livefolders mcp call codemcp codemcp --arg subtool="ReadFile" --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the file to read
+
+  - name: write_file
+    type: write_invoke
+    handler: livefolders mcp call codemcp codemcp --arg subtool="WriteFile" --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the file to write (provide content as second argument)
+
+  - name: edit_file
+    type: write_invoke
+    handler: livefolders mcp call codemcp codemcp --arg subtool="EditFile" --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the file to edit with old/new content replacement
+
+  - name: run_command
+    type: write_invoke
+    handler: livefolders mcp call codemcp codemcp --arg subtool="RunCommand" --arg command="$INPUT"
+    input:
+      type: string
+      description: Shell command to run in the project directory
+
+  - name: ls
+    type: write_invoke
+    handler: livefolders mcp call codemcp codemcp --arg subtool="LS" --arg path="$INPUT"
+    input:
+      type: string
+      description: Directory path to list
+
+  - name: grep
+    type: write_invoke
+    handler: livefolders mcp call codemcp codemcp --arg subtool="Grep" --arg pattern="$INPUT"
+    input:
+      type: string
+      description: Pattern to search for across project files
+
+  - name: how_to.md
+    type: readonly

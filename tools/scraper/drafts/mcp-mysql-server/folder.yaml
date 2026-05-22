@@ -1,0 +1,97 @@
+name: mcp-mysql-server
+description: MySQL database operations via the MCP MySQL server
+
+mcp:
+  server: mcp-mysql-server
+  command: npx
+  args: ["-y", "mcp-mysql-server"]
+
+env:
+  - name: MYSQL_HOST
+    description: MySQL server hostname
+    secret: false
+    required: true
+  - name: MYSQL_PORT
+    description: MySQL server port (default 3306)
+    secret: false
+    required: false
+  - name: MYSQL_USER
+    description: MySQL username
+    secret: false
+    required: true
+  - name: MYSQL_PASSWORD
+    description: MySQL password
+    secret: true
+    required: true
+  - name: MYSQL_DATABASE
+    description: MySQL database name
+    secret: false
+    required: true
+
+files:
+  - name: execute_query
+    type: write_invoke
+    handler: livefolders mcp call mcp-mysql-server execute_query --arg query="$INPUT"
+    input:
+      type: string
+      description: SQL query to execute (SELECT, INSERT, UPDATE, DELETE, etc.)
+
+  - name: list_tables
+    type: read_invoke
+    handler: livefolders mcp call mcp-mysql-server list_tables
+
+  - name: describe_table
+    type: write_invoke
+    handler: livefolders mcp call mcp-mysql-server describe_table --arg table="$INPUT"
+    input:
+      type: string
+      description: Table name to describe (show columns and schema)
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # MCP MySQL Server
+
+      This folder wraps the [mcp-mysql-server](https://github.com/f4ww4z/mcp-mysql-server),
+      providing LiveFolders endpoints for MySQL database operations.
+
+      ## Setup
+
+      Set the following environment variables before use:
+
+      | Variable         | Required | Description                        |
+      |------------------|----------|------------------------------------|
+      | MYSQL_HOST       | Yes      | Hostname of your MySQL server      |
+      | MYSQL_PORT       | No       | Port (defaults to 3306)            |
+      | MYSQL_USER       | Yes      | MySQL username                     |
+      | MYSQL_PASSWORD   | Yes      | MySQL password (treated as secret) |
+      | MYSQL_DATABASE   | Yes      | Target database name               |
+
+      ## Endpoints
+
+      ### execute_query
+      Run any SQL statement against the configured database.
+
+      **Input:** A valid SQL string, e.g.:
+      ```sql
+      SELECT * FROM users LIMIT 10;
+      ```
+      ```sql
+      INSERT INTO orders (product, qty) VALUES ('widget', 3);
+      ```
+
+      ### list_tables
+      Returns all tables in the configured database. No input required.
+
+      ### describe_table
+      Returns the schema (columns, types, keys) for a given table.
+
+      **Input:** Table name, e.g.:
+      ```
+      users
+      ```
+
+      ## Notes
+      - Ensure the MySQL user has appropriate privileges for the operations you intend to run.
+      - Use parameterised or carefully validated queries to avoid SQL injection when building dynamic SQL.
+      - The server connects using the credentials supplied via environment variables at startup.

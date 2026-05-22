@@ -1,0 +1,39 @@
+name: pgmcp
+description: Query any Postgres database in natural language via MCP
+
+mcp:
+  server: pgmcp
+  command: npx
+  args: ["-y", "pgmcp"]
+
+env:
+  - name: DATABASE_URL
+    description: PostgreSQL connection string (e.g. postgresql://user:pass@host:5432/dbname)
+    secret: true
+    required: true
+
+files:
+  - name: query
+    type: write_invoke
+    handler: livefolders mcp call pgmcp query --arg sql="$INPUT"
+    input:
+      type: string
+      description: SQL query or natural language question to run against the Postgres database
+
+  - name: list_tables
+    type: read_invoke
+    handler: livefolders mcp call pgmcp list_tables
+
+  - name: describe_table
+    type: write_invoke
+    handler: livefolders mcp call pgmcp describe_table --arg table="$INPUT"
+    input:
+      type: string
+      description: Table name to describe (returns columns, types, and constraints)
+
+  - name: list_schemas
+    type: read_invoke
+    handler: livefolders mcp call pgmcp list_schemas
+
+  - name: how_to.md
+    type: readonly

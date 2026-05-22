@@ -1,0 +1,85 @@
+name: ui-tars-desktop
+description: Open-Source Multimodal AI Agent Stack connecting cutting-edge AI models and agent infrastructure
+
+mcp:
+  server: ui-tars-desktop
+  command: npx
+  args: ["-y", "@ui-tars/mcp-server"]
+
+env:
+  - name: UI_TARS_API_KEY
+    secret: true
+    required: true
+  - name: UI_TARS_MODEL_ENDPOINT
+    secret: false
+    required: true
+
+files:
+  - name: screenshot
+    type: read_invoke
+    handler: livefolders mcp call ui-tars-desktop screenshot
+    description: Capture a screenshot of the current screen state
+
+  - name: execute_action
+    type: write_invoke
+    handler: livefolders mcp call ui-tars-desktop execute_action --arg action="$INPUT"
+    input:
+      type: string
+      description: Action to execute on the UI (e.g. click, type, scroll)
+
+  - name: get_screen_info
+    type: read_invoke
+    handler: livefolders mcp call ui-tars-desktop get_screen_info
+    description: Get current screen dimensions and display information
+
+  - name: mouse_move
+    type: write_invoke
+    handler: livefolders mcp call ui-tars-desktop mouse_move --arg coordinates="$INPUT"
+    input:
+      type: string
+      description: Target coordinates for mouse movement in "x,y" format
+
+  - name: mouse_click
+    type: write_invoke
+    handler: livefolders mcp call ui-tars-desktop mouse_click --arg coordinates="$INPUT"
+    input:
+      type: string
+      description: Target coordinates to click in "x,y" format
+
+  - name: type_text
+    type: write_invoke
+    handler: livefolders mcp call ui-tars-desktop type_text --arg text="$INPUT"
+    input:
+      type: string
+      description: Text to type into the currently focused input element
+
+  - name: key_press
+    type: write_invoke
+    handler: livefolders mcp call ui-tars-desktop key_press --arg key="$INPUT"
+    input:
+      type: string
+      description: Key or key combination to press (e.g. Enter, Ctrl+C)
+
+  - name: scroll
+    type: write_invoke
+    handler: livefolders mcp call ui-tars-desktop scroll --arg direction="$INPUT"
+    input:
+      type: string
+      description: Scroll direction and amount (e.g. "down:3" for 3 scrolls down)
+
+  - name: get_elements
+    type: write_invoke
+    handler: livefolders mcp call ui-tars-desktop get_elements --arg query="$INPUT"
+    input:
+      type: string
+      description: Query to find UI elements on the current screen
+
+  - name: run_task
+    type: write_invoke
+    handler: livefolders mcp call ui-tars-desktop run_task --arg task="$INPUT"
+    input:
+      type: string
+      description: High-level task description for the AI agent to execute autonomously
+
+  - name: how_to.md
+    type: readonly

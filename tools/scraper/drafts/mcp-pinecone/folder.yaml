@@ -1,0 +1,44 @@
+name: mcp-pinecone
+description: Read and write from Pinecone vector database with rudimentary RAG support
+
+mcp:
+  server: mcp-pinecone
+  command: npx
+  args: ["-y", "mcp-pinecone"]
+
+env:
+  - name: PINECONE_API_KEY
+    secret: true
+    required: true
+  - name: PINECONE_INDEX_NAME
+    secret: false
+    required: true
+
+files:
+  - name: semantic_search
+    type: write_invoke
+    handler: livefolders mcp call mcp-pinecone semantic_search --arg query="$INPUT"
+    input:
+      type: string
+      description: Query text to search for semantically similar documents in Pinecone
+
+  - name: upsert_record
+    type: write_invoke
+    handler: livefolders mcp call mcp-pinecone upsert_record --arg text="$INPUT"
+    input:
+      type: string
+      description: Text content to embed and upsert into the Pinecone index
+
+  - name: read_record
+    type: write_invoke
+    handler: livefolders mcp call mcp-pinecone read_record --arg id="$INPUT"
+    input:
+      type: string
+      description: Record ID to retrieve from the Pinecone index
+
+  - name: list_records
+    type: read_invoke
+    handler: livefolders mcp call mcp-pinecone list_records
+
+  - name: how_to.md
+    type: readonly

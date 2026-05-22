@@ -1,0 +1,73 @@
+name: pydantic-ai
+description: AI Agent Framework, the Pydantic way
+
+mcp:
+  server: pydantic-ai
+  command: npx
+  args: ["-y", "pydantic-ai-mcp"]
+
+env:
+  - name: OPENAI_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: run_agent
+    type: write_invoke
+    handler: livefolders mcp call pydantic-ai run_agent --arg prompt="$INPUT"
+    input:
+      type: string
+      description: Prompt to send to the Pydantic AI agent
+
+  - name: list_agents
+    type: read_invoke
+    handler: livefolders mcp call pydantic-ai list_agents
+
+  - name: create_agent
+    type: write_invoke
+    handler: livefolders mcp call pydantic-ai create_agent --arg config="$INPUT"
+    input:
+      type: string
+      description: JSON config for the new agent (model, system_prompt, etc.)
+
+  - name: get_agent
+    type: write_invoke
+    handler: livefolders mcp call pydantic-ai get_agent --arg agent_id="$INPUT"
+    input:
+      type: string
+      description: Agent ID to retrieve
+
+  - name: delete_agent
+    type: write_invoke
+    handler: livefolders mcp call pydantic-ai delete_agent --arg agent_id="$INPUT"
+    input:
+      type: string
+      description: Agent ID to delete
+
+  - name: run_agent_with_tools
+    type: write_invoke
+    handler: livefolders mcp call pydantic-ai run_agent_with_tools --arg prompt="$INPUT"
+    input:
+      type: string
+      description: Prompt to send to an agent that has tools registered
+
+  - name: list_models
+    type: read_invoke
+    handler: livefolders mcp call pydantic-ai list_models
+
+  - name: validate_output
+    type: write_invoke
+    handler: livefolders mcp call pydantic-ai validate_output --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON string with output data to validate against a Pydantic model
+
+  - name: get_run_history
+    type: write_invoke
+    handler: livefolders mcp call pydantic-ai get_run_history --arg agent_id="$INPUT"
+    input:
+      type: string
+      description: Agent ID whose run history to retrieve
+
+  - name: how_to.md
+    type: readonly

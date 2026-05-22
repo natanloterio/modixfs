@@ -1,0 +1,54 @@
+name: ncp
+description: Natural Context Provider - find, load, and run MCP tools on demand with smart token-saving loading
+
+mcp:
+  server: ncp
+  command: npx
+  args: ["-y", "@portel/ncp"]
+
+files:
+  - name: find_tool
+    type: write_invoke
+    handler: livefolders mcp call ncp find_tool --arg query="$INPUT"
+    input:
+      type: string
+      description: Natural language query to find the right MCP tool
+
+  - name: list_tools
+    type: read_invoke
+    handler: livefolders mcp call ncp list_tools
+
+  - name: load_tool
+    type: write_invoke
+    handler: livefolders mcp call ncp load_tool --arg tool_name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP tool to load on demand
+
+  - name: run_tool
+    type: write_invoke
+    handler: livefolders mcp call ncp run_tool --arg tool_name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP tool to execute
+
+  - name: schedule_tool
+    type: write_invoke
+    handler: livefolders mcp call ncp schedule_tool --arg tool_name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP tool to schedule for recurring execution
+
+  - name: list_scheduled
+    type: read_invoke
+    handler: livefolders mcp call ncp list_scheduled
+
+  - name: unload_tool
+    type: write_invoke
+    handler: livefolders mcp call ncp unload_tool --arg tool_name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP tool to unload to save tokens and resources
+
+  - name: how_to.md
+    type: readonly

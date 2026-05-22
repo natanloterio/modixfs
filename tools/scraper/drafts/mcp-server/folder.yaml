@@ -1,0 +1,44 @@
+name: mcp-server
+description: A generic, modular server for implementing the Model Context Protocol (MCP)
+
+mcp:
+  server: mcp-server
+  command: npx
+  args: ["-y", "@profullstack/mcp-server"]
+
+files:
+  - name: list_tools
+    type: read_invoke
+    handler: livefolders mcp call mcp-server list_tools
+
+  - name: call_tool
+    type: write_invoke
+    handler: livefolders mcp call mcp-server call_tool --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP tool to call
+
+  - name: list_resources
+    type: read_invoke
+    handler: livefolders mcp call mcp-server list_resources
+
+  - name: read_resource
+    type: write_invoke
+    handler: livefolders mcp call mcp-server read_resource --arg uri="$INPUT"
+    input:
+      type: string
+      description: URI of the resource to read
+
+  - name: list_prompts
+    type: read_invoke
+    handler: livefolders mcp call mcp-server list_prompts
+
+  - name: get_prompt
+    type: write_invoke
+    handler: livefolders mcp call mcp-server get_prompt --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the prompt to retrieve
+
+  - name: how_to.md
+    type: readonly

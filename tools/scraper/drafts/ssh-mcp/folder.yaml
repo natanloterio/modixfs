@@ -1,0 +1,111 @@
+name: ssh-mcp
+description: SSH control for Linux servers via Model Context Protocol
+
+mcp:
+  server: ssh-mcp
+  command: npx
+  args: ["-y", "ssh-mcp"]
+
+env:
+  - name: SSH_HOST
+    description: Hostname or IP address of the SSH server
+    secret: false
+    required: true
+  - name: SSH_PORT
+    description: SSH port number (default 22)
+    secret: false
+    required: false
+  - name: SSH_USERNAME
+    description: SSH username for authentication
+    secret: false
+    required: true
+  - name: SSH_PASSWORD
+    description: SSH password for authentication
+    secret: true
+    required: false
+  - name: SSH_PRIVATE_KEY_PATH
+    description: Path to SSH private key file for authentication
+    secret: false
+    required: false
+
+files:
+  - name: execute_command
+    type: write_invoke
+    handler: livefolders mcp call ssh-mcp execute_command --arg command="$INPUT"
+    input:
+      type: string
+      description: Shell command to execute on the remote SSH server
+
+  - name: get_directory_contents
+    type: write_invoke
+    handler: livefolders mcp call ssh-mcp get_directory_contents --arg path="$INPUT"
+    input:
+      type: string
+      description: Remote directory path to list contents of
+
+  - name: read_file
+    type: write_invoke
+    handler: livefolders mcp call ssh-mcp read_file --arg path="$INPUT"
+    input:
+      type: string
+      description: Remote file path to read
+
+  - name: write_file
+    type: write_invoke
+    handler: livefolders mcp call ssh-mcp write_file --arg path="$INPUT"
+    input:
+      type: string
+      description: Remote file path to write (combine with content parameter as needed)
+
+  - name: get_system_info
+    type: read_invoke
+    handler: livefolders mcp call ssh-mcp get_system_info
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # ssh-mcp
+
+      This folder wraps the [ssh-mcp](https://github.com/tufantunc/ssh-mcp) MCP server,
+      exposing SSH control for Linux servers via the Model Context Protocol.
+
+      ## Setup
+
+      Configure the following environment variables before use:
+
+      | Variable | Required | Description |
+      |---|---|---|
+      | `SSH_HOST` | Yes | Hostname or IP of the SSH server |
+      | `SSH_PORT` | No | SSH port (default: 22) |
+      | `SSH_USERNAME` | Yes | SSH login username |
+      | `SSH_PASSWORD` | No | SSH password (use if not using key auth) |
+      | `SSH_PRIVATE_KEY_PATH` | No | Path to private key file (use if not using password) |
+
+      ## Available Tools
+
+      - **execute_command** — Run any shell command on the remote server
+      - **get_directory_contents** — List files and folders in a remote directory
+      - **read_file** — Read the contents of a remote file
+      - **write_file** — Write content to a remote file
+      - **get_system_info** — Retrieve system information from the remote server
+
+      ## Example Usage
+
+      ```
+      # Execute a command
+      execute_command: "df -h"
+
+      # List a directory
+      get_directory_contents: "/var/log"
+
+      # Read a file
+      read_file: "/etc/hostname"
+
+      # Get system info (no input required)
+      get_system_info
+      ```
+
+      ## Authentication
+
+      Either `SSH_PASSWORD` or `SSH_PRIVATE_KEY_PATH` must be provided.
+      Private key authentication is recommended for security.

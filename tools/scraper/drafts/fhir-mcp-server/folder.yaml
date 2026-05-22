@@ -1,0 +1,67 @@
+name: fhir-mcp-server
+description: Expose any FHIR Server or API as an MCP Server for querying healthcare resources
+
+mcp:
+  server: fhir-mcp-server
+  command: npx
+  args: ["-y", "@wso2/fhir-mcp-server"]
+
+env:
+  - name: FHIR_BASE_URL
+    description: Base URL of the FHIR server (e.g. https://hapi.fhir.org/baseR4)
+    secret: false
+    required: true
+  - name: FHIR_AUTH_TOKEN
+    description: Bearer token or API key for authenticating with the FHIR server
+    secret: true
+    required: false
+
+files:
+  - name: read_resource
+    type: write_invoke
+    handler: livefolders mcp call fhir-mcp-server read_resource --arg resourceType="$INPUT"
+    input:
+      type: string
+      description: FHIR resource type to read (e.g. Patient, Observation, Condition)
+
+  - name: search_resource
+    type: write_invoke
+    handler: livefolders mcp call fhir-mcp-server search_resource --arg query="$INPUT"
+    input:
+      type: string
+      description: FHIR search query string (e.g. Patient?name=Smith&birthdate=1990-01-01)
+
+  - name: get_resource_by_id
+    type: write_invoke
+    handler: livefolders mcp call fhir-mcp-server get_resource_by_id --arg id="$INPUT"
+    input:
+      type: string
+      description: Fully qualified FHIR resource reference (e.g. Patient/12345)
+
+  - name: create_resource
+    type: write_invoke
+    handler: livefolders mcp call fhir-mcp-server create_resource --arg resource="$INPUT"
+    input:
+      type: string
+      description: JSON string of the FHIR resource to create
+
+  - name: update_resource
+    type: write_invoke
+    handler: livefolders mcp call fhir-mcp-server update_resource --arg resource="$INPUT"
+    input:
+      type: string
+      description: JSON string of the FHIR resource to update (must include id)
+
+  - name: delete_resource
+    type: write_invoke
+    handler: livefolders mcp call fhir-mcp-server delete_resource --arg id="$INPUT"
+    input:
+      type: string
+      description: Fully qualified FHIR resource reference to delete (e.g. Patient/12345)
+
+  - name: get_capability_statement
+    type: read_invoke
+    handler: livefolders mcp call fhir-mcp-server get_capability_statement
+
+  - name: how_to.md
+    type: readonly

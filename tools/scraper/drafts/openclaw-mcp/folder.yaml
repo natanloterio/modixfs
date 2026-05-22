@@ -1,0 +1,103 @@
+name: openclaw-mcp
+description: Secure bridge between Claude.ai and your self-hosted OpenClaw assistant with OAuth2 authentication
+
+mcp:
+  server: openclaw-mcp
+  command: npx
+  args: ["-y", "openclaw-mcp"]
+
+env:
+  - name: OPENCLAW_BASE_URL
+    description: Base URL of your self-hosted OpenClaw instance
+    secret: false
+    required: true
+  - name: OPENCLAW_CLIENT_ID
+    description: OAuth2 client ID for OpenClaw authentication
+    secret: false
+    required: true
+  - name: OPENCLAW_CLIENT_SECRET
+    description: OAuth2 client secret for OpenClaw authentication
+    secret: true
+    required: true
+
+files:
+  - name: ask
+    type: write_invoke
+    handler: livefolders mcp call openclaw-mcp ask --arg query="$INPUT"
+    input:
+      type: string
+      description: Question or prompt to send to your OpenClaw assistant
+
+  - name: chat
+    type: write_invoke
+    handler: livefolders mcp call openclaw-mcp chat --arg message="$INPUT"
+    input:
+      type: string
+      description: Message to send in a chat session with your OpenClaw assistant
+
+  - name: search
+    type: write_invoke
+    handler: livefolders mcp call openclaw-mcp search --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to run against your OpenClaw knowledge base
+
+  - name: get_status
+    type: read_invoke
+    handler: livefolders mcp call openclaw-mcp get_status
+
+  - name: list_conversations
+    type: read_invoke
+    handler: livefolders mcp call openclaw-mcp list_conversations
+
+  - name: get_conversation
+    type: write_invoke
+    handler: livefolders mcp call openclaw-mcp get_conversation --arg id="$INPUT"
+    input:
+      type: string
+      description: Conversation ID to retrieve
+
+  - name: delete_conversation
+    type: write_invoke
+    handler: livefolders mcp call openclaw-mcp delete_conversation --arg id="$INPUT"
+    input:
+      type: string
+      description: Conversation ID to delete
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # OpenClaw MCP
+
+      This folder wraps the openclaw-mcp server, providing a secure OAuth2-authenticated
+      bridge between Claude.ai and your self-hosted OpenClaw assistant.
+
+      ## Setup
+
+      Set the following environment variables before use:
+
+      - `OPENCLAW_BASE_URL`: The base URL of your self-hosted OpenClaw instance (e.g. https://openclaw.example.com)
+      - `OPENCLAW_CLIENT_ID`: Your OAuth2 client ID
+      - `OPENCLAW_CLIENT_SECRET`: Your OAuth2 client secret
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | ask | Send a one-shot question to your OpenClaw assistant |
+      | chat | Send a message in a conversational session |
+      | search | Search your OpenClaw knowledge base |
+      | get_status | Check the connection and authentication status |
+      | list_conversations | List all stored conversations |
+      | get_conversation | Retrieve a specific conversation by ID |
+      | delete_conversation | Delete a specific conversation by ID |
+
+      ## Authentication
+
+      OpenClaw MCP uses OAuth2 client credentials flow. Ensure your OpenClaw instance
+      has an OAuth2 client configured and that the credentials provided have the
+      appropriate scopes for the operations you intend to perform.
+
+      ## Source
+
+      GitHub: https://github.com/freema/openclaw-mcp

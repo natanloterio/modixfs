@@ -1,0 +1,81 @@
+name: qiniu-mcp-server
+description: Interact with Qiniu Cloud storage and media services via MCP
+
+mcp:
+  server: qiniu-mcp-server
+  command: npx
+  args: ["-y", "qiniu-mcp-server"]
+
+env:
+  - name: QINIU_ACCESS_KEY
+    secret: true
+    required: true
+  - name: QINIU_SECRET_KEY
+    secret: true
+    required: true
+  - name: QINIU_BUCKET_NAME
+    secret: false
+    required: true
+  - name: QINIU_BUCKET_REGION
+    secret: false
+    required: false
+
+files:
+  - name: upload_file
+    type: write_invoke
+    handler: livefolders mcp call qiniu-mcp-server upload_file --arg local_path="$INPUT"
+    input:
+      type: string
+      description: Local file path to upload to Qiniu Cloud storage
+
+  - name: download_file
+    type: write_invoke
+    handler: livefolders mcp call qiniu-mcp-server download_file --arg key="$INPUT"
+    input:
+      type: string
+      description: Object key (filename) to download from Qiniu Cloud storage
+
+  - name: list_files
+    type: write_invoke
+    handler: livefolders mcp call qiniu-mcp-server list_files --arg prefix="$INPUT"
+    input:
+      type: string
+      description: Prefix to filter files listed in the Qiniu bucket
+
+  - name: delete_file
+    type: write_invoke
+    handler: livefolders mcp call qiniu-mcp-server delete_file --arg key="$INPUT"
+    input:
+      type: string
+      description: Object key (filename) of the file to delete from Qiniu storage
+
+  - name: get_file_info
+    type: write_invoke
+    handler: livefolders mcp call qiniu-mcp-server get_file_info --arg key="$INPUT"
+    input:
+      type: string
+      description: Object key (filename) to retrieve metadata/info for
+
+  - name: get_download_url
+    type: write_invoke
+    handler: livefolders mcp call qiniu-mcp-server get_download_url --arg key="$INPUT"
+    input:
+      type: string
+      description: Object key to generate a download URL for
+
+  - name: image_process
+    type: write_invoke
+    handler: livefolders mcp call qiniu-mcp-server image_process --arg key="$INPUT"
+    input:
+      type: string
+      description: Object key of the image to process with Qiniu image pipeline
+
+  - name: video_transcode
+    type: write_invoke
+    handler: livefolders mcp call qiniu-mcp-server video_transcode --arg key="$INPUT"
+    input:
+      type: string
+      description: Object key of the video file to transcode via Qiniu Dora
+
+  - name: how_to.md
+    type: readonly

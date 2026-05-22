@@ -1,0 +1,41 @@
+name: neurolink
+description: Streams are the future of AI powered by unlimited free tokens via the Neurolink MCP server
+
+mcp:
+  server: neurolink
+  command: npx
+  args: ["-y", "neurolink"]
+
+env:
+  - name: NEUROLINK_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: chat
+    type: write_invoke
+    handler: livefolders mcp call neurolink chat --arg message="$INPUT"
+    input:
+      type: string
+      description: Message to send to the AI chat stream
+
+  - name: complete
+    type: write_invoke
+    handler: livefolders mcp call neurolink complete --arg prompt="$INPUT"
+    input:
+      type: string
+      description: Prompt to complete using the AI model
+
+  - name: stream
+    type: write_invoke
+    handler: livefolders mcp call neurolink stream --arg input="$INPUT"
+    input:
+      type: string
+      description: Input text to stream through the AI model
+
+  - name: models
+    type: read_invoke
+    handler: livefolders mcp call neurolink models
+
+  - name: how_to.md
+    type: readonly

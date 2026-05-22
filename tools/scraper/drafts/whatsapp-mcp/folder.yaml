@@ -1,0 +1,85 @@
+name: whatsapp-mcp
+description: Send and receive WhatsApp messages via the WhatsApp MCP server
+
+mcp:
+  server: whatsapp-mcp
+  command: npx
+  args: ["-y", "whatsapp-mcp"]
+
+files:
+  - name: search_contacts
+    type: write_invoke
+    handler: livefolders mcp call whatsapp-mcp search_contacts --arg query="$INPUT"
+    input:
+      type: string
+      description: Name or phone number to search for in contacts
+
+  - name: list_chats
+    type: read_invoke
+    handler: livefolders mcp call whatsapp-mcp list_chats
+
+  - name: get_messages
+    type: write_invoke
+    handler: livefolders mcp call whatsapp-mcp get_messages --arg chat_id="$INPUT"
+    input:
+      type: string
+      description: Chat ID to retrieve messages from
+
+  - name: send_message
+    type: write_invoke
+    handler: livefolders mcp call whatsapp-mcp send_message --arg phone_number="$INPUT"
+    input:
+      type: string
+      description: Phone number to send a message to (include country code, e.g. +14155552671)
+
+  - name: get_chat_messages
+    type: write_invoke
+    handler: livefolders mcp call whatsapp-mcp get_chat_messages --arg chat_id="$INPUT"
+    input:
+      type: string
+      description: Chat ID to fetch full message history from
+
+  - name: search_messages
+    type: write_invoke
+    handler: livefolders mcp call whatsapp-mcp search_messages --arg query="$INPUT"
+    input:
+      type: string
+      description: Keyword or phrase to search across all WhatsApp messages
+
+  - name: get_contact_info
+    type: write_invoke
+    handler: livefolders mcp call whatsapp-mcp get_contact_info --arg phone_number="$INPUT"
+    input:
+      type: string
+      description: Phone number to look up contact information for
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # WhatsApp MCP
+
+      This folder wraps the [whatsapp-mcp](https://github.com/lharries/whatsapp-mcp) server,
+      allowing you to interact with WhatsApp through LiveFolders.
+
+      ## Prerequisites
+
+      - WhatsApp must be linked via QR code on first run (the server handles this automatically).
+      - Node.js and npx must be installed.
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | search_contacts | Search for contacts by name or phone number |
+      | list_chats | List all active WhatsApp chats |
+      | get_messages | Retrieve messages from a specific chat by chat ID |
+      | send_message | Send a WhatsApp message to a phone number |
+      | get_chat_messages | Get full message history for a chat |
+      | search_messages | Search across all messages for a keyword |
+      | get_contact_info | Look up info for a phone number |
+
+      ## Usage Tips
+
+      - Phone numbers should include the country code (e.g. `+14155552671`).
+      - Chat IDs can be obtained from `list_chats` or `get_messages`.
+      - On first run, scan the QR code printed in the terminal to authenticate.

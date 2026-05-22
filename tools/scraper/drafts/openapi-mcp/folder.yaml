@@ -1,0 +1,87 @@
+name: openapi-mcp
+description: Dockerized MCP server that lets your AI agent access any API using existing OpenAPI/Swagger docs
+
+mcp:
+  server: openapi-mcp
+  command: docker
+  args: ["run", "--rm", "-i", "-e", "API_BASE_URL", "-e", "OPENAPI_SPEC_URL", "ckanthony/openapi-mcp:latest"]
+
+env:
+  - name: API_BASE_URL
+    description: Base URL of the target API (e.g. https://api.example.com)
+    secret: false
+    required: true
+  - name: OPENAPI_SPEC_URL
+    description: URL or path to the OpenAPI/Swagger spec for the target API
+    secret: false
+    required: true
+  - name: API_KEY
+    description: API key or token for authenticating with the target API (if required)
+    secret: true
+    required: false
+
+files:
+  - name: call_api
+    type: write_invoke
+    handler: livefolders mcp call openapi-mcp call_api --arg operation_id="$INPUT"
+    input:
+      type: string
+      description: The operationId from the OpenAPI spec to invoke
+
+  - name: list_operations
+    type: read_invoke
+    handler: livefolders mcp call openapi-mcp list_operations
+    description: List all available API operations from the loaded OpenAPI spec
+
+  - name: get_operation_details
+    type: write_invoke
+    handler: livefolders mcp call openapi-mcp get_operation_details --arg operation_id="$INPUT"
+    input:
+      type: string
+      description: The operationId to retrieve parameter and schema details for
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # openapi-mcp
+
+      This folder wraps the [openapi-mcp](https://github.com/ckanthony/openapi-mcp) server,
+      a Dockerized MCP server that enables your AI agent to call any API described by an
+      OpenAPI (Swagger) specification.
+
+      ## Prerequisites
+
+      - Docker must be installed and running on your system.
+      - You need access to an OpenAPI/Swagger spec (URL or local path).
+
+      ## Configuration
+
+      Set the following environment variables before use:
+
+      | Variable         | Required | Description                                              |
+      |------------------|----------|----------------------------------------------------------|
+      | `API_BASE_URL`   | Yes      | Base URL of the target API, e.g. `https://api.example.com` |
+      | `OPENAPI_SPEC_URL` | Yes    | URL pointing to the OpenAPI/Swagger JSON or YAML spec    |
+      | `API_KEY`        | No       | Bearer token or API key if the API requires auth         |
+
+      ## Available Tools
+
+      ### `list_operations`
+      Returns all operations (endpoints) available in the loaded OpenAPI spec.
+      No input required.
+
+      ### `get_operation_details`
+      Input: an `operationId` string.
+      Returns parameter definitions, request body schema, and response schema for that operation.
+
+      ### `call_api`
+      Input: an `operationId` string (plus additional args as needed per operation).
+      Executes the corresponding API call and returns the response.
+
+      ## Example Usage
+
+      1. Set `API_BASE_URL=https://petstore3.swagger.io/api/v3`
+      2. Set `OPENAPI_SPEC_URL=https://petstore3.swagger.io/api/v3/openapi.json`
+      3. Use `list_operations` to discover available endpoints.
+      4. Use `get_operation_details` with an `operationId` to inspect parameters.
+      5. Use `call_api` with the desired `operationId` to invoke the endpoint.

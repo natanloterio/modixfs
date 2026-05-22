@@ -1,0 +1,105 @@
+name: agent-mcp
+description: Multi-agent coordination framework enabling parallel AI collaboration via the Model Context Protocol
+
+mcp:
+  server: agent-mcp
+  command: npx
+  args: ["-y", "agent-mcp"]
+
+env:
+  - name: ANTHROPIC_API_KEY
+    secret: true
+    required: true
+  - name: OPENAI_API_KEY
+    secret: true
+    required: false
+
+files:
+  - name: create_project
+    type: write_invoke
+    handler: livefolders mcp call agent-mcp create_project --arg name="$INPUT"
+    input:
+      type: string
+      description: Project name to create a new multi-agent workspace for
+
+  - name: list_projects
+    type: read_invoke
+    handler: livefolders mcp call agent-mcp list_projects
+
+  - name: create_agent
+    type: write_invoke
+    handler: livefolders mcp call agent-mcp create_agent --arg role="$INPUT"
+    input:
+      type: string
+      description: Role or specialization for the new agent (e.g. "frontend", "backend", "reviewer")
+
+  - name: list_agents
+    type: read_invoke
+    handler: livefolders mcp call agent-mcp list_agents
+
+  - name: assign_task
+    type: write_invoke
+    handler: livefolders mcp call agent-mcp assign_task --arg description="$INPUT"
+    input:
+      type: string
+      description: Task description to assign to an agent
+
+  - name: get_task_status
+    type: write_invoke
+    handler: livefolders mcp call agent-mcp get_task_status --arg task_id="$INPUT"
+    input:
+      type: string
+      description: Task ID to check the current status of
+
+  - name: list_tasks
+    type: read_invoke
+    handler: livefolders mcp call agent-mcp list_tasks
+
+  - name: send_message
+    type: write_invoke
+    handler: livefolders mcp call agent-mcp send_message --arg content="$INPUT"
+    input:
+      type: string
+      description: Message content to send between agents for coordination
+
+  - name: get_messages
+    type: read_invoke
+    handler: livefolders mcp call agent-mcp get_messages
+
+  - name: get_agent_context
+    type: write_invoke
+    handler: livefolders mcp call agent-mcp get_agent_context --arg agent_id="$INPUT"
+    input:
+      type: string
+      description: Agent ID to retrieve the current context and state for
+
+  - name: update_agent_context
+    type: write_invoke
+    handler: livefolders mcp call agent-mcp update_agent_context --arg context="$INPUT"
+    input:
+      type: string
+      description: JSON-formatted context data to update for an agent
+
+  - name: store_memory
+    type: write_invoke
+    handler: livefolders mcp call agent-mcp store_memory --arg content="$INPUT"
+    input:
+      type: string
+      description: Content to store in shared agent memory for cross-agent retrieval
+
+  - name: retrieve_memory
+    type: write_invoke
+    handler: livefolders mcp call agent-mcp retrieve_memory --arg query="$INPUT"
+    input:
+      type: string
+      description: Query string to search and retrieve relevant memories
+
+  - name: complete_task
+    type: write_invoke
+    handler: livefolders mcp call agent-mcp complete_task --arg task_id="$INPUT"
+    input:
+      type: string
+      description: Task ID to mark as completed
+
+  - name: how_to.md
+    type: readonly

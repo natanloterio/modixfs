@@ -1,0 +1,91 @@
+name: firebase-mcp
+description: Firebase MCP server for Firestore, Auth, and Storage operations
+
+mcp:
+  server: firebase-mcp
+  command: npx
+  args: ["-y", "firebase-mcp"]
+
+env:
+  - name: FIREBASE_SERVICE_ACCOUNT_KEY_PATH
+    description: Path to your Firebase service account JSON key file
+    secret: false
+    required: true
+  - name: FIREBASE_STORAGE_BUCKET
+    description: Firebase Storage bucket name (e.g. your-project.appspot.com)
+    secret: false
+    required: false
+
+files:
+  - name: firestore_add_document
+    type: write_invoke
+    handler: livefolders mcp call firebase-mcp firestore_add_document --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection path to add a document to
+
+  - name: firestore_get_document
+    type: write_invoke
+    handler: livefolders mcp call firebase-mcp firestore_get_document --arg path="$INPUT"
+    input:
+      type: string
+      description: Full document path (e.g. users/user123)
+
+  - name: firestore_update_document
+    type: write_invoke
+    handler: livefolders mcp call firebase-mcp firestore_update_document --arg path="$INPUT"
+    input:
+      type: string
+      description: Full document path to update (e.g. users/user123)
+
+  - name: firestore_delete_document
+    type: write_invoke
+    handler: livefolders mcp call firebase-mcp firestore_delete_document --arg path="$INPUT"
+    input:
+      type: string
+      description: Full document path to delete (e.g. users/user123)
+
+  - name: firestore_list_documents
+    type: write_invoke
+    handler: livefolders mcp call firebase-mcp firestore_list_documents --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection path to list documents from
+
+  - name: firestore_list_collections
+    type: write_invoke
+    handler: livefolders mcp call firebase-mcp firestore_list_collections --arg document_path="$INPUT"
+    input:
+      type: string
+      description: Document path to list subcollections from (leave empty for root collections)
+
+  - name: firestore_query_collection
+    type: write_invoke
+    handler: livefolders mcp call firebase-mcp firestore_query_collection --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection path to query
+
+  - name: auth_get_user
+    type: write_invoke
+    handler: livefolders mcp call firebase-mcp auth_get_user --arg identifier="$INPUT"
+    input:
+      type: string
+      description: User UID or email address to look up
+
+  - name: storage_list_files
+    type: write_invoke
+    handler: livefolders mcp call firebase-mcp storage_list_files --arg path="$INPUT"
+    input:
+      type: string
+      description: Storage path to list files from (e.g. images/ or leave empty for root)
+
+  - name: storage_get_file_info
+    type: write_invoke
+    handler: livefolders mcp call firebase-mcp storage_get_file_info --arg path="$INPUT"
+    input:
+      type: string
+      description: Full storage file path to retrieve metadata for
+
+  - name: how_to.md
+    type: readonly

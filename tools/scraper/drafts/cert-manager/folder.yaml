@@ -1,0 +1,91 @@
+name: cert-manager
+description: Automatically provision and manage TLS certificates in Kubernetes
+
+mcp:
+  server: cert-manager
+  command: npx
+  args: ["-y", "@cert-manager/mcp"]
+
+env:
+  - name: KUBECONFIG
+    description: Path to your Kubernetes config file (e.g. ~/.kube/config)
+    secret: false
+    required: true
+
+files:
+  - name: list_certificates
+    type: read_invoke
+    handler: livefolders mcp call cert-manager list_certificates
+    description: List all Certificate resources across all namespaces
+
+  - name: get_certificate
+    type: write_invoke
+    handler: livefolders mcp call cert-manager get_certificate --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the Certificate resource to retrieve (optionally prefix with namespace, e.g. my-namespace/my-cert)
+
+  - name: list_certificate_requests
+    type: read_invoke
+    handler: livefolders mcp call cert-manager list_certificate_requests
+    description: List all CertificateRequest resources across all namespaces
+
+  - name: get_certificate_request
+    type: write_invoke
+    handler: livefolders mcp call cert-manager get_certificate_request --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the CertificateRequest resource to retrieve (optionally prefix with namespace)
+
+  - name: list_issuers
+    type: read_invoke
+    handler: livefolders mcp call cert-manager list_issuers
+    description: List all Issuer and ClusterIssuer resources
+
+  - name: get_issuer
+    type: write_invoke
+    handler: livefolders mcp call cert-manager get_issuer --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the Issuer or ClusterIssuer to retrieve (optionally prefix with namespace)
+
+  - name: list_orders
+    type: read_invoke
+    handler: livefolders mcp call cert-manager list_orders
+    description: List all ACME Order resources across all namespaces
+
+  - name: get_order
+    type: write_invoke
+    handler: livefolders mcp call cert-manager get_order --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the ACME Order resource to retrieve (optionally prefix with namespace)
+
+  - name: list_challenges
+    type: read_invoke
+    handler: livefolders mcp call cert-manager list_challenges
+    description: List all ACME Challenge resources across all namespaces
+
+  - name: get_challenge
+    type: write_invoke
+    handler: livefolders mcp call cert-manager get_challenge --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the ACME Challenge resource to retrieve (optionally prefix with namespace)
+
+  - name: check_certificate_expiry
+    type: write_invoke
+    handler: livefolders mcp call cert-manager check_certificate_expiry --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the Certificate to check expiry for (optionally prefix with namespace)
+
+  - name: renew_certificate
+    type: write_invoke
+    handler: livefolders mcp call cert-manager renew_certificate --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the Certificate to trigger renewal for (optionally prefix with namespace)
+
+  - name: how_to.md
+    type: readonly

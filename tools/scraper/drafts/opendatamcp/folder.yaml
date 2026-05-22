@@ -1,0 +1,47 @@
+name: open-data-mcp
+description: Connect any Open Data to any LLM with Model Context Protocol
+
+mcp:
+  server: open-data-mcp
+  command: npx
+  args: ["-y", "opendatamcp"]
+
+files:
+  - name: list_datasets
+    type: read_invoke
+    handler: livefolders mcp call open-data-mcp list_datasets
+
+  - name: search_datasets
+    type: write_invoke
+    handler: livefolders mcp call open-data-mcp search_datasets --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find relevant open datasets
+
+  - name: get_dataset
+    type: write_invoke
+    handler: livefolders mcp call open-data-mcp get_dataset --arg dataset_id="$INPUT"
+    input:
+      type: string
+      description: Dataset ID to retrieve
+
+  - name: query_dataset
+    type: write_invoke
+    handler: livefolders mcp call open-data-mcp query_dataset --arg query="$INPUT"
+    input:
+      type: string
+      description: Natural language query to run against available open datasets
+
+  - name: list_sources
+    type: read_invoke
+    handler: livefolders mcp call open-data-mcp list_sources
+
+  - name: get_source
+    type: write_invoke
+    handler: livefolders mcp call open-data-mcp get_source --arg source_id="$INPUT"
+    input:
+      type: string
+      description: Source ID of the open data portal to retrieve information about
+
+  - name: how_to.md
+    type: readonly

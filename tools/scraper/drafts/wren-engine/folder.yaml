@@ -1,0 +1,105 @@
+name: wren-engine
+description: Query and analyze data using Wren Engine's semantic SQL layer via MCP
+
+mcp:
+  server: wren-engine
+  command: npx
+  args: ["-y", "@cannerdata/mcp-wren-engine"]
+
+env:
+  - name: WREN_ENGINE_ENDPOINT
+    description: Wren Engine API endpoint URL
+    secret: false
+    required: true
+  - name: WREN_ENGINE_API_KEY
+    description: API key for authenticating with Wren Engine
+    secret: true
+    required: true
+
+files:
+  - name: query
+    type: write_invoke
+    handler: livefolders mcp call wren-engine query --arg sql="$INPUT"
+    input:
+      type: string
+      description: SQL query to execute against the Wren Engine semantic layer
+
+  - name: get_schema
+    type: write_invoke
+    handler: livefolders mcp call wren-engine get_schema --arg model="$INPUT"
+    input:
+      type: string
+      description: Name of the data model to retrieve schema information for
+
+  - name: list_models
+    type: read_invoke
+    handler: livefolders mcp call wren-engine list_models
+
+  - name: dry_run
+    type: write_invoke
+    handler: livefolders mcp call wren-engine dry_run --arg sql="$INPUT"
+    input:
+      type: string
+      description: SQL query to validate without executing (dry run)
+
+  - name: get_connections
+    type: read_invoke
+    handler: livefolders mcp call wren-engine get_connections
+
+  - name: describe_model
+    type: write_invoke
+    handler: livefolders mcp call wren-engine describe_model --arg model="$INPUT"
+    input:
+      type: string
+      description: Name of the data model to get a detailed description of
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # Wren Engine MCP Folder
+
+      This LiveFolder wraps the Wren Engine MCP server, enabling semantic SQL queries
+      and data model exploration via the Wren Engine API.
+
+      ## Setup
+
+      Set the following environment variables before use:
+
+      - `WREN_ENGINE_ENDPOINT`: The base URL of your Wren Engine instance (e.g. `http://localhost:8080`)
+      - `WREN_ENGINE_API_KEY`: Your Wren Engine API key for authentication
+
+      ## Available Tools
+
+      | File | Type | Description |
+      |------|------|-------------|
+      | `query` | write_invoke | Execute a SQL query against the semantic layer |
+      | `get_schema` | write_invoke | Retrieve schema info for a specific data model |
+      | `list_models` | read_invoke | List all available data models |
+      | `dry_run` | write_invoke | Validate a SQL query without executing it |
+      | `get_connections` | read_invoke | List all configured data source connections |
+      | `describe_model` | write_invoke | Get a detailed description of a data model |
+
+      ## Usage Examples
+
+      **Run a SQL query:**
+      ```
+      SELECT * FROM orders WHERE status = 'completed' LIMIT 10
+      ```
+
+      **Inspect a model:**
+      ```
+      orders
+      ```
+
+      **Validate SQL before running:**
+      ```
+      SELECT customer_id, SUM(total) FROM orders GROUP BY customer_id
+      ```
+
+      ## About Wren Engine
+
+      Wren Engine is the semantic layer powering WrenAI. It translates natural language
+      and semantic SQL into queries against your underlying data sources, providing a
+      consistent, governed interface to your data.
+
+      GitHub: https://github.com/Canner/wren-engine

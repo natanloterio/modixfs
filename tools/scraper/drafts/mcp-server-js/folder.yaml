@@ -1,0 +1,100 @@
+name: mcp-server-js
+description: Expose YepCode processes as callable tools for AI platforms via MCP
+
+mcp:
+  server: mcp-server-js
+  command: npx
+  args: ["-y", "@yepcode/mcp-server"]
+
+env:
+  - name: YEPCODE_API_TOKEN
+    description: YepCode API token for authenticating requests
+    secret: true
+    required: true
+
+files:
+  - name: run_process
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-js run_process --arg processId="$INPUT"
+    input:
+      type: string
+      description: The YepCode process ID or slug to execute
+
+  - name: get_process
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-js get_process --arg processId="$INPUT"
+    input:
+      type: string
+      description: The YepCode process ID or slug to retrieve details for
+
+  - name: list_processes
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-js list_processes
+
+  - name: get_execution
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-js get_execution --arg executionId="$INPUT"
+    input:
+      type: string
+      description: The execution ID to retrieve status and results for
+
+  - name: list_executions
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-js list_executions --arg processId="$INPUT"
+    input:
+      type: string
+      description: The YepCode process ID or slug to list executions for
+
+  - name: create_process
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-js create_process --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the new YepCode process to create
+
+  - name: update_process
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-js update_process --arg processId="$INPUT"
+    input:
+      type: string
+      description: The YepCode process ID or slug to update
+
+  - name: delete_process
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-js delete_process --arg processId="$INPUT"
+    input:
+      type: string
+      description: The YepCode process ID or slug to delete
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # YepCode MCP Server
+
+      This folder wraps the [YepCode MCP Server](https://github.com/yepcode/mcp-server-js),
+      exposing your YepCode processes as callable tools for AI platforms.
+
+      ## Setup
+
+      Set your `YEPCODE_API_TOKEN` environment variable with your YepCode API token.
+      You can find or generate your token in the YepCode dashboard under Settings > API Tokens.
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | `list_processes` | List all available YepCode processes in your workspace |
+      | `get_process` | Retrieve details for a specific process by ID or slug |
+      | `run_process` | Execute a YepCode process by ID or slug |
+      | `get_execution` | Get the status and results of a specific execution |
+      | `list_executions` | List executions for a given process |
+      | `create_process` | Create a new YepCode process |
+      | `update_process` | Update an existing YepCode process |
+      | `delete_process` | Delete a YepCode process |
+
+      ## Usage Tips
+
+      - Use `list_processes` first to discover available process IDs and slugs.
+      - Use `run_process` to trigger automations and workflows.
+      - Use `get_execution` to poll for results after running an async process.
+      - Processes can wrap any API, script, or automation defined in YepCode.

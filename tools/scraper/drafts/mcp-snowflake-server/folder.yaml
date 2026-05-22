@@ -1,0 +1,165 @@
+name: mcp-snowflake-server
+description: Query and interact with Snowflake databases via MCP
+
+mcp:
+  server: mcp-snowflake-server
+  command: uvx
+  args:
+    - "mcp-snowflake-server"
+    - "--account"
+    - "${SNOWFLAKE_ACCOUNT}"
+    - "--username"
+    - "${SNOWFLAKE_USERNAME}"
+    - "--password"
+    - "${SNOWFLAKE_PASSWORD}"
+    - "--database"
+    - "${SNOWFLAKE_DATABASE}"
+    - "--schema"
+    - "${SNOWFLAKE_SCHEMA}"
+    - "--warehouse"
+    - "${SNOWFLAKE_WAREHOUSE}"
+    - "--role"
+    - "${SNOWFLAKE_ROLE}"
+
+env:
+  - name: SNOWFLAKE_ACCOUNT
+    description: Snowflake account identifier (e.g. xy12345.us-east-1)
+    secret: false
+    required: true
+  - name: SNOWFLAKE_USERNAME
+    description: Snowflake username
+    secret: false
+    required: true
+  - name: SNOWFLAKE_PASSWORD
+    description: Snowflake password
+    secret: true
+    required: true
+  - name: SNOWFLAKE_DATABASE
+    description: Default Snowflake database to use
+    secret: false
+    required: true
+  - name: SNOWFLAKE_SCHEMA
+    description: Default Snowflake schema to use
+    secret: false
+    required: true
+  - name: SNOWFLAKE_WAREHOUSE
+    description: Snowflake warehouse to use for queries
+    secret: false
+    required: true
+  - name: SNOWFLAKE_ROLE
+    description: Snowflake role to assume
+    secret: false
+    required: false
+
+files:
+  - name: read_query
+    type: write_invoke
+    handler: livefolders mcp call mcp-snowflake-server read_query --arg query="$INPUT"
+    input:
+      type: string
+      description: SQL SELECT query to execute against Snowflake
+
+  - name: write_query
+    type: write_invoke
+    handler: livefolders mcp call mcp-snowflake-server write_query --arg query="$INPUT"
+    input:
+      type: string
+      description: SQL INSERT, UPDATE, DELETE, or DDL query to execute against Snowflake
+
+  - name: list_databases
+    type: read_invoke
+    handler: livefolders mcp call mcp-snowflake-server list_databases
+
+  - name: list_schemas
+    type: write_invoke
+    handler: livefolders mcp call mcp-snowflake-server list_schemas --arg database="$INPUT"
+    input:
+      type: string
+      description: Database name to list schemas for
+
+  - name: list_tables
+    type: write_invoke
+    handler: livefolders mcp call mcp-snowflake-server list_tables --arg schema="$INPUT"
+    input:
+      type: string
+      description: Schema name to list tables for
+
+  - name: describe_table
+    type: write_invoke
+    handler: livefolders mcp call mcp-snowflake-server describe_table --arg table="$INPUT"
+    input:
+      type: string
+      description: Fully qualified table name (database.schema.table) to describe
+
+  - name: get_table_sample
+    type: write_invoke
+    handler: livefolders mcp call mcp-snowflake-server get_table_sample --arg table="$INPUT"
+    input:
+      type: string
+      description: Fully qualified table name (database.schema.table) to sample rows from
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcp-snowflake-server
+
+      Query and interact with Snowflake databases using natural language or direct SQL.
+
+      ## Setup
+
+      Set the following environment variables before use:
+
+      | Variable              | Description                                      | Required |
+      |-----------------------|--------------------------------------------------|----------|
+      | SNOWFLAKE_ACCOUNT     | Account identifier (e.g. xy12345.us-east-1)      | Yes      |
+      | SNOWFLAKE_USERNAME    | Snowflake username                               | Yes      |
+      | SNOWFLAKE_PASSWORD    | Snowflake password                               | Yes      |
+      | SNOWFLAKE_DATABASE    | Default database                                 | Yes      |
+      | SNOWFLAKE_SCHEMA      | Default schema                                   | Yes      |
+      | SNOWFLAKE_WAREHOUSE   | Warehouse for query execution                    | Yes      |
+      | SNOWFLAKE_ROLE        | Role to assume (optional)                        | No       |
+
+      ## Available Tools
+
+      ### read_query
+      Execute a SELECT query and return results.
+      - Input: SQL SELECT statement
+
+      ### write_query
+      Execute a write operation (INSERT, UPDATE, DELETE, CREATE, etc.).
+      - Input: SQL write or DDL statement
+
+      ### list_databases
+      List all databases available in the Snowflake account.
+      - No input required
+
+      ### list_schemas
+      List all schemas within a given database.
+      - Input: Database name
+
+      ### list_tables
+      List all tables within a given schema.
+      - Input: Schema name (use `database.schema` format if needed)
+
+      ### describe_table
+      Show column definitions and metadata for a table.
+      - Input: Fully qualified table name (`database.schema.table`)
+
+      ### get_table_sample
+      Retrieve a sample of rows from a table.
+      - Input: Fully qualified table name (`database.schema.table`)
+
+      ## Example Queries
+
+      ```sql
+      -- Read query example
+      SELECT * FROM my_database.my_schema.my_table LIMIT 10;
+
+      -- Write query example
+      INSERT INTO my_database.my_schema.my_table (col1, col2) VALUES ('a', 1);
+      ```
+
+      ## Notes
+      - Use fully qualified names (`database.schema.table`) for cross-schema operations.
+      - Write operations require appropriate Snowflake privileges for the configured role.
+      - Source: https://github.com/isaacwasserman/mcp-snowflake-server

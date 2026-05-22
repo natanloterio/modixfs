@@ -1,0 +1,153 @@
+name: mayamcp
+description: MCP server implementation for Autodesk Maya - control and interact with Maya via natural language
+
+mcp:
+  server: mayamcp
+  command: npx
+  args: ["-y", "mayamcp"]
+
+files:
+  - name: execute_python
+    type: write_invoke
+    handler: livefolders mcp call mayamcp execute_python --arg code="$INPUT"
+    input:
+      type: string
+      description: Python code to execute in Maya
+
+  - name: execute_mel
+    type: write_invoke
+    handler: livefolders mcp call mayamcp execute_mel --arg command="$INPUT"
+    input:
+      type: string
+      description: MEL command or script to execute in Maya
+
+  - name: get_scene_info
+    type: read_invoke
+    handler: livefolders mcp call mayamcp get_scene_info
+
+  - name: list_objects
+    type: read_invoke
+    handler: livefolders mcp call mayamcp list_objects
+
+  - name: get_object_info
+    type: write_invoke
+    handler: livefolders mcp call mayamcp get_object_info --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the Maya object to get info about
+
+  - name: create_object
+    type: write_invoke
+    handler: livefolders mcp call mayamcp create_object --arg type="$INPUT"
+    input:
+      type: string
+      description: Type of Maya object to create (e.g. polySphere, polyCube, joint)
+
+  - name: select_object
+    type: write_invoke
+    handler: livefolders mcp call mayamcp select_object --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the Maya object to select
+
+  - name: delete_object
+    type: write_invoke
+    handler: livefolders mcp call mayamcp delete_object --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the Maya object to delete
+
+  - name: get_attribute
+    type: write_invoke
+    handler: livefolders mcp call mayamcp get_attribute --arg attribute="$INPUT"
+    input:
+      type: string
+      description: Attribute to get in the format objectName.attributeName
+
+  - name: set_attribute
+    type: write_invoke
+    handler: livefolders mcp call mayamcp set_attribute --arg attribute="$INPUT"
+    input:
+      type: string
+      description: Attribute and value to set in the format objectName.attributeName=value
+
+  - name: render_scene
+    type: read_invoke
+    handler: livefolders mcp call mayamcp render_scene
+
+  - name: save_scene
+    type: write_invoke
+    handler: livefolders mcp call mayamcp save_scene --arg path="$INPUT"
+    input:
+      type: string
+      description: File path to save the Maya scene to
+
+  - name: open_scene
+    type: write_invoke
+    handler: livefolders mcp call mayamcp open_scene --arg path="$INPUT"
+    input:
+      type: string
+      description: File path of the Maya scene to open
+
+  - name: new_scene
+    type: read_invoke
+    handler: livefolders mcp call mayamcp new_scene
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # MayaMCP - Autodesk Maya MCP Server
+
+      Control and interact with Autodesk Maya using the Model Context Protocol.
+
+      ## Prerequisites
+
+      - Autodesk Maya must be installed and running
+      - MayaMCP plugin must be loaded in Maya
+      - Maya must be listening for MCP connections (default port)
+
+      ## Setup
+
+      1. Open Autodesk Maya
+      2. Load the MayaMCP plugin via the Plugin Manager or run the startup script
+      3. Maya will begin listening for MCP connections
+
+      ## Available Tools
+
+      | Tool | Description |
+      |------|-------------|
+      | execute_python | Run arbitrary Python code inside Maya |
+      | execute_mel | Run MEL commands or scripts inside Maya |
+      | get_scene_info | Get information about the current Maya scene |
+      | list_objects | List all objects in the current scene |
+      | get_object_info | Get details about a specific Maya object |
+      | create_object | Create a new Maya object by type |
+      | select_object | Select an object in the Maya scene |
+      | delete_object | Delete an object from the scene |
+      | get_attribute | Get the value of an object attribute |
+      | set_attribute | Set the value of an object attribute |
+      | render_scene | Render the current Maya scene |
+      | save_scene | Save the scene to a file path |
+      | open_scene | Open a Maya scene file |
+      | new_scene | Create a new empty scene |
+
+      ## Examples
+
+      **Create a polygon sphere:**
+      ```
+      create_object: polySphere
+      ```
+
+      **Move an object:**
+      ```
+      set_attribute: pSphere1.translateX=5
+      ```
+
+      **Run Python in Maya:**
+      ```
+      execute_python: import maya.cmds as cmds; cmds.polyCube()
+      ```
+
+      ## More Info
+
+      GitHub: https://github.com/PatrickPalmer/MayaMCP

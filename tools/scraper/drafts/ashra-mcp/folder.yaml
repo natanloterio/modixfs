@@ -1,0 +1,78 @@
+name: ashra-mcp
+description: A Model Context Protocol server for Ashra - AI-powered security reconnaissance and attack surface analysis
+
+mcp:
+  server: ashra-mcp
+  command: npx
+  args: ["-y", "ashra-mcp"]
+
+env:
+  - name: ASHRA_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: scan_target
+    type: write_invoke
+    handler: livefolders mcp call ashra-mcp scan_target --arg target="$INPUT"
+    input:
+      type: string
+      description: Target domain or IP address to scan for attack surface analysis
+
+  - name: get_scan_results
+    type: write_invoke
+    handler: livefolders mcp call ashra-mcp get_scan_results --arg scan_id="$INPUT"
+    input:
+      type: string
+      description: Scan ID to retrieve results for
+
+  - name: list_scans
+    type: read_invoke
+    handler: livefolders mcp call ashra-mcp list_scans
+
+  - name: get_findings
+    type: write_invoke
+    handler: livefolders mcp call ashra-mcp get_findings --arg scan_id="$INPUT"
+    input:
+      type: string
+      description: Scan ID to retrieve detailed findings and vulnerabilities for
+
+  - name: get_asset_inventory
+    type: write_invoke
+    handler: livefolders mcp call ashra-mcp get_asset_inventory --arg target="$INPUT"
+    input:
+      type: string
+      description: Target domain or organization to retrieve asset inventory for
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # Ashra MCP
+
+      AI-powered attack surface management and security reconnaissance via the Ashra platform.
+
+      ## Setup
+
+      Set your Ashra API key as an environment variable:
+      ```
+      ASHRA_API_KEY=your_api_key_here
+      ```
+
+      ## Tools
+
+      - **scan_target** — Initiate a scan against a domain or IP address
+      - **get_scan_results** — Retrieve results for a completed scan by scan ID
+      - **list_scans** — List all previously run scans
+      - **get_findings** — Get detailed vulnerability findings for a scan
+      - **get_asset_inventory** — Retrieve discovered asset inventory for a target
+
+      ## Example Usage
+
+      1. Start a scan: provide a domain like `example.com`
+      2. Note the returned scan ID
+      3. Use `get_scan_results` or `get_findings` with that scan ID to view results
+
+      ## Links
+
+      - GitHub: https://github.com/getrupt/ashra-mcp
+      - Ashra Platform: https://ashra.ai

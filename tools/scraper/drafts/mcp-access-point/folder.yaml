@@ -1,0 +1,56 @@
+name: mcp-access-point
+description: Turn a web server into an MCP server in one click without making any code changes
+
+mcp:
+  server: mcp-access-point
+  command: npx
+  args: ["-y", "mcp-access-point"]
+
+env:
+  - name: TARGET_URL
+    description: The base URL of the web server to expose as an MCP server
+    secret: false
+    required: true
+
+files:
+  - name: http_get
+    type: write_invoke
+    handler: livefolders mcp call mcp-access-point http_get --arg url="$INPUT"
+    input:
+      type: string
+      description: URL path or endpoint to send a GET request to
+
+  - name: http_post
+    type: write_invoke
+    handler: livefolders mcp call mcp-access-point http_post --arg url="$INPUT"
+    input:
+      type: string
+      description: URL path or endpoint to send a POST request to
+
+  - name: http_put
+    type: write_invoke
+    handler: livefolders mcp call mcp-access-point http_put --arg url="$INPUT"
+    input:
+      type: string
+      description: URL path or endpoint to send a PUT request to
+
+  - name: http_delete
+    type: write_invoke
+    handler: livefolders mcp call mcp-access-point http_delete --arg url="$INPUT"
+    input:
+      type: string
+      description: URL path or endpoint to send a DELETE request to
+
+  - name: http_patch
+    type: write_invoke
+    handler: livefolders mcp call mcp-access-point http_patch --arg url="$INPUT"
+    input:
+      type: string
+      description: URL path or endpoint to send a PATCH request to
+
+  - name: list_endpoints
+    type: read_invoke
+    handler: livefolders mcp call mcp-access-point list_endpoints
+
+  - name: how_to.md
+    type: readonly

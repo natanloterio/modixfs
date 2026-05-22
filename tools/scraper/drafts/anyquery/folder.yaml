@@ -1,0 +1,87 @@
+name: anyquery
+description: Query anything (GitHub, Notion, +40 more) with SQL and let LLMs connect via MCP
+
+mcp:
+  server: anyquery
+  command: anyquery
+  args: ["server", "--mcp"]
+
+files:
+  - name: execute_query
+    type: write_invoke
+    handler: livefolders mcp call anyquery execute_query --arg query="$INPUT"
+    input:
+      type: string
+      description: SQL query to execute (e.g. SELECT * FROM github_repositories_from_user WHERE user='julien040')
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # anyquery MCP Folder
+
+      This folder wraps the [anyquery](https://github.com/julien040/anyquery) MCP server,
+      which lets you query 40+ data sources (GitHub, Notion, Spotify, Airtable, and more)
+      using SQL via the Model Context Protocol.
+
+      ## Requirements
+
+      Install anyquery before using this folder:
+
+      ```bash
+      # macOS (Homebrew)
+      brew install julien040/anyquery/anyquery
+
+      # Or download from GitHub releases
+      # https://github.com/julien040/anyquery/releases
+      ```
+
+      ## Usage
+
+      ### execute_query
+      Submit any SQL query supported by anyquery.
+
+      **Examples:**
+
+      ```sql
+      -- List your GitHub repositories
+      SELECT * FROM github_repositories_from_user WHERE user='your-username';
+
+      -- Query Notion pages
+      SELECT * FROM notion_pages;
+
+      -- Search Spotify tracks
+      SELECT * FROM spotify_tracks WHERE query='lofi hip hop';
+
+      -- List files in Google Drive
+      SELECT * FROM google_drive_files;
+      ```
+
+      ## Plugins
+
+      anyquery supports 40+ plugins. Install them with:
+
+      ```bash
+      anyquery plugin install github
+      anyquery plugin install notion
+      anyquery plugin install spotify
+      # etc.
+      ```
+
+      List available plugins at: https://anyquery.dev/integrations
+
+      ## Authentication
+
+      Each plugin may require its own API key or OAuth flow. Configure them with:
+
+      ```bash
+      anyquery profile new default <plugin-name>
+      ```
+
+      Follow the prompts to enter credentials for each data source you want to query.
+
+      ## Tips
+
+      - Use standard SQL: SELECT, WHERE, JOIN, GROUP BY, ORDER BY, LIMIT
+      - Cross-source joins are supported (e.g. JOIN github with notion)
+      - Run `anyquery plugin list` to see installed plugins
+      - Docs: https://anyquery.dev/docs

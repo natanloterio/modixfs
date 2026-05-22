@@ -1,0 +1,83 @@
+name: mcp-google-sheets
+description: Integrate with Google Drive and Google Sheets to create and modify spreadsheets
+
+mcp:
+  server: mcp-google-sheets
+  command: npx
+  args: ["-y", "mcp-google-sheets"]
+
+env:
+  - name: GOOGLE_CLIENT_ID
+    secret: false
+    required: true
+  - name: GOOGLE_CLIENT_SECRET
+    secret: true
+    required: true
+  - name: GOOGLE_REFRESH_TOKEN
+    secret: true
+    required: true
+
+files:
+  - name: list_spreadsheets
+    type: read_invoke
+    handler: livefolders mcp call mcp-google-sheets list_spreadsheets
+    description: List all spreadsheets in Google Drive
+
+  - name: create_spreadsheet
+    type: write_invoke
+    handler: livefolders mcp call mcp-google-sheets create_spreadsheet --arg title="$INPUT"
+    input:
+      type: string
+      description: Title of the new spreadsheet to create
+
+  - name: get_spreadsheet_info
+    type: write_invoke
+    handler: livefolders mcp call mcp-google-sheets get_spreadsheet_info --arg spreadsheet_id="$INPUT"
+    input:
+      type: string
+      description: Spreadsheet ID to retrieve info for
+
+  - name: read_sheet
+    type: write_invoke
+    handler: livefolders mcp call mcp-google-sheets read_sheet --arg spreadsheet_id="$INPUT"
+    input:
+      type: string
+      description: Spreadsheet ID to read data from
+
+  - name: update_cells
+    type: write_invoke
+    handler: livefolders mcp call mcp-google-sheets update_cells --arg spreadsheet_id="$INPUT"
+    input:
+      type: string
+      description: Spreadsheet ID of the sheet to update cells in
+
+  - name: append_rows
+    type: write_invoke
+    handler: livefolders mcp call mcp-google-sheets append_rows --arg spreadsheet_id="$INPUT"
+    input:
+      type: string
+      description: Spreadsheet ID to append rows to
+
+  - name: create_sheet
+    type: write_invoke
+    handler: livefolders mcp call mcp-google-sheets create_sheet --arg spreadsheet_id="$INPUT"
+    input:
+      type: string
+      description: Spreadsheet ID in which to create a new sheet tab
+
+  - name: delete_sheet
+    type: write_invoke
+    handler: livefolders mcp call mcp-google-sheets delete_sheet --arg spreadsheet_id="$INPUT"
+    input:
+      type: string
+      description: Spreadsheet ID from which to delete a sheet tab
+
+  - name: batch_update
+    type: write_invoke
+    handler: livefolders mcp call mcp-google-sheets batch_update --arg spreadsheet_id="$INPUT"
+    input:
+      type: string
+      description: Spreadsheet ID to apply batch updates to
+
+  - name: how_to.md
+    type: readonly

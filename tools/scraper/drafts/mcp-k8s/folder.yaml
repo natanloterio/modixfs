@@ -1,0 +1,105 @@
+name: mcp-k8s
+description: Interact with Kubernetes clusters via the MCP Kubernetes server
+
+mcp:
+  server: mcp-k8s
+  command: npx
+  args: ["-y", "mcp-k8s"]
+
+env:
+  - name: KUBECONFIG
+    description: Path to the kubeconfig file for cluster access
+    secret: false
+    required: true
+
+files:
+  - name: list_resources
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s list_resources --arg resource_type="$INPUT"
+    input:
+      type: string
+      description: Kubernetes resource type to list (e.g. pods, deployments, services, namespaces)
+
+  - name: get_resource
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s get_resource --arg resource_type="$INPUT" --arg name="$INPUT2" --arg namespace="$INPUT3"
+    input:
+      type: string
+      description: Resource type to get (e.g. pod, deployment, service)
+
+  - name: describe_resource
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s describe_resource --arg resource_type="$INPUT" --arg name="$INPUT2" --arg namespace="$INPUT3"
+    input:
+      type: string
+      description: Resource type to describe (e.g. pod, deployment, service)
+
+  - name: create_resource
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s create_resource --arg manifest="$INPUT"
+    input:
+      type: string
+      description: YAML or JSON manifest for the resource to create
+
+  - name: update_resource
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s update_resource --arg manifest="$INPUT"
+    input:
+      type: string
+      description: YAML or JSON manifest for the resource to update
+
+  - name: delete_resource
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s delete_resource --arg resource_type="$INPUT" --arg name="$INPUT2" --arg namespace="$INPUT3"
+    input:
+      type: string
+      description: Resource type to delete (e.g. pod, deployment, service)
+
+  - name: get_logs
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s get_logs --arg pod_name="$INPUT" --arg namespace="$INPUT2"
+    input:
+      type: string
+      description: Pod name to retrieve logs from
+
+  - name: list_namespaces
+    type: read_invoke
+    handler: livefolders mcp call mcp-k8s list_resources --arg resource_type="namespaces"
+
+  - name: list_pods
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s list_resources --arg resource_type="pods" --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list pods in (leave empty for all namespaces)
+
+  - name: list_deployments
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s list_resources --arg resource_type="deployments" --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list deployments in (leave empty for all namespaces)
+
+  - name: list_services
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s list_resources --arg resource_type="services" --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list services in (leave empty for all namespaces)
+
+  - name: scale_deployment
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s scale_resource --arg resource_type="deployment" --arg name="$INPUT" --arg replicas="$INPUT2" --arg namespace="$INPUT3"
+    input:
+      type: string
+      description: Deployment name to scale
+
+  - name: apply_manifest
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s apply_resource --arg manifest="$INPUT"
+    input:
+      type: string
+      description: YAML or JSON manifest to apply to the cluster
+
+  - name: how_to.md
+    type: readonly

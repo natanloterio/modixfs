@@ -1,0 +1,123 @@
+name: slack-mcp-server
+description: The most powerful MCP Slack Server with no permission requirements, Apps support, GovSlack, DMs, Group DMs and smart history fetch logic.
+
+mcp:
+  server: slack-mcp-server
+  command: npx
+  args: ["-y", "slack-mcp-server@latest"]
+
+env:
+  - name: SLACK_MCP_XOXC_TOKEN
+    description: Slack xoxc client token (from browser session)
+    secret: true
+    required: true
+  - name: SLACK_MCP_XOXD_TOKEN
+    description: Slack xoxd cookie token (from browser session)
+    secret: true
+    required: true
+
+files:
+  - name: list_channels
+    type: read_invoke
+    handler: livefolders mcp call slack-mcp-server slack_list_channels
+    description: List all available Slack channels
+
+  - name: get_channel_history
+    type: write_invoke
+    handler: livefolders mcp call slack-mcp-server slack_get_channel_history --arg channel_id="$INPUT"
+    input:
+      type: string
+      description: Channel ID to fetch message history from
+
+  - name: get_thread_replies
+    type: write_invoke
+    handler: livefolders mcp call slack-mcp-server slack_get_thread_replies --arg channel_id="$INPUT"
+    input:
+      type: string
+      description: Channel ID containing the thread (also provide thread_ts as second arg if needed)
+
+  - name: list_users
+    type: read_invoke
+    handler: livefolders mcp call slack-mcp-server slack_list_users
+    description: List all users in the Slack workspace
+
+  - name: get_user_profile
+    type: write_invoke
+    handler: livefolders mcp call slack-mcp-server slack_get_user_profile --arg user_id="$INPUT"
+    input:
+      type: string
+      description: User ID to fetch profile information for
+
+  - name: list_dms
+    type: read_invoke
+    handler: livefolders mcp call slack-mcp-server slack_list_dms
+    description: List all direct message conversations
+
+  - name: get_dm_history
+    type: write_invoke
+    handler: livefolders mcp call slack-mcp-server slack_get_dm_history --arg channel_id="$INPUT"
+    input:
+      type: string
+      description: DM channel ID to fetch message history from
+
+  - name: list_group_dms
+    type: read_invoke
+    handler: livefolders mcp call slack-mcp-server slack_list_group_dms
+    description: List all group direct message conversations
+
+  - name: get_group_dm_history
+    type: write_invoke
+    handler: livefolders mcp call slack-mcp-server slack_get_group_dm_history --arg channel_id="$INPUT"
+    input:
+      type: string
+      description: Group DM channel ID to fetch message history from
+
+  - name: search_messages
+    type: write_invoke
+    handler: livefolders mcp call slack-mcp-server slack_search_messages --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find messages across Slack
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # Slack MCP Server
+
+      This folder wraps the [slack-mcp-server](https://github.com/korotovsky/slack-mcp-server) MCP integration,
+      giving you powerful Slack access with no special app permissions required.
+
+      ## Setup
+
+      You need two tokens extracted from your Slack browser session:
+
+      - **SLACK_MCP_XOXC_TOKEN**: The `xoxc-...` token found in your browser's local storage or network requests.
+      - **SLACK_MCP_XOXD_TOKEN**: The `xoxd-...` cookie value from your authenticated Slack session.
+
+      ### How to get your tokens
+
+      1. Open Slack in your browser (https://app.slack.com)
+      2. Open DevTools → Application → Cookies → find `d` cookie starting with `xoxd-`
+      3. Open DevTools → Network → find any API call → look for `token` in the request payload starting with `xoxc-`
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | `list_channels` | List all Slack channels |
+      | `get_channel_history` | Fetch message history for a channel by ID |
+      | `get_thread_replies` | Fetch replies in a thread by channel ID |
+      | `list_users` | List all workspace users |
+      | `get_user_profile` | Get profile info for a specific user |
+      | `list_dms` | List all direct message conversations |
+      | `get_dm_history` | Fetch history for a DM conversation |
+      | `list_group_dms` | List all group DM conversations |
+      | `get_group_dm_history` | Fetch history for a group DM |
+      | `search_messages` | Search messages across Slack |
+
+      ## Features
+
+      - No Slack App or admin permissions required
+      - Supports GovSlack environments
+      - Smart history fetch logic for efficient message retrieval
+      - Works with DMs and Group DMs

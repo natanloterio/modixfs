@@ -1,0 +1,147 @@
+name: mongodb-lens
+description: Full featured MCP server for MongoDB databases - query, aggregate, manage collections and more
+
+mcp:
+  server: mongodb-lens
+  command: npx
+  args: ["-y", "mongodb-lens", "$MONGODB_URI"]
+
+env:
+  - name: MONGODB_URI
+    description: MongoDB connection URI (e.g. mongodb://localhost:27017)
+    secret: true
+    required: true
+
+files:
+  - name: list-databases
+    type: read_invoke
+    handler: livefolders mcp call mongodb-lens listDatabases
+
+  - name: list-collections
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens listCollections --arg database="$INPUT"
+    input:
+      type: string
+      description: Database name to list collections for
+
+  - name: find-documents
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens findDocuments --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to find documents in (optionally append JSON query)
+
+  - name: count-documents
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens countDocuments --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to count documents in
+
+  - name: aggregate
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens aggregate --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to run aggregation pipeline on
+
+  - name: insert-document
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens insertDocument --arg document="$INPUT"
+    input:
+      type: string
+      description: JSON document to insert (include collection field)
+
+  - name: update-document
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens updateDocument --arg filter="$INPUT"
+    input:
+      type: string
+      description: JSON filter to match document(s) for update
+
+  - name: delete-document
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens deleteDocument --arg filter="$INPUT"
+    input:
+      type: string
+      description: JSON filter to match document(s) for deletion
+
+  - name: create-collection
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens createCollection --arg collection="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to create
+
+  - name: drop-collection
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens dropCollection --arg collection="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to drop
+
+  - name: create-index
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens createIndex --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to create an index on
+
+  - name: list-indexes
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens listIndexes --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to list indexes for
+
+  - name: drop-index
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens dropIndex --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to drop an index from
+
+  - name: get-collection-stats
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens collectionStats --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to retrieve stats for
+
+  - name: get-database-stats
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens databaseStats --arg database="$INPUT"
+    input:
+      type: string
+      description: Database name to retrieve stats for
+
+  - name: rename-collection
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens renameCollection --arg collection="$INPUT"
+    input:
+      type: string
+      description: Current collection name to rename
+
+  - name: bulk-operations
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens bulkWrite --arg operations="$INPUT"
+    input:
+      type: string
+      description: JSON array of bulk write operations to perform
+
+  - name: explain-query
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens explainQuery --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to explain a query for
+
+  - name: distinct-values
+    type: write_invoke
+    handler: livefolders mcp call mongodb-lens distinct --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to retrieve distinct values from
+
+  - name: how_to.md
+    type: readonly

@@ -1,0 +1,129 @@
+name: intlayer
+description: Per-component Internationalisation solution for JS applications. Type-Safe. Translate with AI. Edit Visually.
+
+mcp:
+  server: intlayer
+  command: npx
+  args: ["-y", "intlayer-mcp"]
+
+env:
+  - name: INTLAYER_CLIENT_ID
+    description: Intlayer OAuth2 client ID for authentication
+    secret: false
+    required: true
+  - name: INTLAYER_CLIENT_SECRET
+    description: Intlayer OAuth2 client secret for authentication
+    secret: true
+    required: true
+
+files:
+  - name: get_configuration
+    type: read_invoke
+    handler: livefolders mcp call intlayer get_configuration
+    description: Retrieve the current Intlayer configuration for the project
+
+  - name: search_dictionary_keys
+    type: write_invoke
+    handler: livefolders mcp call intlayer search_dictionary_keys --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find matching dictionary keys
+
+  - name: get_dictionaries
+    type: write_invoke
+    handler: livefolders mcp call intlayer get_dictionaries --arg dictionaryKey="$INPUT"
+    input:
+      type: string
+      description: Dictionary key to retrieve content for
+
+  - name: get_all_dictionaries
+    type: read_invoke
+    handler: livefolders mcp call intlayer get_all_dictionaries
+    description: Retrieve all available dictionaries in the project
+
+  - name: add_dictionary
+    type: write_invoke
+    handler: livefolders mcp call intlayer add_dictionary --arg dictionaryKey="$INPUT"
+    input:
+      type: string
+      description: Key for the new dictionary to add
+
+  - name: update_dictionary
+    type: write_invoke
+    handler: livefolders mcp call intlayer update_dictionary --arg dictionaryKey="$INPUT"
+    input:
+      type: string
+      description: Key of the dictionary to update
+
+  - name: delete_dictionary
+    type: write_invoke
+    handler: livefolders mcp call intlayer delete_dictionary --arg dictionaryKey="$INPUT"
+    input:
+      type: string
+      description: Key of the dictionary to delete
+
+  - name: get_translation_result
+    type: write_invoke
+    handler: livefolders mcp call intlayer get_translation_result --arg dictionaryKey="$INPUT"
+    input:
+      type: string
+      description: Dictionary key to fetch AI translation results for
+
+  - name: fill_dictionary
+    type: write_invoke
+    handler: livefolders mcp call intlayer fill_dictionary --arg dictionaryKey="$INPUT"
+    input:
+      type: string
+      description: Dictionary key to fill with AI-generated translations
+
+  - name: audit_dictionary
+    type: write_invoke
+    handler: livefolders mcp call intlayer audit_dictionary --arg dictionaryKey="$INPUT"
+    input:
+      type: string
+      description: Dictionary key to audit for translation issues
+
+  - name: get_projects
+    type: read_invoke
+    handler: livefolders mcp call intlayer get_projects
+    description: List all Intlayer projects available in the account
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # Intlayer MCP Folder
+
+      This folder wraps the [Intlayer MCP server](https://github.com/aymericzip/intlayer),
+      providing per-component internationalisation for JavaScript applications.
+
+      ## Setup
+
+      Set the following environment variables before use:
+
+      - `INTLAYER_CLIENT_ID` — Your Intlayer OAuth2 client ID (from the Intlayer dashboard)
+      - `INTLAYER_CLIENT_SECRET` — Your Intlayer OAuth2 client secret (keep this private)
+
+      You can find these credentials at https://intlayer.org/dashboard.
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | `get_configuration` | Retrieve the current project Intlayer config |
+      | `search_dictionary_keys` | Search dictionary keys by query string |
+      | `get_dictionaries` | Fetch content for a specific dictionary key |
+      | `get_all_dictionaries` | List all dictionaries in the project |
+      | `add_dictionary` | Create a new dictionary |
+      | `update_dictionary` | Update an existing dictionary |
+      | `delete_dictionary` | Delete a dictionary by key |
+      | `get_translation_result` | Get AI translation results for a dictionary |
+      | `fill_dictionary` | Auto-fill a dictionary with AI translations |
+      | `audit_dictionary` | Audit a dictionary for translation issues |
+      | `get_projects` | List all projects in your Intlayer account |
+
+      ## Usage Tips
+
+      - Use `search_dictionary_keys` to discover keys before fetching or editing them.
+      - Use `fill_dictionary` to automatically translate missing locales with AI.
+      - Use `audit_dictionary` to surface inconsistencies or missing translations.
+      - All write operations require valid OAuth2 credentials.

@@ -1,0 +1,122 @@
+name: mcp-k8s-go
+description: MCP server connecting to Kubernetes for cluster management and inspection
+
+mcp:
+  server: mcp-k8s-go
+  command: npx
+  args: ["-y", "mcp-k8s-go"]
+
+files:
+  - name: list_contexts
+    type: read_invoke
+    handler: livefolders mcp call mcp-k8s-go list_contexts
+    description: List all available Kubernetes contexts from kubeconfig
+
+  - name: list_namespaces
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s-go list_namespaces --arg context="$INPUT"
+    input:
+      type: string
+      description: Kubernetes context name to list namespaces for
+
+  - name: list_pods
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s-go list_pods --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list pods in (e.g. default)
+
+  - name: get_pod_logs
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s-go get_pod_logs --arg pod_name="$INPUT"
+    input:
+      type: string
+      description: Name of the pod to retrieve logs from
+
+  - name: list_deployments
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s-go list_deployments --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list deployments in
+
+  - name: list_services
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s-go list_services --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list services in
+
+  - name: list_nodes
+    type: read_invoke
+    handler: livefolders mcp call mcp-k8s-go list_nodes
+    description: List all nodes in the Kubernetes cluster
+
+  - name: describe_node
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s-go describe_node --arg node_name="$INPUT"
+    input:
+      type: string
+      description: Name of the node to describe
+
+  - name: list_configmaps
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s-go list_configmaps --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list ConfigMaps in
+
+  - name: list_secrets
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s-go list_secrets --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list secrets in
+
+  - name: list_events
+    type: write_invoke
+    handler: livefolders mcp call mcp-k8s-go list_events --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list events in
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcp-k8s-go — Kubernetes MCP Folder
+
+      This folder wraps the `mcp-k8s-go` MCP server, giving you LiveFolders
+      access to your Kubernetes clusters via kubectl-compatible kubeconfig.
+
+      ## Prerequisites
+
+      - A valid `~/.kube/config` (or `KUBECONFIG` env var pointing to your config)
+      - `npx` / Node.js installed
+      - Appropriate cluster credentials and RBAC permissions
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | `list_contexts` | List all kubeconfig contexts |
+      | `list_namespaces` | List namespaces for a given context |
+      | `list_pods` | List pods in a namespace |
+      | `get_pod_logs` | Fetch logs from a named pod |
+      | `list_deployments` | List deployments in a namespace |
+      | `list_services` | List services in a namespace |
+      | `list_nodes` | List all cluster nodes |
+      | `describe_node` | Describe a specific node |
+      | `list_configmaps` | List ConfigMaps in a namespace |
+      | `list_secrets` | List secrets in a namespace |
+      | `list_events` | List events in a namespace |
+
+      ## Usage Tips
+
+      - Use `list_contexts` first to discover available contexts.
+      - Pass a context name into `list_namespaces` to explore a specific cluster.
+      - Most tools scope to a **namespace**; use `default` if unsure.
+      - `get_pod_logs` requires the exact pod name (get it from `list_pods`).
+
+      ## References
+
+      - GitHub: https://github.com/strowk/mcp-k8s-go

@@ -1,0 +1,62 @@
+name: comet-mcp
+description: MCP Server connecting to Perplexity Comet browser
+
+mcp:
+  server: comet-mcp
+  command: npx
+  args: ["-y", "comet-mcp"]
+
+env:
+  - name: PERPLEXITY_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: search
+    type: write_invoke
+    handler: livefolders mcp call comet-mcp search --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to send to Perplexity Comet browser
+
+  - name: browse
+    type: write_invoke
+    handler: livefolders mcp call comet-mcp browse --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to browse and retrieve content from
+
+  - name: ask
+    type: write_invoke
+    handler: livefolders mcp call comet-mcp ask --arg question="$INPUT"
+    input:
+      type: string
+      description: Question to ask the Perplexity Comet AI browser
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # comet-mcp
+
+      MCP Server connecting to Perplexity Comet browser.
+
+      ## Setup
+
+      Set your Perplexity API key as an environment variable:
+        PERPLEXITY_API_KEY=your_api_key_here
+
+      GitHub: https://github.com/hanzili/comet-mcp
+
+      ## Tools
+
+      ### search
+      Send a search query to Perplexity Comet and receive AI-powered results.
+      - Input: a search query string
+
+      ### browse
+      Navigate to a URL using the Perplexity Comet browser and retrieve its content.
+      - Input: a full URL (e.g. https://example.com)
+
+      ### ask
+      Ask a natural language question and get an AI-powered answer from Perplexity Comet.
+      - Input: a question string

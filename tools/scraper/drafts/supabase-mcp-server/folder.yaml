@@ -1,0 +1,143 @@
+name: supabase-mcp-server
+description: End-to-end management of Supabase via chat interface including query execution, migrations, logs, and management API support
+
+mcp:
+  server: supabase-mcp-server
+  command: npx
+  args: ["-y", "supabase-mcp-server"]
+
+env:
+  - name: SUPABASE_PROJECT_REF
+    description: Your Supabase project reference ID
+    secret: false
+    required: true
+  - name: SUPABASE_DB_PASSWORD
+    description: Your Supabase database password
+    secret: true
+    required: true
+  - name: SUPABASE_REGION
+    description: Supabase region (e.g. us-east-1), defaults to us-east-1
+    secret: false
+    required: false
+  - name: SUPABASE_ACCESS_TOKEN
+    description: Supabase personal access token for Management API access
+    secret: true
+    required: false
+
+files:
+  - name: execute_sql
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp-server execute_sql --arg query="$INPUT"
+    input:
+      type: string
+      description: SQL query to execute against your Supabase database
+
+  - name: run_migration
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp-server run_migration --arg query="$INPUT"
+    input:
+      type: string
+      description: SQL migration to run with automatic versioning
+
+  - name: get_tables
+    type: read_invoke
+    handler: livefolders mcp call supabase-mcp-server get_tables
+
+  - name: get_schemas
+    type: read_invoke
+    handler: livefolders mcp call supabase-mcp-server get_schemas
+
+  - name: get_migrations
+    type: read_invoke
+    handler: livefolders mcp call supabase-mcp-server get_migrations
+
+  - name: get_logs
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp-server get_logs --arg service="$INPUT"
+    input:
+      type: string
+      description: Service name to retrieve logs for (e.g. api, auth, storage, realtime, database)
+
+  - name: get_project
+    type: read_invoke
+    handler: livefolders mcp call supabase-mcp-server get_project
+
+  - name: get_organizations
+    type: read_invoke
+    handler: livefolders mcp call supabase-mcp-server get_organizations
+
+  - name: create_project
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp-server create_project --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the new Supabase project to create
+
+  - name: pause_project
+    type: read_invoke
+    handler: livefolders mcp call supabase-mcp-server pause_project
+
+  - name: restore_project
+    type: read_invoke
+    handler: livefolders mcp call supabase-mcp-server restore_project
+
+  - name: get_project_url
+    type: read_invoke
+    handler: livefolders mcp call supabase-mcp-server get_project_url
+
+  - name: get_anon_key
+    type: read_invoke
+    handler: livefolders mcp call supabase-mcp-server get_anon_key
+
+  - name: send_management_api_request
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp-server send_management_api_request --arg endpoint="$INPUT"
+    input:
+      type: string
+      description: Management API endpoint path to call (e.g. /v1/projects)
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # Supabase MCP Server
+
+      This folder provides tools for end-to-end management of your Supabase project via the MCP server.
+
+      ## Setup
+
+      Set the following environment variables before use:
+
+      | Variable | Required | Description |
+      |---|---|---|
+      | `SUPABASE_PROJECT_REF` | Yes | Your project ref from the Supabase dashboard URL |
+      | `SUPABASE_DB_PASSWORD` | Yes | Your database password |
+      | `SUPABASE_ACCESS_TOKEN` | No | Personal access token for Management API features |
+      | `SUPABASE_REGION` | No | AWS region, defaults to `us-east-1` |
+
+      ## Available Tools
+
+      ### Database
+      - **execute_sql** — Run any read or write SQL query directly against your database
+      - **run_migration** — Execute a SQL migration with automatic version tracking
+      - **get_tables** — List all tables in the database
+      - **get_schemas** — List all schemas
+      - **get_migrations** — View migration history
+
+      ### Observability
+      - **get_logs** — Fetch logs for a specific service (api, auth, storage, realtime, database)
+
+      ### Project Management (requires Access Token)
+      - **get_project** — Get current project details
+      - **get_organizations** — List organizations
+      - **create_project** — Create a new Supabase project
+      - **pause_project** — Pause the current project
+      - **restore_project** — Restore a paused project
+      - **get_project_url** — Get the project API URL
+      - **get_anon_key** — Retrieve the anonymous API key
+      - **send_management_api_request** — Make an arbitrary Management API call
+
+      ## Notes
+
+      - Read queries and safe writes are allowed by default.
+      - Dangerous operations (DROP, TRUNCATE, etc.) may require confirmation.
+      - Migration versioning is handled automatically when using `run_migration`.

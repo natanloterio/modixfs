@@ -1,0 +1,55 @@
+name: joinly
+description: Make your meetings accessible to AI Agents
+
+mcp:
+  server: joinly
+  command: npx
+  args: ["-y", "joinly-mcp"]
+
+env:
+  - name: JOINLY_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: join_meeting
+    type: write_invoke
+    handler: livefolders mcp call joinly join_meeting --arg meeting_url="$INPUT"
+    input:
+      type: string
+      description: The meeting URL for the AI agent to join (e.g. Zoom, Google Meet, Teams)
+
+  - name: leave_meeting
+    type: write_invoke
+    handler: livefolders mcp call joinly leave_meeting --arg meeting_id="$INPUT"
+    input:
+      type: string
+      description: The meeting ID of the session to leave
+
+  - name: get_transcript
+    type: write_invoke
+    handler: livefolders mcp call joinly get_transcript --arg meeting_id="$INPUT"
+    input:
+      type: string
+      description: The meeting ID to retrieve the transcript for
+
+  - name: get_meeting_status
+    type: write_invoke
+    handler: livefolders mcp call joinly get_meeting_status --arg meeting_id="$INPUT"
+    input:
+      type: string
+      description: The meeting ID to check the current status of
+
+  - name: list_meetings
+    type: read_invoke
+    handler: livefolders mcp call joinly list_meetings
+
+  - name: send_message
+    type: write_invoke
+    handler: livefolders mcp call joinly send_message --arg meeting_id="$INPUT"
+    input:
+      type: string
+      description: The meeting ID to send a chat message to
+
+  - name: how_to.md
+    type: readonly

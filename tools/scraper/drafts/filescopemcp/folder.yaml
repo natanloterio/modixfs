@@ -1,0 +1,46 @@
+name: filescopemcp
+description: Analyzes codebases identifying important files based on dependency relationships, generating diagrams and importance scores.
+
+mcp:
+  server: filescopemcp
+  command: npx
+  args: ["-y", "filescopemcp"]
+
+files:
+  - name: analyze_codebase
+    type: write_invoke
+    handler: livefolders mcp call filescopemcp analyze_codebase --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the codebase directory to analyze
+
+  - name: get_file_importance
+    type: write_invoke
+    handler: livefolders mcp call filescopemcp get_file_importance --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the file to get importance score for
+
+  - name: get_dependencies
+    type: write_invoke
+    handler: livefolders mcp call filescopemcp get_dependencies --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the file to get dependency relationships for
+
+  - name: generate_diagram
+    type: write_invoke
+    handler: livefolders mcp call filescopemcp generate_diagram --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the codebase directory to generate a dependency diagram for
+
+  - name: list_files
+    type: write_invoke
+    handler: livefolders mcp call filescopemcp list_files --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the codebase directory to list analyzed files and their scores
+
+  - name: how_to.md
+    type: readonly

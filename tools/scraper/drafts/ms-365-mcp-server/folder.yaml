@@ -1,0 +1,132 @@
+name: ms-365-mcp-server
+description: Interact with Microsoft 365 and Office services through the Graph API
+
+mcp:
+  server: ms-365-mcp-server
+  command: npx
+  args: ["-y", "ms-365-mcp-server"]
+
+env:
+  - name: MS365_CLIENT_ID
+    description: Microsoft Azure AD application client ID
+    secret: false
+    required: true
+  - name: MS365_CLIENT_SECRET
+    description: Microsoft Azure AD application client secret
+    secret: true
+    required: true
+  - name: MS365_TENANT_ID
+    description: Microsoft Azure AD tenant ID
+    secret: false
+    required: true
+
+files:
+  - name: list_emails
+    type: read_invoke
+    handler: livefolders mcp call ms-365-mcp-server list_emails
+    description: List recent emails from the inbox
+
+  - name: get_email
+    type: write_invoke
+    handler: livefolders mcp call ms-365-mcp-server get_email --arg id="$INPUT"
+    input:
+      type: string
+      description: Email message ID to retrieve
+
+  - name: send_email
+    type: write_invoke
+    handler: livefolders mcp call ms-365-mcp-server send_email --arg to="$INPUT"
+    input:
+      type: string
+      description: Recipient email address (to send email to)
+
+  - name: reply_to_email
+    type: write_invoke
+    handler: livefolders mcp call ms-365-mcp-server reply_to_email --arg id="$INPUT"
+    input:
+      type: string
+      description: Email message ID to reply to
+
+  - name: list_calendar_events
+    type: read_invoke
+    handler: livefolders mcp call ms-365-mcp-server list_calendar_events
+    description: List upcoming calendar events
+
+  - name: get_calendar_event
+    type: write_invoke
+    handler: livefolders mcp call ms-365-mcp-server get_calendar_event --arg id="$INPUT"
+    input:
+      type: string
+      description: Calendar event ID to retrieve
+
+  - name: create_calendar_event
+    type: write_invoke
+    handler: livefolders mcp call ms-365-mcp-server create_calendar_event --arg subject="$INPUT"
+    input:
+      type: string
+      description: Subject/title of the calendar event to create
+
+  - name: list_contacts
+    type: read_invoke
+    handler: livefolders mcp call ms-365-mcp-server list_contacts
+    description: List contacts from Microsoft 365
+
+  - name: get_contact
+    type: write_invoke
+    handler: livefolders mcp call ms-365-mcp-server get_contact --arg id="$INPUT"
+    input:
+      type: string
+      description: Contact ID to retrieve
+
+  - name: list_onedrive_files
+    type: write_invoke
+    handler: livefolders mcp call ms-365-mcp-server list_onedrive_files --arg path="$INPUT"
+    input:
+      type: string
+      description: OneDrive folder path to list files from
+
+  - name: get_onedrive_file
+    type: write_invoke
+    handler: livefolders mcp call ms-365-mcp-server get_onedrive_file --arg id="$INPUT"
+    input:
+      type: string
+      description: OneDrive file ID to retrieve
+
+  - name: list_sharepoint_sites
+    type: read_invoke
+    handler: livefolders mcp call ms-365-mcp-server list_sharepoint_sites
+    description: List available SharePoint sites
+
+  - name: get_sharepoint_site
+    type: write_invoke
+    handler: livefolders mcp call ms-365-mcp-server get_sharepoint_site --arg id="$INPUT"
+    input:
+      type: string
+      description: SharePoint site ID to retrieve
+
+  - name: list_teams
+    type: read_invoke
+    handler: livefolders mcp call ms-365-mcp-server list_teams
+    description: List Microsoft Teams the user belongs to
+
+  - name: list_teams_channels
+    type: write_invoke
+    handler: livefolders mcp call ms-365-mcp-server list_teams_channels --arg team_id="$INPUT"
+    input:
+      type: string
+      description: Team ID to list channels for
+
+  - name: send_teams_message
+    type: write_invoke
+    handler: livefolders mcp call ms-365-mcp-server send_teams_message --arg channel_id="$INPUT"
+    input:
+      type: string
+      description: Channel ID to send a message to
+
+  - name: get_user_profile
+    type: read_invoke
+    handler: livefolders mcp call ms-365-mcp-server get_user_profile
+    description: Get the current authenticated user's Microsoft 365 profile
+
+  - name: how_to.md
+    type: readonly

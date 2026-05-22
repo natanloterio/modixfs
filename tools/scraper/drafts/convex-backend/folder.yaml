@@ -1,0 +1,102 @@
+name: convex-backend
+description: Interact with the Convex reactive database backend via MCP
+
+mcp:
+  server: convex-backend
+  command: npx
+  args: ["-y", "@convex-dev/mcp-server-convex"]
+
+env:
+  - name: CONVEX_DEPLOY_KEY
+    secret: true
+    required: true
+
+files:
+  - name: run_query
+    type: write_invoke
+    handler: livefolders mcp call convex-backend run_query --arg query="$INPUT"
+    input:
+      type: string
+      description: Convex query function path to run (e.g. "myModule:myQuery")
+
+  - name: run_mutation
+    type: write_invoke
+    handler: livefolders mcp call convex-backend run_mutation --arg mutation="$INPUT"
+    input:
+      type: string
+      description: Convex mutation function path to run (e.g. "myModule:myMutation")
+
+  - name: run_action
+    type: write_invoke
+    handler: livefolders mcp call convex-backend run_action --arg action="$INPUT"
+    input:
+      type: string
+      description: Convex action function path to run (e.g. "myModule:myAction")
+
+  - name: list_functions
+    type: read_invoke
+    handler: livefolders mcp call convex-backend list_functions
+
+  - name: get_logs
+    type: read_invoke
+    handler: livefolders mcp call convex-backend get_logs
+
+  - name: get_deployment_info
+    type: read_invoke
+    handler: livefolders mcp call convex-backend get_deployment_info
+
+  - name: list_tables
+    type: read_invoke
+    handler: livefolders mcp call convex-backend list_tables
+
+  - name: get_table_schema
+    type: write_invoke
+    handler: livefolders mcp call convex-backend get_table_schema --arg table="$INPUT"
+    input:
+      type: string
+      description: Name of the Convex table to retrieve schema for
+
+  - name: query_table
+    type: write_invoke
+    handler: livefolders mcp call convex-backend query_table --arg table="$INPUT"
+    input:
+      type: string
+      description: Name of the Convex table to query documents from
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # Convex Backend MCP Folder
+
+      This folder wraps the Convex MCP server, allowing you to interact with your
+      Convex reactive database backend directly.
+
+      ## Setup
+
+      Set the `CONVEX_DEPLOY_KEY` environment variable with your Convex deploy key.
+      You can find this in your Convex dashboard under Settings > Deploy Keys.
+
+      ## Available Tools
+
+      - **run_query**: Execute a Convex query function by path
+      - **run_mutation**: Execute a Convex mutation function by path
+      - **run_action**: Execute a Convex action function by path
+      - **list_functions**: List all deployed functions in the project
+      - **get_logs**: Retrieve recent logs from the Convex backend
+      - **get_deployment_info**: Get details about the current deployment
+      - **list_tables**: List all tables in the Convex database
+      - **get_table_schema**: Get the schema for a specific table
+      - **query_table**: Query documents from a specific table
+
+      ## Function Path Format
+
+      Functions are referenced by their module and export name:
+      ```
+      moduleName:functionName
+      ```
+      For example: `messages:list`, `users:create`, `payments:processRefund`
+
+      ## Resources
+
+      - [Convex Docs](https://docs.convex.dev)
+      - [GitHub](https://github.com/get-convex/convex-backend)

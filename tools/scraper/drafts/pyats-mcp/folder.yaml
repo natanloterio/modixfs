@@ -1,0 +1,149 @@
+name: pyats-mcp
+description: Network device testing and automation via pyATS MCP server
+
+mcp:
+  server: pyats-mcp
+  command: npx
+  args: ["-y", "pyats-mcp"]
+
+env:
+  - name: PYATS_TESTBED
+    description: Path to the pyATS testbed YAML file
+    secret: false
+    required: true
+
+files:
+  - name: connect_to_device
+    type: write_invoke
+    handler: livefolders mcp call pyats-mcp connect_to_device --arg device="$INPUT"
+    input:
+      type: string
+      description: Device hostname to connect to as defined in the testbed
+
+  - name: disconnect_from_device
+    type: write_invoke
+    handler: livefolders mcp call pyats-mcp disconnect_from_device --arg device="$INPUT"
+    input:
+      type: string
+      description: Device hostname to disconnect from
+
+  - name: execute_command
+    type: write_invoke
+    handler: livefolders mcp call pyats-mcp execute_command --arg device="$INPUT" --arg command="$INPUT2"
+    input:
+      type: string
+      description: Device hostname and CLI command to execute (device name first param)
+
+  - name: parse_command
+    type: write_invoke
+    handler: livefolders mcp call pyats-mcp parse_command --arg device="$INPUT" --arg command="$INPUT2"
+    input:
+      type: string
+      description: Device hostname to parse a structured CLI command output from
+
+  - name: learn_feature
+    type: write_invoke
+    handler: livefolders mcp call pyats-mcp learn_feature --arg device="$INPUT" --arg feature="$INPUT2"
+    input:
+      type: string
+      description: Device hostname to learn a network feature from (e.g. ospf, bgp, interface)
+
+  - name: get_testbed_devices
+    type: read_invoke
+    handler: livefolders mcp call pyats-mcp get_testbed_devices
+
+  - name: run_genie_test
+    type: write_invoke
+    handler: livefolders mcp call pyats-mcp run_genie_test --arg testcase="$INPUT"
+    input:
+      type: string
+      description: Name of the Genie test case to run
+
+  - name: get_device_platform
+    type: write_invoke
+    handler: livefolders mcp call pyats-mcp get_device_platform --arg device="$INPUT"
+    input:
+      type: string
+      description: Device hostname to retrieve platform information from
+
+  - name: get_interfaces
+    type: write_invoke
+    handler: livefolders mcp call pyats-mcp get_interfaces --arg device="$INPUT"
+    input:
+      type: string
+      description: Device hostname to retrieve interface information from
+
+  - name: get_routing_table
+    type: write_invoke
+    handler: livefolders mcp call pyats-mcp get_routing_table --arg device="$INPUT"
+    input:
+      type: string
+      description: Device hostname to retrieve the routing table from
+
+  - name: get_bgp_neighbors
+    type: write_invoke
+    handler: livefolders mcp call pyats-mcp get_bgp_neighbors --arg device="$INPUT"
+    input:
+      type: string
+      description: Device hostname to retrieve BGP neighbor information from
+
+  - name: get_ospf_neighbors
+    type: write_invoke
+    handler: livefolders mcp call pyats-mcp get_ospf_neighbors --arg device="$INPUT"
+    input:
+      type: string
+      description: Device hostname to retrieve OSPF neighbor information from
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # pyATS MCP — How To
+
+      ## Overview
+      This folder wraps the pyATS MCP server, enabling AI-assisted network device
+      testing, automation, and telemetry collection via Cisco pyATS / Genie.
+
+      ## Prerequisites
+      - Python 3.8+ with pyATS installed: `pip install pyats[full]`
+      - A valid pyATS testbed YAML file
+      - Set the `PYATS_TESTBED` environment variable to the path of your testbed file
+
+      ## Testbed File Example
+      ```yaml
+      devices:
+        router1:
+          os: iosxe
+          type: router
+          connections:
+            defaults:
+              class: unicon.Unicon
+            cli:
+              protocol: ssh
+              ip: 192.168.1.1
+          credentials:
+            default:
+              username: admin
+              password: secret
+      ```
+
+      ## Tool Reference
+
+      | Tool | Description |
+      |------|-------------|
+      | `get_testbed_devices` | List all devices defined in the testbed |
+      | `connect_to_device` | Establish a connection to a device |
+      | `disconnect_from_device` | Disconnect from a device |
+      | `execute_command` | Run a raw CLI command on a device |
+      | `parse_command` | Run and parse a CLI command into structured data |
+      | `learn_feature` | Learn a network feature (bgp, ospf, interface, etc.) |
+      | `get_device_platform` | Get platform/version info |
+      | `get_interfaces` | Get interface status and counters |
+      | `get_routing_table` | Get the device routing table |
+      | `get_bgp_neighbors` | Get BGP neighbor state |
+      | `get_ospf_neighbors` | Get OSPF neighbor state |
+      | `run_genie_test` | Run a named Genie test case |
+
+      ## Notes
+      - Always connect to a device before executing commands
+      - Use `parse_command` instead of `execute_command` when structured output is needed
+      - GitHub: https://github.com/automateyournetwork/pyATS_MCP

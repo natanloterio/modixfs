@@ -1,0 +1,74 @@
+name: medical-mcp
+description: Comprehensive medical information from FDA, WHO, PubMed, Google Scholar, and RxNorm APIs
+
+mcp:
+  server: medical-mcp
+  command: npx
+  args: ["-y", "medical-mcp"]
+
+files:
+  - name: search_drug_info
+    type: write_invoke
+    handler: livefolders mcp call medical-mcp search_drug_info --arg drug_name="$INPUT"
+    input:
+      type: string
+      description: Drug name to search for comprehensive information
+
+  - name: get_fda_drug_label
+    type: write_invoke
+    handler: livefolders mcp call medical-mcp get_fda_drug_label --arg drug_name="$INPUT"
+    input:
+      type: string
+      description: Drug name to retrieve FDA label information
+
+  - name: get_fda_adverse_events
+    type: write_invoke
+    handler: livefolders mcp call medical-mcp get_fda_adverse_events --arg drug_name="$INPUT"
+    input:
+      type: string
+      description: Drug name to retrieve FDA adverse event reports
+
+  - name: search_pubmed
+    type: write_invoke
+    handler: livefolders mcp call medical-mcp search_pubmed --arg query="$INPUT"
+    input:
+      type: string
+      description: Query to search PubMed for medical literature
+
+  - name: search_google_scholar
+    type: write_invoke
+    handler: livefolders mcp call medical-mcp search_google_scholar --arg query="$INPUT"
+    input:
+      type: string
+      description: Query to search Google Scholar for medical research
+
+  - name: get_rxnorm_info
+    type: write_invoke
+    handler: livefolders mcp call medical-mcp get_rxnorm_info --arg drug_name="$INPUT"
+    input:
+      type: string
+      description: Drug name to retrieve RxNorm standardized drug information
+
+  - name: get_drug_interactions
+    type: write_invoke
+    handler: livefolders mcp call medical-mcp get_drug_interactions --arg drug_name="$INPUT"
+    input:
+      type: string
+      description: Drug name to retrieve known drug interactions
+
+  - name: get_who_essential_medicines
+    type: write_invoke
+    handler: livefolders mcp call medical-mcp get_who_essential_medicines --arg query="$INPUT"
+    input:
+      type: string
+      description: Query to search WHO essential medicines list
+
+  - name: get_clinical_trials
+    type: write_invoke
+    handler: livefolders mcp call medical-mcp get_clinical_trials --arg query="$INPUT"
+    input:
+      type: string
+      description: Query to search for relevant clinical trials
+
+  - name: how_to.md
+    type: readonly

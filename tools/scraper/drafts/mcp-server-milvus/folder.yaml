@@ -1,0 +1,96 @@
+name: mcp-server-milvus
+description: Model Context Protocol server for interacting with Milvus vector database
+
+mcp:
+  server: mcp-server-milvus
+  command: npx
+  args: ["-y", "mcp-server-milvus"]
+
+env:
+  - name: MILVUS_URI
+    description: Milvus server URI (e.g. http://localhost:19530)
+    secret: false
+    required: true
+  - name: MILVUS_TOKEN
+    description: Milvus authentication token or API key
+    secret: true
+    required: false
+
+files:
+  - name: milvus_list_collections
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-milvus milvus_list_collections
+    description: List all collections in the Milvus database
+
+  - name: milvus_create_collection
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-milvus milvus_create_collection --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to create
+
+  - name: milvus_get_collection_info
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-milvus milvus_get_collection_info --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to retrieve info about
+
+  - name: milvus_insert_data
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-milvus milvus_insert_data --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to insert data into
+
+  - name: milvus_search
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-milvus milvus_search --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to search in
+
+  - name: milvus_query
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-milvus milvus_query --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to query
+
+  - name: milvus_delete_entities
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-milvus milvus_delete_entities --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to delete entities from
+
+  - name: milvus_drop_collection
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-milvus milvus_drop_collection --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to drop
+
+  - name: milvus_create_index
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-milvus milvus_create_index --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to create an index on
+
+  - name: milvus_load_collection
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-milvus milvus_load_collection --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to load into memory
+
+  - name: milvus_release_collection
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-milvus milvus_release_collection --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to release from memory
+
+  - name: how_to.md
+    type: readonly

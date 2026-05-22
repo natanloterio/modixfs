@@ -1,0 +1,54 @@
+name: kubefwd
+description: Bulk port forwarding Kubernetes services for local development
+
+mcp:
+  server: kubefwd
+  command: npx
+  args: ["-y", "mcp-server-kubefwd"]
+
+files:
+  - name: forward_services
+    type: write_invoke
+    handler: livefolders mcp call kubefwd forward_services --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Kubernetes namespace to forward services from (e.g. default)
+
+  - name: list_services
+    type: write_invoke
+    handler: livefolders mcp call kubefwd list_services --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Kubernetes namespace to list services in
+
+  - name: stop_forwarding
+    type: write_invoke
+    handler: livefolders mcp call kubefwd stop_forwarding --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Kubernetes namespace to stop forwarding services for
+
+  - name: get_status
+    type: read_invoke
+    handler: livefolders mcp call kubefwd get_status
+
+  - name: forward_service
+    type: write_invoke
+    handler: livefolders mcp call kubefwd forward_service --arg service="$INPUT"
+    input:
+      type: string
+      description: Specific service name to forward (e.g. my-service.my-namespace)
+
+  - name: list_contexts
+    type: read_invoke
+    handler: livefolders mcp call kubefwd list_contexts
+
+  - name: set_context
+    type: write_invoke
+    handler: livefolders mcp call kubefwd set_context --arg context="$INPUT"
+    input:
+      type: string
+      description: Kubernetes context name to switch to
+
+  - name: how_to.md
+    type: readonly

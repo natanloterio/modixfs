@@ -1,0 +1,102 @@
+name: prometheus-mcp-server
+description: Query and analyze Prometheus metrics via MCP for AI agents and LLMs
+
+mcp:
+  server: prometheus-mcp-server
+  command: npx
+  args: ["-y", "prometheus-mcp-server"]
+
+env:
+  - name: PROMETHEUS_URL
+    description: Base URL of your Prometheus instance (e.g. http://localhost:9090)
+    secret: false
+    required: true
+
+files:
+  - name: execute_query
+    type: write_invoke
+    handler: livefolders mcp call prometheus-mcp-server execute_query --arg query="$INPUT"
+    input:
+      type: string
+      description: PromQL instant query expression to execute against Prometheus
+
+  - name: execute_range_query
+    type: write_invoke
+    handler: livefolders mcp call prometheus-mcp-server execute_range_query --arg query="$INPUT"
+    input:
+      type: string
+      description: PromQL range query expression (query is the first param; set start, end, step separately)
+
+  - name: list_metrics
+    type: read_invoke
+    handler: livefolders mcp call prometheus-mcp-server list_metrics
+
+  - name: get_metric_metadata
+    type: write_invoke
+    handler: livefolders mcp call prometheus-mcp-server get_metric_metadata --arg metric="$INPUT"
+    input:
+      type: string
+      description: Metric name to retrieve metadata for
+
+  - name: get_targets
+    type: read_invoke
+    handler: livefolders mcp call prometheus-mcp-server get_targets
+
+  - name: get_alerts
+    type: read_invoke
+    handler: livefolders mcp call prometheus-mcp-server get_alerts
+
+  - name: get_rules
+    type: read_invoke
+    handler: livefolders mcp call prometheus-mcp-server get_rules
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # Prometheus MCP Server
+
+      This folder wraps the [prometheus-mcp-server](https://github.com/pab1it0/prometheus-mcp-server),
+      allowing AI agents and LLMs to query and analyze Prometheus metrics through standardized MCP interfaces.
+
+      ## Setup
+
+      Set the required environment variable before use:
+
+      ```bash
+      export PROMETHEUS_URL=http://localhost:9090
+      ```
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | `execute_query` | Run an instant PromQL query |
+      | `execute_range_query` | Run a range PromQL query over a time window |
+      | `list_metrics` | List all available metric names |
+      | `get_metric_metadata` | Get metadata (type, help text) for a specific metric |
+      | `get_targets` | List all scrape targets and their health status |
+      | `get_alerts` | List currently firing or pending alerts |
+      | `get_rules` | List all alerting and recording rules |
+
+      ## Example Queries
+
+      **Instant query – CPU usage:**
+      ```
+      rate(process_cpu_seconds_total[5m])
+      ```
+
+      **Check memory:**
+      ```
+      process_resident_memory_bytes
+      ```
+
+      **Range query (first param is the PromQL expression):**
+      ```
+      up
+      ```
+      Then configure `start`, `end`, and `step` as additional arguments in your agent.
+
+      ## Notes
+      - `PROMETHEUS_URL` must point to a reachable Prometheus HTTP API endpoint.
+      - No authentication env vars are required by default; configure a reverse proxy or
+        set `PROMETHEUS_USERNAME` / `PROMETHEUS_PASSWORD` if your instance requires basic auth.

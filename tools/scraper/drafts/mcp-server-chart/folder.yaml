@@ -1,0 +1,164 @@
+name: mcp-server-chart
+description: Generate 25+ visual charts and perform data analysis using AntV visualization tools
+
+mcp:
+  server: mcp-server-chart
+  command: npx
+  args: ["-y", "@antv/mcp-server-chart"]
+
+files:
+  - name: generate_line_chart
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_line_chart --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for line chart (e.g. {"title":"Sales","data":[{"x":"Jan","y":100}]})
+
+  - name: generate_bar_chart
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_bar_chart --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for bar chart (e.g. {"title":"Revenue","data":[{"x":"Q1","y":500}]})
+
+  - name: generate_pie_chart
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_pie_chart --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for pie chart (e.g. {"title":"Market Share","data":[{"item":"A","value":40}]})
+
+  - name: generate_area_chart
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_area_chart --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for area chart (e.g. {"title":"Trend","data":[{"x":"Jan","y":200}]})
+
+  - name: generate_scatter_chart
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_scatter_chart --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for scatter plot (e.g. {"title":"Correlation","data":[{"x":1,"y":2}]})
+
+  - name: generate_column_chart
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_column_chart --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for column chart (e.g. {"title":"Counts","data":[{"x":"Cat","y":10}]})
+
+  - name: generate_histogram
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_histogram --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for histogram (e.g. {"title":"Distribution","data":[{"value":5}]})
+
+  - name: generate_heatmap
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_heatmap --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for heatmap (e.g. {"title":"Activity","data":[{"x":"Mon","y":"AM","value":3}]})
+
+  - name: generate_radar_chart
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_radar_chart --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for radar chart (e.g. {"title":"Skills","data":[{"item":"Speed","value":80}]})
+
+  - name: generate_funnel_chart
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_funnel_chart --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for funnel chart (e.g. {"title":"Conversion","data":[{"stage":"Visit","value":1000}]})
+
+  - name: generate_treemap
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_treemap --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for treemap (e.g. {"title":"Hierarchy","data":[{"name":"A","value":100}]})
+
+  - name: generate_sankey_chart
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_sankey_chart --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for sankey diagram (e.g. {"title":"Flow","nodes":[{"id":"A"}],"links":[{"source":"A","target":"B","value":10}]})
+
+  - name: generate_wordcloud
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_wordcloud --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for word cloud (e.g. {"title":"Topics","data":[{"word":"AI","weight":100}]})
+
+  - name: generate_box_plot
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_box_plot --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for box plot (e.g. {"title":"Stats","data":[{"x":"A","min":1,"q1":3,"median":5,"q3":7,"max":9}]})
+
+  - name: generate_dual_axes_chart
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_dual_axes_chart --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for dual-axes chart combining two series with different scales
+
+  - name: generate_stock_chart
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_stock_chart --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON OHLC data for stock candlestick chart (e.g. {"title":"AAPL","data":[{"date":"2024-01","open":150,"close":155,"high":160,"low":148}]})
+
+  - name: generate_network_graph
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_network_graph --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON nodes/edges data for network graph (e.g. {"title":"Network","nodes":[{"id":"A"}],"edges":[{"source":"A","target":"B"}]})
+
+  - name: generate_fishbone_diagram
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_fishbone_diagram --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for fishbone (Ishikawa) cause-and-effect diagram
+
+  - name: generate_mind_map
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_mind_map --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON hierarchical data for mind map (e.g. {"title":"Ideas","children":[{"name":"Topic","children":[]}]})
+
+  - name: generate_flow_diagram
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_flow_diagram --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON nodes/edges data for flow diagram / flowchart
+
+  - name: generate_organizational_chart
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_organizational_chart --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON hierarchical data for org chart (e.g. {"name":"CEO","children":[{"name":"CTO"}]})
+
+  - name: generate_liquid_chart
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-chart generate_liquid_chart --arg data="$INPUT"
+    input:
+      type: string
+      description: JSON data for liquid fill gauge chart (e.g. {"title":"Progress","percent":0.75})
+
+  - name: generate_gauge_chart

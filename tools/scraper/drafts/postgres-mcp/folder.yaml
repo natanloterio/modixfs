@@ -1,0 +1,112 @@
+name: postgres-mcp
+description: Postgres MCP Pro provides configurable read/write access and performance analysis for PostgreSQL databases for you and your AI agents.
+
+mcp:
+  server: postgres-mcp
+  command: npx
+  args: ["-y", "postgres-mcp", "--access-mode=unsafe"]
+
+env:
+  - name: DATABASE_URI
+    description: PostgreSQL connection URI (e.g. postgresql://user:password@host:5432/dbname)
+    secret: true
+    required: true
+
+files:
+  - name: list_schemas
+    type: read_invoke
+    handler: livefolders mcp call postgres-mcp list_schemas
+
+  - name: list_tables
+    type: write_invoke
+    handler: livefolders mcp call postgres-mcp list_tables --arg schema="$INPUT"
+    input:
+      type: string
+      description: Schema name to list tables from (e.g. public)
+
+  - name: list_extensions
+    type: read_invoke
+    handler: livefolders mcp call postgres-mcp list_extensions
+
+  - name: get_table_schema
+    type: write_invoke
+    handler: livefolders mcp call postgres-mcp get_table_schema --arg table="$INPUT"
+    input:
+      type: string
+      description: Table name to retrieve schema for (e.g. public.users)
+
+  - name: run_sql
+    type: write_invoke
+    handler: livefolders mcp call postgres-mcp run_sql --arg sql="$INPUT"
+    input:
+      type: string
+      description: SQL query to execute against the database
+
+  - name: explain_query
+    type: write_invoke
+    handler: livefolders mcp call postgres-mcp explain_query --arg sql="$INPUT"
+    input:
+      type: string
+      description: SQL query to explain and analyze execution plan
+
+  - name: get_slow_queries
+    type: read_invoke
+    handler: livefolders mcp call postgres-mcp get_slow_queries
+
+  - name: analyze_query_indexes
+    type: write_invoke
+    handler: livefolders mcp call postgres-mcp analyze_query_indexes --arg query="$INPUT"
+    input:
+      type: string
+      description: SQL query to analyze for missing or inefficient indexes
+
+  - name: get_index_usage
+    type: read_invoke
+    handler: livefolders mcp call postgres-mcp get_index_usage
+
+  - name: get_database_health
+    type: read_invoke
+    handler: livefolders mcp call postgres-mcp get_database_health
+
+  - name: get_bloat_estimate
+    type: read_invoke
+    handler: livefolders mcp call postgres-mcp get_bloat_estimate
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # postgres-mcp LiveFolder
+
+      This folder wraps the **Postgres MCP Pro** server, giving you and your AI agents
+      read/write access and performance analysis tools for a PostgreSQL database.
+
+      ## Setup
+
+      Set the `DATABASE_URI` environment variable to your PostgreSQL connection string:
+
+      ```
+      postgresql://user:password@host:5432/dbname
+      ```
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | `list_schemas` | List all schemas in the database |
+      | `list_tables` | List all tables in a given schema |
+      | `list_extensions` | List installed PostgreSQL extensions |
+      | `get_table_schema` | Show columns, types, and constraints for a table |
+      | `run_sql` | Execute any SQL statement (read or write) |
+      | `explain_query` | Show the execution plan for a SQL query |
+      | `get_slow_queries` | Retrieve slowest queries from pg_stat_statements |
+      | `analyze_query_indexes` | Suggest indexes for a given query |
+      | `get_index_usage` | Report index hit rates and unused indexes |
+      | `get_database_health` | Overview of connections, cache hit rates, and locks |
+      | `get_bloat_estimate` | Estimate table and index bloat |
+
+      ## Notes
+
+      - The server is started with `--access-mode=unsafe`, enabling full read/write access.
+        Change to `--access-mode=read_only` if you want to restrict to SELECT queries only.
+      - Performance tools require the `pg_stat_statements` extension to be enabled.
+      - More info: https://github.com/crystaldba/postgres-mcp

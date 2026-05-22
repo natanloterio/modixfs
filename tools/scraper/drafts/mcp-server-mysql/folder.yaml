@@ -1,0 +1,94 @@
+name: mcp-server-mysql
+description: Read-only access to MySQL databases — inspect schemas and execute read-only queries via MCP
+
+mcp:
+  server: mcp-server-mysql
+  command: npx
+  args: ["-y", "@benborla29/mcp-server-mysql"]
+
+env:
+  - name: MYSQL_HOST
+    description: MySQL server hostname
+    secret: false
+    required: true
+  - name: MYSQL_PORT
+    description: MySQL server port (default 3306)
+    secret: false
+    required: false
+  - name: MYSQL_USER
+    description: MySQL username
+    secret: false
+    required: true
+  - name: MYSQL_PASS
+    description: MySQL password
+    secret: true
+    required: true
+  - name: MYSQL_DB
+    description: MySQL database name
+    secret: false
+    required: true
+
+files:
+  - name: read_query
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-mysql mysql_query --arg sql="$INPUT"
+    input:
+      type: string
+      description: SQL SELECT query to execute against the MySQL database
+
+  - name: list_tables
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-mysql mysql_list_tables
+
+  - name: describe_table
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-mysql mysql_describe_table --arg table="$INPUT"
+    input:
+      type: string
+      description: Table name to describe (returns column definitions and types)
+
+  - name: list_databases
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-mysql mysql_list_databases
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcp-server-mysql
+
+      Read-only MySQL access via the Model Context Protocol.
+
+      ## Setup
+
+      Set the following environment variables before use:
+
+      | Variable     | Required | Description                        |
+      |--------------|----------|------------------------------------|
+      | MYSQL_HOST   | yes      | Hostname of your MySQL server      |
+      | MYSQL_PORT   | no       | Port (defaults to 3306)            |
+      | MYSQL_USER   | yes      | MySQL username                     |
+      | MYSQL_PASS   | yes      | MySQL password (stored as secret)  |
+      | MYSQL_DB     | yes      | Default database to connect to     |
+
+      ## Available Tools
+
+      ### read_query
+      Execute a read-only SQL query (SELECT, SHOW, EXPLAIN, etc.).
+      - Input: any valid read-only SQL statement
+      - Example: `SELECT * FROM users LIMIT 10`
+
+      ### list_tables
+      List all tables in the connected database. No input required.
+
+      ### describe_table
+      Show column definitions and types for a given table.
+      - Input: table name
+      - Example: `orders`
+
+      ### list_databases
+      List all databases accessible to the configured user. No input required.
+
+      ## Notes
+      - Only read-only queries are permitted; INSERT/UPDATE/DELETE/DROP will be rejected.
+      - Credentials are never exposed in query results.
+      - Source: https://github.com/benborla/mcp-server-mysql

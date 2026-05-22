@@ -1,0 +1,56 @@
+name: node-code-sandbox-mcp
+description: Execute arbitrary JavaScript in disposable Docker containers via MCP
+
+mcp:
+  server: node-code-sandbox-mcp
+  command: npx
+  args: ["-y", "node-code-sandbox-mcp"]
+
+files:
+  - name: run_js_code
+    type: write_invoke
+    handler: livefolders mcp call node-code-sandbox-mcp run_js_code --arg code="$INPUT"
+    input:
+      type: string
+      description: JavaScript code to execute in a disposable Docker container
+
+  - name: install_dependencies_and_run_code
+    type: write_invoke
+    handler: livefolders mcp call node-code-sandbox-mcp install_dependencies_and_run_code --arg code="$INPUT"
+    input:
+      type: string
+      description: JavaScript code to execute after installing npm dependencies (include a JSON dependencies field in your prompt)
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # node-code-sandbox-mcp
+
+      Runs JavaScript code in isolated, disposable Docker containers using the
+      Model Context Protocol (MCP).
+
+      ## Requirements
+      - Docker must be installed and running on the host machine.
+      - Node.js and npx must be available.
+
+      ## Tools
+
+      ### run_js_code
+      Executes a snippet of JavaScript code inside a fresh Docker container.
+      - **Input**: A string of valid JavaScript code.
+      - **Output**: stdout/stderr from the container run.
+
+      ### install_dependencies_and_run_code
+      Installs npm packages into the container before running your code.
+      - **Input**: JavaScript code. When using this tool, specify required npm
+        packages in your request so they are installed prior to execution.
+      - **Output**: stdout/stderr from the container run.
+
+      ## Usage Tips
+      - Each invocation spins up a brand-new container, so state does not
+        persist between calls.
+      - Ideal for safely running untrusted or experimental code snippets.
+      - Containers are automatically removed after execution.
+
+      ## References
+      - GitHub: https://github.com/alfonsograziano/node-code-sandbox-mcp

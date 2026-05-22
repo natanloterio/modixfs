@@ -1,0 +1,46 @@
+name: mcp-bigquery-server
+description: Read-only access to BigQuery datasets for querying and analyzing data via MCP
+
+mcp:
+  server: mcp-bigquery-server
+  command: npx
+  args: ["-y", "@ergut/mcp-bigquery-server"]
+
+env:
+  - name: GOOGLE_APPLICATION_CREDENTIALS
+    description: Path to Google Cloud service account credentials JSON file
+    secret: false
+    required: true
+  - name: BIGQUERY_PROJECT_ID
+    description: Google Cloud project ID containing the BigQuery datasets
+    secret: false
+    required: true
+
+files:
+  - name: execute_query
+    type: write_invoke
+    handler: livefolders mcp call mcp-bigquery-server execute_query --arg query="$INPUT"
+    input:
+      type: string
+      description: SQL query to execute against BigQuery (read-only SELECT statements)
+
+  - name: list_datasets
+    type: read_invoke
+    handler: livefolders mcp call mcp-bigquery-server list_datasets
+
+  - name: list_tables
+    type: write_invoke
+    handler: livefolders mcp call mcp-bigquery-server list_tables --arg dataset="$INPUT"
+    input:
+      type: string
+      description: Dataset ID to list tables from
+
+  - name: get_table_schema
+    type: write_invoke
+    handler: livefolders mcp call mcp-bigquery-server get_table_schema --arg table="$INPUT"
+    input:
+      type: string
+      description: Fully qualified table name (project.dataset.table or dataset.table) to retrieve schema for
+
+  - name: how_to.md
+    type: readonly

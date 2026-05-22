@@ -1,0 +1,148 @@
+name: mcpproxy-go
+description: Supercharge AI Agents, Safely - a smart MCP proxy for managing and routing MCP tool calls
+
+mcp:
+  server: mcpproxy-go
+  command: npx
+  args: ["-y", "mcpproxy"]
+
+env:
+  - name: MCPPROXY_API_KEY
+    secret: true
+    required: false
+
+files:
+  - name: search_tools
+    type: write_invoke
+    handler: livefolders mcp call mcpproxy-go search_tools --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find relevant MCP tools across registered servers
+
+  - name: list_tools
+    type: read_invoke
+    handler: livefolders mcp call mcpproxy-go list_tools
+
+  - name: list_servers
+    type: read_invoke
+    handler: livefolders mcp call mcpproxy-go list_servers
+
+  - name: add_server
+    type: write_invoke
+    handler: livefolders mcp call mcpproxy-go add_server --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP server to add to the proxy registry
+
+  - name: remove_server
+    type: write_invoke
+    handler: livefolders mcp call mcpproxy-go remove_server --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP server to remove from the proxy registry
+
+  - name: get_server
+    type: write_invoke
+    handler: livefolders mcp call mcpproxy-go get_server --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP server to retrieve details for
+
+  - name: enable_server
+    type: write_invoke
+    handler: livefolders mcp call mcpproxy-go enable_server --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP server to enable in the proxy
+
+  - name: disable_server
+    type: write_invoke
+    handler: livefolders mcp call mcpproxy-go disable_server --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP server to disable in the proxy
+
+  - name: call_tool
+    type: write_invoke
+    handler: livefolders mcp call mcpproxy-go call_tool --arg tool_name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP tool to invoke through the proxy
+
+  - name: get_tool
+    type: write_invoke
+    handler: livefolders mcp call mcpproxy-go get_tool --arg tool_name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP tool to retrieve schema and details for
+
+  - name: approve_tool
+    type: write_invoke
+    handler: livefolders mcp call mcpproxy-go approve_tool --arg tool_name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP tool to approve for use by AI agents
+
+  - name: deny_tool
+    type: write_invoke
+    handler: livefolders mcp call mcpproxy-go deny_tool --arg tool_name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP tool to deny/block from use by AI agents
+
+  - name: get_config
+    type: read_invoke
+    handler: livefolders mcp call mcpproxy-go get_config
+
+  - name: update_config
+    type: write_invoke
+    handler: livefolders mcp call mcpproxy-go update_config --arg config="$INPUT"
+    input:
+      type: string
+      description: JSON configuration string to update the proxy settings
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcpproxy-go
+
+      **Supercharge AI Agents, Safely**
+
+      mcpproxy-go is a smart MCP (Model Context Protocol) proxy that aggregates multiple MCP servers,
+      provides tool search and discovery, and adds safety controls for AI agent tool usage.
+
+      ## Key Features
+
+      - **Tool Aggregation**: Connect multiple MCP servers and expose all their tools through a single proxy
+      - **Semantic Search**: Find the right tool using natural language queries via `search_tools`
+      - **Safety Controls**: Approve or deny specific tools to control what AI agents can access
+      - **Server Management**: Dynamically add, remove, enable, or disable MCP servers at runtime
+
+      ## Available Endpoints
+
+      | Endpoint | Description |
+      |---|---|
+      | `search_tools` | Search for tools using a natural language query |
+      | `list_tools` | List all available tools across registered servers |
+      | `list_servers` | List all registered MCP servers |
+      | `add_server` | Register a new MCP server with the proxy |
+      | `remove_server` | Remove a registered MCP server |
+      | `get_server` | Get details about a specific server |
+      | `enable_server` | Enable a previously disabled server |
+      | `disable_server` | Disable a server without removing it |
+      | `call_tool` | Invoke a specific tool through the proxy |
+      | `get_tool` | Retrieve schema and details for a specific tool |
+      | `approve_tool` | Grant permission for a tool to be used |
+      | `deny_tool` | Block a tool from being used by agents |
+      | `get_config` | Retrieve current proxy configuration |
+      | `update_config` | Update proxy configuration settings |
+
+      ## Usage Tips
+
+      - Use `search_tools` with descriptive queries to discover relevant tools
+      - Use `approve_tool` / `deny_tool` to enforce safety policies on AI agent tool usage
+      - Use `disable_server` to temporarily suspend a server without losing its configuration
+
+      ## More Info
+
+      GitHub: https://github.com/smart-mcp-proxy/mcpproxy-go

@@ -1,0 +1,114 @@
+name: desktop-commander-mcp
+description: Terminal control, file system search, and diff file editing via DesktopCommanderMCP
+
+mcp:
+  server: desktop-commander-mcp
+  command: npx
+  args: ["-y", "@wonderwhy-er/desktop-commander"]
+
+files:
+  - name: execute_command
+    type: write_invoke
+    handler: livefolders mcp call desktop-commander-mcp execute_command --arg command="$INPUT"
+    input:
+      type: string
+      description: Shell command to execute in the terminal
+
+  - name: read_file
+    type: write_invoke
+    handler: livefolders mcp call desktop-commander-mcp read_file --arg path="$INPUT"
+    input:
+      type: string
+      description: Absolute path of the file to read
+
+  - name: write_file
+    type: write_invoke
+    handler: livefolders mcp call desktop-commander-mcp write_file --arg path="$INPUT"
+    input:
+      type: string
+      description: Absolute path of the file to write (content provided as second arg)
+
+  - name: list_directory
+    type: write_invoke
+    handler: livefolders mcp call desktop-commander-mcp list_directory --arg path="$INPUT"
+    input:
+      type: string
+      description: Directory path to list
+
+  - name: search_files
+    type: write_invoke
+    handler: livefolders mcp call desktop-commander-mcp search_files --arg path="$INPUT"
+    input:
+      type: string
+      description: Directory path to search within
+
+  - name: search_code
+    type: write_invoke
+    handler: livefolders mcp call desktop-commander-mcp search_code --arg path="$INPUT"
+    input:
+      type: string
+      description: Directory path to search code in
+
+  - name: get_file_info
+    type: write_invoke
+    handler: livefolders mcp call desktop-commander-mcp get_file_info --arg path="$INPUT"
+    input:
+      type: string
+      description: Absolute path of the file to get metadata for
+
+  - name: create_directory
+    type: write_invoke
+    handler: livefolders mcp call desktop-commander-mcp create_directory --arg path="$INPUT"
+    input:
+      type: string
+      description: Directory path to create
+
+  - name: move_file
+    type: write_invoke
+    handler: livefolders mcp call desktop-commander-mcp move_file --arg source="$INPUT"
+    input:
+      type: string
+      description: Source path of the file to move
+
+  - name: delete_file
+    type: write_invoke
+    handler: livefolders mcp call desktop-commander-mcp delete_file --arg path="$INPUT"
+    input:
+      type: string
+      description: Absolute path of the file to delete
+
+  - name: edit_block
+    type: write_invoke
+    handler: livefolders mcp call desktop-commander-mcp edit_block --arg blockContent="$INPUT"
+    input:
+      type: string
+      description: Diff block content specifying the file path and changes to apply
+
+  - name: read_output
+    type: write_invoke
+    handler: livefolders mcp call desktop-commander-mcp read_output --arg pid="$INPUT"
+    input:
+      type: string
+      description: PID of the running process to read output from
+
+  - name: force_terminate
+    type: write_invoke
+    handler: livefolders mcp call desktop-commander-mcp force_terminate --arg pid="$INPUT"
+    input:
+      type: string
+      description: PID of the process to forcefully terminate
+
+  - name: list_sessions
+    type: read_invoke
+    handler: livefolders mcp call desktop-commander-mcp list_sessions
+
+  - name: list_processes
+    type: read_invoke
+    handler: livefolders mcp call desktop-commander-mcp list_processes
+
+  - name: get_config
+    type: read_invoke
+    handler: livefolders mcp call desktop-commander-mcp get_config
+
+  - name: how_to.md
+    type: readonly

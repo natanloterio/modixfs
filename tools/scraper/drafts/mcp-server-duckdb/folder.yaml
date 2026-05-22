@@ -1,0 +1,61 @@
+name: mcp-server-duckdb
+description: DuckDB database interaction via the MCP server for querying and managing DuckDB databases
+
+mcp:
+  server: mcp-server-duckdb
+  command: uvx
+  args: ["mcp-server-duckdb", "--db-path", "${DB_PATH}"]
+
+env:
+  - name: DB_PATH
+    description: Path to the DuckDB database file (e.g. /tmp/mydb.duckdb)
+    secret: false
+    required: true
+
+files:
+  - name: query
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-duckdb query --arg query="$INPUT"
+    input:
+      type: string
+      description: SQL query to execute against the DuckDB database
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcp-server-duckdb
+
+      This LiveFolder wraps the [mcp-server-duckdb](https://github.com/ktanaka101/mcp-server-duckdb) MCP server,
+      giving you direct SQL access to a DuckDB database file.
+
+      ## Setup
+
+      1. Set the `DB_PATH` environment variable to the path of your DuckDB database file.
+         - Example: `/tmp/mydb.duckdb`
+         - If the file does not exist, DuckDB will create it automatically.
+
+      2. Make sure `uvx` is available (comes with [uv](https://github.com/astral-sh/uv)).
+
+      ## Available Tools
+
+      ### query
+      Execute any SQL statement against your DuckDB database.
+
+      **Examples:**
+      ```sql
+      SELECT * FROM my_table LIMIT 10;
+      ```
+      ```sql
+      CREATE TABLE users (id INTEGER, name VARCHAR, email VARCHAR);
+      ```
+      ```sql
+      INSERT INTO users VALUES (1, 'Alice', 'alice@example.com');
+      ```
+      ```sql
+      SELECT COUNT(*) FROM users;
+      ```
+
+      ## Notes
+      - DuckDB supports reading Parquet, CSV, and JSON files directly via SQL.
+      - All standard DuckDB SQL syntax is supported.
+      - The database file is persisted at the path specified by `DB_PATH`.

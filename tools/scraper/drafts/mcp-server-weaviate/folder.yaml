@@ -1,0 +1,74 @@
+name: mcp-server-weaviate
+description: MCP server for interacting with Weaviate vector database
+
+mcp:
+  server: mcp-server-weaviate
+  command: npx
+  args: ["-y", "mcp-server-weaviate"]
+
+env:
+  - name: WEAVIATE_URL
+    description: URL of your Weaviate instance (e.g. https://your-cluster.weaviate.network)
+    secret: false
+    required: true
+  - name: WEAVIATE_API_KEY
+    description: API key for authenticating with Weaviate
+    secret: true
+    required: true
+
+files:
+  - name: search_weaviate
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-weaviate search_weaviate --arg query="$INPUT"
+    input:
+      type: string
+      description: Natural language query to search across Weaviate collections
+
+  - name: list_collections
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-weaviate list_collections
+
+  - name: get_collection_schema
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-weaviate get_collection_schema --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the Weaviate collection to retrieve the schema for
+
+  - name: create_collection
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-weaviate create_collection --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the new Weaviate collection to create
+
+  - name: delete_collection
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-weaviate delete_collection --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the Weaviate collection to delete
+
+  - name: insert_object
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-weaviate insert_object --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to insert an object into (provide collection_name as primary input)
+
+  - name: get_object
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-weaviate get_object --arg object_id="$INPUT"
+    input:
+      type: string
+      description: UUID of the object to retrieve from Weaviate
+
+  - name: delete_object
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-weaviate delete_object --arg object_id="$INPUT"
+    input:
+      type: string
+      description: UUID of the object to delete from Weaviate
+
+  - name: how_to.md
+    type: readonly

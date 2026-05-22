@@ -1,0 +1,22 @@
+name: mcp-server-apple-shortcuts
+description: Run and interact with Apple Shortcuts via MCP
+
+mcp:
+  server: mcp-server-apple-shortcuts
+  command: npx
+  args: ["-y", "mcp-server-apple-shortcuts"]
+
+files:
+  - name: run_shortcut
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-apple-shortcuts run_shortcut --arg shortcut_name="$INPUT"
+    input:
+      type: string
+      description: Name of the Apple Shortcut to run
+
+  - name: list_shortcuts
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-apple-shortcuts list_shortcuts
+
+  - name: how_to.md
+    type: readonly

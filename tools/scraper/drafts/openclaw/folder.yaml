@@ -1,0 +1,94 @@
+name: openclaw
+description: Your own personal AI assistant. Any OS. Any Platform. The lobster way. 🦞
+
+mcp:
+  server: openclaw
+  command: npx
+  args: ["-y", "openclaw"]
+
+env:
+  - name: OPENCLAW_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: chat
+    type: write_invoke
+    handler: livefolders mcp call openclaw chat --arg message="$INPUT"
+    input:
+      type: string
+      description: Message to send to the OpenClaw AI assistant
+
+  - name: ask
+    type: write_invoke
+    handler: livefolders mcp call openclaw ask --arg question="$INPUT"
+    input:
+      type: string
+      description: Question to ask the OpenClaw AI assistant
+
+  - name: complete
+    type: write_invoke
+    handler: livefolders mcp call openclaw complete --arg prompt="$INPUT"
+    input:
+      type: string
+      description: Prompt to complete using the OpenClaw AI assistant
+
+  - name: summarize
+    type: write_invoke
+    handler: livefolders mcp call openclaw summarize --arg text="$INPUT"
+    input:
+      type: string
+      description: Text to summarize using the OpenClaw AI assistant
+
+  - name: translate
+    type: write_invoke
+    handler: livefolders mcp call openclaw translate --arg text="$INPUT"
+    input:
+      type: string
+      description: Text to translate using the OpenClaw AI assistant
+
+  - name: status
+    type: read_invoke
+    handler: livefolders mcp call openclaw status
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # OpenClaw
+
+      Your own personal AI assistant. Any OS. Any Platform. The lobster way. 🦞
+
+      ## Setup
+
+      Set your `OPENCLAW_API_KEY` environment variable before using this folder.
+
+      ## Available Tools
+
+      - **chat** — Send a conversational message to the OpenClaw AI assistant
+      - **ask** — Ask a direct question and get an answer
+      - **complete** — Provide a prompt and get a completion
+      - **summarize** — Summarize a block of text
+      - **translate** — Translate text using the AI assistant
+      - **status** — Check the current status of the OpenClaw service
+
+      ## Usage Examples
+
+      ```
+      # Chat with the assistant
+      echo "Tell me a fun fact about lobsters" > chat
+
+      # Ask a question
+      echo "What is the capital of France?" > ask
+
+      # Complete a prompt
+      echo "Once upon a time in a land far away" > complete
+
+      # Summarize text
+      echo "Your long text here..." > summarize
+
+      # Translate text
+      echo "Bonjour le monde" > translate
+
+      # Check status
+      cat status
+      ```

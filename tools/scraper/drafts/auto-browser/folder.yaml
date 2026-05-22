@@ -1,0 +1,69 @@
+name: auto-browser
+description: Give your AI agent a real browser — with a human in the loop via MCP
+
+mcp:
+  server: auto-browser
+  command: npx
+  args: ["-y", "auto-browser"]
+
+files:
+  - name: browser_navigate
+    type: write_invoke
+    handler: livefolders mcp call auto-browser browser_navigate --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to navigate to in the browser
+
+  - name: browser_click
+    type: write_invoke
+    handler: livefolders mcp call auto-browser browser_click --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector or element description to click
+
+  - name: browser_type
+    type: write_invoke
+    handler: livefolders mcp call auto-browser browser_type --arg text="$INPUT"
+    input:
+      type: string
+      description: Text to type into the currently focused element
+
+  - name: browser_screenshot
+    type: read_invoke
+    handler: livefolders mcp call auto-browser browser_screenshot
+
+  - name: browser_get_content
+    type: read_invoke
+    handler: livefolders mcp call auto-browser browser_get_content
+
+  - name: browser_execute_script
+    type: write_invoke
+    handler: livefolders mcp call auto-browser browser_execute_script --arg script="$INPUT"
+    input:
+      type: string
+      description: JavaScript code to execute in the browser context
+
+  - name: browser_wait
+    type: write_invoke
+    handler: livefolders mcp call auto-browser browser_wait --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector to wait for before proceeding
+
+  - name: browser_scroll
+    type: write_invoke
+    handler: livefolders mcp call auto-browser browser_scroll --arg direction="$INPUT"
+    input:
+      type: string
+      description: Scroll direction and amount (e.g. "down 500")
+
+  - name: browser_go_back
+    type: read_invoke
+    handler: livefolders mcp call auto-browser browser_go_back
+
+  - name: browser_close
+    type: read_invoke
+    handler: livefolders mcp call auto-browser browser_close
+
+  - name: how_to.md
+    type: readonly

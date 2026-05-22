@@ -1,0 +1,99 @@
+name: mcp-twikit
+description: Interact with Twitter using the MCP twikit server
+
+mcp:
+  server: mcp-twikit
+  command: uvx
+  args: ["mcp-twikit"]
+
+env:
+  - name: TWITTER_USERNAME
+    description: Twitter account username
+    secret: false
+    required: true
+  - name: TWITTER_EMAIL
+    description: Twitter account email address
+    secret: false
+    required: true
+  - name: TWITTER_PASSWORD
+    description: Twitter account password
+    secret: true
+    required: true
+
+files:
+  - name: search_tweet
+    type: write_invoke
+    handler: livefolders mcp call mcp-twikit search_tweet --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find tweets
+
+  - name: get_user_tweets
+    type: write_invoke
+    handler: livefolders mcp call mcp-twikit get_user_tweets --arg username="$INPUT"
+    input:
+      type: string
+      description: Twitter username to fetch tweets from
+
+  - name: post_tweet
+    type: write_invoke
+    handler: livefolders mcp call mcp-twikit post_tweet --arg text="$INPUT"
+    input:
+      type: string
+      description: Text content of the tweet to post
+
+  - name: get_timeline
+    type: read_invoke
+    handler: livefolders mcp call mcp-twikit get_timeline
+
+  - name: get_user_info
+    type: write_invoke
+    handler: livefolders mcp call mcp-twikit get_user_info --arg username="$INPUT"
+    input:
+      type: string
+      description: Twitter username to look up user information for
+
+  - name: like_tweet
+    type: write_invoke
+    handler: livefolders mcp call mcp-twikit like_tweet --arg tweet_id="$INPUT"
+    input:
+      type: string
+      description: ID of the tweet to like
+
+  - name: unlike_tweet
+    type: write_invoke
+    handler: livefolders mcp call mcp-twikit unlike_tweet --arg tweet_id="$INPUT"
+    input:
+      type: string
+      description: ID of the tweet to unlike
+
+  - name: retweet
+    type: write_invoke
+    handler: livefolders mcp call mcp-twikit retweet --arg tweet_id="$INPUT"
+    input:
+      type: string
+      description: ID of the tweet to retweet
+
+  - name: delete_retweet
+    type: write_invoke
+    handler: livefolders mcp call mcp-twikit delete_retweet --arg tweet_id="$INPUT"
+    input:
+      type: string
+      description: ID of the tweet to remove retweet from
+
+  - name: follow_user
+    type: write_invoke
+    handler: livefolders mcp call mcp-twikit follow_user --arg username="$INPUT"
+    input:
+      type: string
+      description: Twitter username of the account to follow
+
+  - name: unfollow_user
+    type: write_invoke
+    handler: livefolders mcp call mcp-twikit unfollow_user --arg username="$INPUT"
+    input:
+      type: string
+      description: Twitter username of the account to unfollow
+
+  - name: how_to.md
+    type: readonly

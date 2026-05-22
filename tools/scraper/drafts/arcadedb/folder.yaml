@@ -1,0 +1,101 @@
+name: arcadedb
+description: ArcadeDB Multi-Model Database MCP server supporting SQL, Cypher, Gremlin, MongoDB, and Redis query interfaces
+
+mcp:
+  server: arcadedb
+  command: npx
+  args: ["-y", "@arcadedata/arcadedb-mcp-server"]
+
+env:
+  - name: ARCADEDB_HOST
+    description: ArcadeDB server host (e.g. localhost)
+    secret: false
+    required: true
+  - name: ARCADEDB_PORT
+    description: ArcadeDB server port (e.g. 2480)
+    secret: false
+    required: true
+  - name: ARCADEDB_DATABASE
+    description: ArcadeDB database name to connect to
+    secret: false
+    required: true
+  - name: ARCADEDB_USERNAME
+    description: ArcadeDB username for authentication
+    secret: false
+    required: true
+  - name: ARCADEDB_PASSWORD
+    description: ArcadeDB password for authentication
+    secret: true
+    required: true
+
+files:
+  - name: execute_sql
+    type: write_invoke
+    handler: livefolders mcp call arcadedb execute_sql --arg query="$INPUT"
+    input:
+      type: string
+      description: SQL query to execute against ArcadeDB (e.g. SELECT * FROM Person)
+
+  - name: execute_cypher
+    type: write_invoke
+    handler: livefolders mcp call arcadedb execute_cypher --arg query="$INPUT"
+    input:
+      type: string
+      description: Cypher query to execute against ArcadeDB (e.g. MATCH (n:Person) RETURN n)
+
+  - name: execute_gremlin
+    type: write_invoke
+    handler: livefolders mcp call arcadedb execute_gremlin --arg query="$INPUT"
+    input:
+      type: string
+      description: Gremlin traversal query to execute against ArcadeDB (e.g. g.V().hasLabel('Person'))
+
+  - name: execute_mongo
+    type: write_invoke
+    handler: livefolders mcp call arcadedb execute_mongo --arg query="$INPUT"
+    input:
+      type: string
+      description: MongoDB-compatible query in JSON format to execute against ArcadeDB
+
+  - name: list_databases
+    type: read_invoke
+    handler: livefolders mcp call arcadedb list_databases
+
+  - name: list_types
+    type: read_invoke
+    handler: livefolders mcp call arcadedb list_types
+
+  - name: get_schema
+    type: read_invoke
+    handler: livefolders mcp call arcadedb get_schema
+
+  - name: create_database
+    type: write_invoke
+    handler: livefolders mcp call arcadedb create_database --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the new database to create in ArcadeDB
+
+  - name: drop_database
+    type: write_invoke
+    handler: livefolders mcp call arcadedb drop_database --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the database to drop from ArcadeDB
+
+  - name: create_type
+    type: write_invoke
+    handler: livefolders mcp call arcadedb create_type --arg definition="$INPUT"
+    input:
+      type: string
+      description: Type definition JSON specifying name, kind (vertex/edge/document), and properties
+
+  - name: vector_search
+    type: write_invoke
+    handler: livefolders mcp call arcadedb vector_search --arg query="$INPUT"
+    input:
+      type: string
+      description: Vector similarity search query including embedding vector and target type
+
+  - name: how_to.md
+    type: readonly

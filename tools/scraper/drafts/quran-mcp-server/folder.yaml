@@ -1,0 +1,57 @@
+name: quran-mcp-server
+description: Quran.com API integration for verse search, translation and tafsir
+
+mcp:
+  server: quran-mcp-server
+  command: npx
+  args: ["-y", "quran-mcp-server"]
+
+files:
+  - name: search_verses
+    type: write_invoke
+    handler: livefolders mcp call quran-mcp-server search_verses --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find relevant Quran verses
+
+  - name: get_verse
+    type: write_invoke
+    handler: livefolders mcp call quran-mcp-server get_verse --arg verse_key="$INPUT"
+    input:
+      type: string
+      description: Verse key in chapter:verse format (e.g. 1:1 for Al-Fatiha verse 1)
+
+  - name: get_chapter
+    type: write_invoke
+    handler: livefolders mcp call quran-mcp-server get_chapter --arg chapter_number="$INPUT"
+    input:
+      type: string
+      description: Chapter (surah) number (1-114)
+
+  - name: list_chapters
+    type: read_invoke
+    handler: livefolders mcp call quran-mcp-server list_chapters
+
+  - name: get_translations
+    type: write_invoke
+    handler: livefolders mcp call quran-mcp-server get_translations --arg verse_key="$INPUT"
+    input:
+      type: string
+      description: Verse key to retrieve translations for (e.g. 2:255)
+
+  - name: get_tafsir
+    type: write_invoke
+    handler: livefolders mcp call quran-mcp-server get_tafsir --arg verse_key="$INPUT"
+    input:
+      type: string
+      description: Verse key to retrieve tafsir (exegesis) for (e.g. 36:1)
+
+  - name: get_audio
+    type: write_invoke
+    handler: livefolders mcp call quran-mcp-server get_audio --arg verse_key="$INPUT"
+    input:
+      type: string
+      description: Verse key to retrieve audio recitation for (e.g. 1:1)
+
+  - name: how_to.md
+    type: readonly

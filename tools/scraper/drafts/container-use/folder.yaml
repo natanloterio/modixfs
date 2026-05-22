@@ -1,0 +1,64 @@
+name: container-use
+description: Development environments for coding agents using Dagger container isolation
+
+mcp:
+  server: container-use
+  command: npx
+  args: ["-y", "container-use"]
+
+files:
+  - name: environment_list
+    type: read_invoke
+    handler: livefolders mcp call container-use environment_list
+
+  - name: environment_create
+    type: write_invoke
+    handler: livefolders mcp call container-use environment_create --arg name="$INPUT"
+    input:
+      type: string
+      description: Name for the new container environment
+
+  - name: environment_open
+    type: write_invoke
+    handler: livefolders mcp call container-use environment_open --arg environment_id="$INPUT"
+    input:
+      type: string
+      description: Environment ID to open
+
+  - name: environment_remove
+    type: write_invoke
+    handler: livefolders mcp call container-use environment_remove --arg environment_id="$INPUT"
+    input:
+      type: string
+      description: Environment ID to remove
+
+  - name: environment_run_cmd
+    type: write_invoke
+    handler: livefolders mcp call container-use environment_run_cmd --arg environment_id="$INPUT"
+    input:
+      type: string
+      description: Environment ID in which to run a command
+
+  - name: environment_file_read
+    type: write_invoke
+    handler: livefolders mcp call container-use environment_file_read --arg path="$INPUT"
+    input:
+      type: string
+      description: Path of the file to read inside the environment
+
+  - name: environment_file_write
+    type: write_invoke
+    handler: livefolders mcp call container-use environment_file_write --arg path="$INPUT"
+    input:
+      type: string
+      description: Path of the file to write inside the environment
+
+  - name: environment_checkpoint
+    type: write_invoke
+    handler: livefolders mcp call container-use environment_checkpoint --arg environment_id="$INPUT"
+    input:
+      type: string
+      description: Environment ID to checkpoint (snapshot current state)
+
+  - name: how_to.md
+    type: readonly

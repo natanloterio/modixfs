@@ -1,0 +1,93 @@
+name: meigen-ai-design-mcp
+description: AI design tools supporting GPT Image 2, Nanobanana & ComfyUI with a 1,400+ prompt library and multi-task orchestration
+
+mcp:
+  server: meigen-ai-design-mcp
+  command: npx
+  args: ["-y", "meigen-ai-design-mcp"]
+
+env:
+  - name: OPENAI_API_KEY
+    secret: true
+    required: true
+  - name: COMFYUI_API_URL
+    secret: false
+    required: false
+  - name: NANOBANANA_API_KEY
+    secret: true
+    required: false
+
+files:
+  - name: generate_image
+    type: write_invoke
+    handler: livefolders mcp call meigen-ai-design-mcp generate_image --arg prompt="$INPUT"
+    input:
+      type: string
+      description: Text prompt describing the image to generate
+
+  - name: generate_image_gpt
+    type: write_invoke
+    handler: livefolders mcp call meigen-ai-design-mcp generate_image_gpt --arg prompt="$INPUT"
+    input:
+      type: string
+      description: Text prompt for GPT Image 2 generation
+
+  - name: generate_image_nanobanana
+    type: write_invoke
+    handler: livefolders mcp call meigen-ai-design-mcp generate_image_nanobanana --arg prompt="$INPUT"
+    input:
+      type: string
+      description: Text prompt for Nanobanana image generation
+
+  - name: generate_image_comfyui
+    type: write_invoke
+    handler: livefolders mcp call meigen-ai-design-mcp generate_image_comfyui --arg prompt="$INPUT"
+    input:
+      type: string
+      description: Text prompt for ComfyUI image generation
+
+  - name: list_prompt_library
+    type: read_invoke
+    handler: livefolders mcp call meigen-ai-design-mcp list_prompt_library
+
+  - name: search_prompts
+    type: write_invoke
+    handler: livefolders mcp call meigen-ai-design-mcp search_prompts --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find matching prompts in the 1,400+ prompt library
+
+  - name: get_prompt
+    type: write_invoke
+    handler: livefolders mcp call meigen-ai-design-mcp get_prompt --arg id="$INPUT"
+    input:
+      type: string
+      description: Prompt ID to retrieve from the library
+
+  - name: orchestrate_tasks
+    type: write_invoke
+    handler: livefolders mcp call meigen-ai-design-mcp orchestrate_tasks --arg tasks="$INPUT"
+    input:
+      type: string
+      description: JSON-encoded list of design tasks to orchestrate in parallel
+
+  - name: apply_hook
+    type: write_invoke
+    handler: livefolders mcp call meigen-ai-design-mcp apply_hook --arg hook_name="$INPUT"
+    input:
+      type: string
+      description: Name of the crafted hook to apply to the current design workflow
+
+  - name: list_hooks
+    type: read_invoke
+    handler: livefolders mcp call meigen-ai-design-mcp list_hooks
+
+  - name: edit_image
+    type: write_invoke
+    handler: livefolders mcp call meigen-ai-design-mcp edit_image --arg instructions="$INPUT"
+    input:
+      type: string
+      description: Natural language instructions for editing an existing image
+
+  - name: how_to.md
+    type: readonly

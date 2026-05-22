@@ -1,0 +1,111 @@
+name: mcp-teams-server
+description: Microsoft Teams integration for reading messages, creating messages, replying, and mentioning members via MCP
+
+mcp:
+  server: mcp-teams-server
+  command: npx
+  args: ["-y", "@inditextech/mcp-teams-server"]
+
+env:
+  - name: TENANT_ID
+    description: Microsoft Azure tenant ID for Teams authentication
+    secret: false
+    required: true
+  - name: CLIENT_ID
+    description: Microsoft Azure client/application ID
+    secret: false
+    required: true
+  - name: CLIENT_SECRET
+    description: Microsoft Azure client secret for authentication
+    secret: true
+    required: true
+  - name: TEAMS_TEAM_ID
+    description: The Microsoft Teams team ID to operate on
+    secret: false
+    required: true
+  - name: TEAMS_CHANNEL_ID
+    description: The Microsoft Teams channel ID to operate on
+    secret: false
+    required: true
+
+files:
+  - name: read_messages
+    type: read_invoke
+    handler: livefolders mcp call mcp-teams-server teams_read_messages
+    description: Read recent messages from the configured Teams channel
+
+  - name: create_message
+    type: write_invoke
+    handler: livefolders mcp call mcp-teams-server teams_create_message --arg message="$INPUT"
+    input:
+      type: string
+      description: The message content to post to the Teams channel
+
+  - name: reply_to_message
+    type: write_invoke
+    handler: livefolders mcp call mcp-teams-server teams_reply_to_message --arg message="$INPUT"
+    input:
+      type: string
+      description: Reply content and message ID to reply to (format: messageId|reply text)
+
+  - name: mention_member
+    type: write_invoke
+    handler: livefolders mcp call mcp-teams-server teams_mention_member --arg message="$INPUT"
+    input:
+      type: string
+      description: Member display name or ID to mention in the Teams channel
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcp-teams-server
+
+      This LiveFolder wraps the `@inditextech/mcp-teams-server` MCP server to provide
+      Microsoft Teams integration directly from your filesystem.
+
+      ## Setup
+
+      Set the following environment variables before use:
+
+      | Variable          | Description                                      |
+      |-------------------|--------------------------------------------------|
+      | TENANT_ID         | Your Azure Active Directory tenant ID            |
+      | CLIENT_ID         | Your Azure app registration client ID            |
+      | CLIENT_SECRET     | Your Azure app registration client secret        |
+      | TEAMS_TEAM_ID     | The Teams team ID you want to interact with      |
+      | TEAMS_CHANNEL_ID  | The Teams channel ID you want to interact with   |
+
+      ## Available Tools
+
+      ### read_messages
+      Reads recent messages from the configured Teams channel.
+      - **Type:** read_invoke (no input required)
+
+      ### create_message
+      Posts a new message to the configured Teams channel.
+      - **Input:** The message text to post
+
+      ### reply_to_message
+      Replies to an existing message in the Teams channel.
+      - **Input:** Message ID and reply text
+
+      ### mention_member
+      Mentions a member in the Teams channel.
+      - **Input:** Member display name or ID to mention
+
+      ## Azure App Registration
+
+      To use this server you need an Azure app registration with the following
+      Microsoft Graph API permissions:
+      - `ChannelMessage.Read.All`
+      - `ChannelMessage.Send`
+      - `Chat.ReadWrite`
+      - `Team.ReadBasic.All`
+
+      Grant admin consent for these permissions in the Azure portal.
+
+      ## Finding Team and Channel IDs
+
+      You can find your Team ID and Channel ID in the Teams desktop client:
+      1. Right-click on the channel → Get link to channel
+      2. Extract the `groupId` (Team ID) and `channel` (Channel ID) from the URL

@@ -1,0 +1,46 @@
+name: mcp-open-library
+description: Search for book and author information via the Internet Archive's Open Library API
+
+mcp:
+  server: mcp-open-library
+  command: npx
+  args: ["-y", "mcp-open-library"]
+
+files:
+  - name: search_books
+    type: write_invoke
+    handler: livefolders mcp call mcp-open-library search_books --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find books (e.g. title, subject, or keyword)
+
+  - name: get_book_by_isbn
+    type: write_invoke
+    handler: livefolders mcp call mcp-open-library get_book_by_isbn --arg isbn="$INPUT"
+    input:
+      type: string
+      description: ISBN of the book to look up (ISBN-10 or ISBN-13)
+
+  - name: search_authors
+    type: write_invoke
+    handler: livefolders mcp call mcp-open-library search_authors --arg query="$INPUT"
+    input:
+      type: string
+      description: Author name or keyword to search for
+
+  - name: get_author_by_id
+    type: write_invoke
+    handler: livefolders mcp call mcp-open-library get_author_by_id --arg author_id="$INPUT"
+    input:
+      type: string
+      description: Open Library author ID (e.g. OL23919A)
+
+  - name: get_works_by_author
+    type: write_invoke
+    handler: livefolders mcp call mcp-open-library get_works_by_author --arg author_id="$INPUT"
+    input:
+      type: string
+      description: Open Library author ID to retrieve works for
+
+  - name: how_to.md
+    type: readonly

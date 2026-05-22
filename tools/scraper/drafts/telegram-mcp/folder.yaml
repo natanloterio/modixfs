@@ -1,0 +1,179 @@
+name: telegram-mcp
+description: Telegram MCP server powered by Telethon to read chats, manage groups, and send/modify messages, media, contacts, and settings.
+
+mcp:
+  server: telegram-mcp
+  command: npx
+  args: ["-y", "telegram-mcp"]
+
+env:
+  - name: TELEGRAM_API_ID
+    description: Telegram API ID from my.telegram.org
+    secret: false
+    required: true
+  - name: TELEGRAM_API_HASH
+    description: Telegram API Hash from my.telegram.org
+    secret: true
+    required: true
+  - name: TELEGRAM_PHONE
+    description: Telegram phone number in international format (e.g. +12345678900)
+    secret: false
+    required: true
+
+files:
+  - name: get_dialogs
+    type: read_invoke
+    handler: livefolders mcp call telegram-mcp get_dialogs
+    description: List all chats, groups, and channels the account has
+
+  - name: get_messages
+    type: write_invoke
+    handler: livefolders mcp call telegram-mcp get_messages --arg chat_id="$INPUT"
+    input:
+      type: string
+      description: Chat ID or username to fetch messages from
+
+  - name: send_message
+    type: write_invoke
+    handler: livefolders mcp call telegram-mcp send_message --arg chat_id="$INPUT"
+    input:
+      type: string
+      description: Chat ID or username to send a message to (also set message param)
+
+  - name: edit_message
+    type: write_invoke
+    handler: livefolders mcp call telegram-mcp edit_message --arg chat_id="$INPUT"
+    input:
+      type: string
+      description: Chat ID or username of the message to edit
+
+  - name: delete_message
+    type: write_invoke
+    handler: livefolders mcp call telegram-mcp delete_message --arg chat_id="$INPUT"
+    input:
+      type: string
+      description: Chat ID or username of the message to delete
+
+  - name: get_chat_info
+    type: write_invoke
+    handler: livefolders mcp call telegram-mcp get_chat_info --arg chat_id="$INPUT"
+    input:
+      type: string
+      description: Chat ID or username to retrieve info for
+
+  - name: get_contacts
+    type: read_invoke
+    handler: livefolders mcp call telegram-mcp get_contacts
+    description: List all contacts in the Telegram account
+
+  - name: add_contact
+    type: write_invoke
+    handler: livefolders mcp call telegram-mcp add_contact --arg phone="$INPUT"
+    input:
+      type: string
+      description: Phone number of the contact to add
+
+  - name: delete_contact
+    type: write_invoke
+    handler: livefolders mcp call telegram-mcp delete_contact --arg user_id="$INPUT"
+    input:
+      type: string
+      description: User ID of the contact to delete
+
+  - name: send_media
+    type: write_invoke
+    handler: livefolders mcp call telegram-mcp send_media --arg chat_id="$INPUT"
+    input:
+      type: string
+      description: Chat ID or username to send media to
+
+  - name: download_media
+    type: write_invoke
+    handler: livefolders mcp call telegram-mcp download_media --arg message_id="$INPUT"
+    input:
+      type: string
+      description: Message ID of the media to download
+
+  - name: create_group
+    type: write_invoke
+    handler: livefolders mcp call telegram-mcp create_group --arg title="$INPUT"
+    input:
+      type: string
+      description: Title for the new group to create
+
+  - name: invite_to_group
+    type: write_invoke
+    handler: livefolders mcp call telegram-mcp invite_to_group --arg chat_id="$INPUT"
+    input:
+      type: string
+      description: Chat ID or username of the group to invite users to
+
+  - name: kick_from_group
+    type: write_invoke
+    handler: livefolders mcp call telegram-mcp kick_from_group --arg chat_id="$INPUT"
+    input:
+      type: string
+      description: Chat ID or username of the group to kick a user from
+
+  - name: get_group_members
+    type: write_invoke
+    handler: livefolders mcp call telegram-mcp get_group_members --arg chat_id="$INPUT"
+    input:
+      type: string
+      description: Chat ID or username of the group to list members for
+
+  - name: update_profile
+    type: write_invoke
+    handler: livefolders mcp call telegram-mcp update_profile --arg first_name="$INPUT"
+    input:
+      type: string
+      description: New first name for the Telegram profile
+
+  - name: get_me
+    type: read_invoke
+    handler: livefolders mcp call telegram-mcp get_me
+    description: Get the current authenticated Telegram account info
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # telegram-mcp
+
+      This LiveFolder wraps the [telegram-mcp](https://github.com/chigwell/telegram-mcp) server,
+      which uses Telethon to interact with Telegram on your behalf.
+
+      ## Setup
+
+      1. Obtain your API credentials from https://my.telegram.org/apps
+      2. Set the following environment variables:
+         - `TELEGRAM_API_ID` — your numeric API ID
+         - `TELEGRAM_API_HASH` — your API hash (keep secret)
+         - `TELEGRAM_PHONE` — your phone number in international format (e.g. `+12345678900`)
+      3. On first run you may be prompted to enter a login code sent to your Telegram app.
+
+      ## Available Tools
+
+      | File | Description |
+      |---|---|
+      | get_dialogs | List all chats, groups, and channels |
+      | get_messages | Fetch messages from a chat |
+      | send_message | Send a message to a chat |
+      | edit_message | Edit an existing message |
+      | delete_message | Delete a message |
+      | get_chat_info | Get info about a chat or channel |
+      | get_contacts | List all contacts |
+      | add_contact | Add a contact by phone number |
+      | delete_contact | Remove a contact by user ID |
+      | send_media | Send media to a chat |
+      | download_media | Download media from a message |
+      | create_group | Create a new group |
+      | invite_to_group | Invite a user to a group |
+      | kick_from_group | Remove a user from a group |
+      | get_group_members | List members of a group |
+      | update_profile | Update your Telegram profile name |
+      | get_me | Get current account information |
+
+      ## Notes
+
+      - Use chat usernames (e.g. `@username`) or numeric chat IDs as inputs.
+      - Multi-parameter calls can be extended with additional `--arg key=value` flags.

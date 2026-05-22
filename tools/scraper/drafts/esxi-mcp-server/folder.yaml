@@ -1,0 +1,155 @@
+name: esxi-mcp-server
+description: VMware ESXi/vCenter virtual machine management via MCP REST API interfaces
+
+mcp:
+  server: esxi-mcp-server
+  command: npx
+  args: ["-y", "esxi-mcp-server"]
+
+env:
+  - name: ESXI_HOST
+    description: ESXi or vCenter hostname or IP address
+    secret: false
+    required: true
+  - name: ESXI_USERNAME
+    description: ESXi or vCenter username
+    secret: false
+    required: true
+  - name: ESXI_PASSWORD
+    description: ESXi or vCenter password
+    secret: true
+    required: true
+  - name: ESXI_PORT
+    description: ESXi or vCenter port (default 443)
+    secret: false
+    required: false
+
+files:
+  - name: list_vms
+    type: read_invoke
+    handler: livefolders mcp call esxi-mcp-server list_vms
+    description: List all virtual machines on the ESXi/vCenter host
+
+  - name: get_vm_info
+    type: write_invoke
+    handler: livefolders mcp call esxi-mcp-server get_vm_info --arg vm_name="$INPUT"
+    input:
+      type: string
+      description: Name of the virtual machine to retrieve info for
+
+  - name: power_on_vm
+    type: write_invoke
+    handler: livefolders mcp call esxi-mcp-server power_on_vm --arg vm_name="$INPUT"
+    input:
+      type: string
+      description: Name of the virtual machine to power on
+
+  - name: power_off_vm
+    type: write_invoke
+    handler: livefolders mcp call esxi-mcp-server power_off_vm --arg vm_name="$INPUT"
+    input:
+      type: string
+      description: Name of the virtual machine to power off
+
+  - name: suspend_vm
+    type: write_invoke
+    handler: livefolders mcp call esxi-mcp-server suspend_vm --arg vm_name="$INPUT"
+    input:
+      type: string
+      description: Name of the virtual machine to suspend
+
+  - name: reset_vm
+    type: write_invoke
+    handler: livefolders mcp call esxi-mcp-server reset_vm --arg vm_name="$INPUT"
+    input:
+      type: string
+      description: Name of the virtual machine to reset
+
+  - name: create_snapshot
+    type: write_invoke
+    handler: livefolders mcp call esxi-mcp-server create_snapshot --arg vm_name="$INPUT"
+    input:
+      type: string
+      description: Name of the virtual machine to snapshot
+
+  - name: list_snapshots
+    type: write_invoke
+    handler: livefolders mcp call esxi-mcp-server list_snapshots --arg vm_name="$INPUT"
+    input:
+      type: string
+      description: Name of the virtual machine whose snapshots to list
+
+  - name: delete_snapshot
+    type: write_invoke
+    handler: livefolders mcp call esxi-mcp-server delete_snapshot --arg vm_name="$INPUT"
+    input:
+      type: string
+      description: Name of the virtual machine snapshot to delete
+
+  - name: get_host_info
+    type: read_invoke
+    handler: livefolders mcp call esxi-mcp-server get_host_info
+    description: Get information about the ESXi/vCenter host system
+
+  - name: list_datastores
+    type: read_invoke
+    handler: livefolders mcp call esxi-mcp-server list_datastores
+    description: List all datastores available on the ESXi/vCenter host
+
+  - name: list_networks
+    type: read_invoke
+    handler: livefolders mcp call esxi-mcp-server list_networks
+    description: List all networks available on the ESXi/vCenter host
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # ESXi MCP Server
+
+      This folder wraps the `esxi-mcp-server` MCP server, providing virtual machine
+      management capabilities for VMware ESXi and vCenter environments.
+
+      ## Setup
+
+      Set the following environment variables before use:
+
+      | Variable       | Description                          | Required |
+      |----------------|--------------------------------------|----------|
+      | ESXI_HOST      | Hostname or IP of ESXi/vCenter       | Yes      |
+      | ESXI_USERNAME  | Login username                       | Yes      |
+      | ESXI_PASSWORD  | Login password                       | Yes      |
+      | ESXI_PORT      | Port number (default: 443)           | No       |
+
+      ## Available Tools
+
+      | Tool              | Description                                      |
+      |-------------------|--------------------------------------------------|
+      | list_vms          | List all virtual machines                        |
+      | get_vm_info       | Get detailed info about a specific VM            |
+      | power_on_vm       | Power on a virtual machine                       |
+      | power_off_vm      | Power off a virtual machine                      |
+      | suspend_vm        | Suspend a virtual machine                        |
+      | reset_vm          | Reset (hard reboot) a virtual machine            |
+      | create_snapshot   | Create a snapshot of a virtual machine           |
+      | list_snapshots    | List snapshots for a virtual machine             |
+      | delete_snapshot   | Delete a snapshot of a virtual machine           |
+      | get_host_info     | Get ESXi/vCenter host system information         |
+      | list_datastores   | List all available datastores                    |
+      | list_networks     | List all available networks                      |
+
+      ## Example Usage
+
+      ```bash
+      # List all VMs
+      livefolders mcp call esxi-mcp-server list_vms
+
+      # Get info on a specific VM
+      livefolders mcp call esxi-mcp-server get_vm_info --arg vm_name="my-vm"
+
+      # Power on a VM
+      livefolders mcp call esxi-mcp-server power_on_vm --arg vm_name="my-vm"
+      ```
+
+      ## Source
+
+      GitHub: https://github.com/bright8192/esxi-mcp-server

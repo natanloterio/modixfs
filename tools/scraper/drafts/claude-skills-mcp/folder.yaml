@@ -1,0 +1,34 @@
+name: claude-skills-mcp
+description: Search and retrieve Claude Agent Skills using vector search via MCP
+
+mcp:
+  server: claude-skills-mcp
+  command: npx
+  args: ["-y", "claude-skills-mcp"]
+
+env:
+  - name: ANTHROPIC_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: search_skills
+    type: write_invoke
+    handler: livefolders mcp call claude-skills-mcp search_skills --arg query="$INPUT"
+    input:
+      type: string
+      description: Natural language query to search for relevant Claude Agent Skills
+
+  - name: get_skill
+    type: write_invoke
+    handler: livefolders mcp call claude-skills-mcp get_skill --arg skill_id="$INPUT"
+    input:
+      type: string
+      description: Skill ID to retrieve the full details of a specific Claude Agent Skill
+
+  - name: list_skills
+    type: read_invoke
+    handler: livefolders mcp call claude-skills-mcp list_skills
+
+  - name: how_to.md
+    type: readonly

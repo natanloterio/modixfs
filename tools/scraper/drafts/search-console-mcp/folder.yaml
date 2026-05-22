@@ -1,0 +1,97 @@
+name: search-console-mcp
+description: Search & analytics data as infrastructure — MCP server for Google Search Console, Bing Webmaster Tools, and GA4
+
+mcp:
+  server: search-console-mcp
+  command: npx
+  args: ["-y", "search-console-mcp"]
+
+env:
+  - name: GOOGLE_CLIENT_ID
+    description: Google OAuth2 client ID for Search Console and GA4 access
+    secret: false
+    required: true
+  - name: GOOGLE_CLIENT_SECRET
+    description: Google OAuth2 client secret
+    secret: true
+    required: true
+  - name: GOOGLE_REFRESH_TOKEN
+    description: Google OAuth2 refresh token
+    secret: true
+    required: true
+  - name: BING_API_KEY
+    description: Bing Webmaster Tools API key
+    secret: true
+    required: false
+  - name: GA4_PROPERTY_ID
+    description: Google Analytics 4 property ID
+    secret: false
+    required: false
+
+files:
+  - name: gsc_search_analytics
+    type: write_invoke
+    handler: livefolders mcp call search-console-mcp gsc_search_analytics --arg siteUrl="$INPUT"
+    input:
+      type: string
+      description: Google Search Console site URL (e.g. https://example.com)
+
+  - name: gsc_list_sites
+    type: read_invoke
+    handler: livefolders mcp call search-console-mcp gsc_list_sites
+
+  - name: gsc_sitemaps
+    type: write_invoke
+    handler: livefolders mcp call search-console-mcp gsc_sitemaps --arg siteUrl="$INPUT"
+    input:
+      type: string
+      description: Site URL to list sitemaps for
+
+  - name: gsc_url_inspection
+    type: write_invoke
+    handler: livefolders mcp call search-console-mcp gsc_url_inspection --arg inspectionUrl="$INPUT"
+    input:
+      type: string
+      description: Full URL to inspect in Google Search Console
+
+  - name: bing_get_site_info
+    type: write_invoke
+    handler: livefolders mcp call search-console-mcp bing_get_site_info --arg siteUrl="$INPUT"
+    input:
+      type: string
+      description: Site URL to retrieve Bing Webmaster info for
+
+  - name: bing_get_keyword_stats
+    type: write_invoke
+    handler: livefolders mcp call search-console-mcp bing_get_keyword_stats --arg siteUrl="$INPUT"
+    input:
+      type: string
+      description: Site URL to get Bing keyword statistics for
+
+  - name: bing_get_crawl_stats
+    type: write_invoke
+    handler: livefolders mcp call search-console-mcp bing_get_crawl_stats --arg siteUrl="$INPUT"
+    input:
+      type: string
+      description: Site URL to get Bing crawl statistics for
+
+  - name: ga4_run_report
+    type: write_invoke
+    handler: livefolders mcp call search-console-mcp ga4_run_report --arg propertyId="$INPUT"
+    input:
+      type: string
+      description: GA4 property ID to run a report against (e.g. properties/123456789)
+
+  - name: ga4_get_realtime
+    type: write_invoke
+    handler: livefolders mcp call search-console-mcp ga4_get_realtime --arg propertyId="$INPUT"
+    input:
+      type: string
+      description: GA4 property ID to retrieve real-time data for
+
+  - name: ga4_list_properties
+    type: read_invoke
+    handler: livefolders mcp call search-console-mcp ga4_list_properties
+
+  - name: how_to.md
+    type: readonly

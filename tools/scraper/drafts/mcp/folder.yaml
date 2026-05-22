@@ -1,0 +1,81 @@
+name: aws-mcp
+description: Open source MCP Servers for AWS by AWS Labs
+
+mcp:
+  server: aws-mcp
+  command: npx
+  args: ["-y", "@aws/aws-documentation-mcp-server"]
+
+env:
+  - name: AWS_ACCESS_KEY_ID
+    secret: false
+    required: false
+  - name: AWS_SECRET_ACCESS_KEY
+    secret: true
+    required: false
+  - name: AWS_REGION
+    secret: false
+    required: false
+
+files:
+  - name: search_documentation
+    type: write_invoke
+    handler: livefolders mcp call aws-mcp search_documentation --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query for AWS documentation
+
+  - name: get_documentation
+    type: write_invoke
+    handler: livefolders mcp call aws-mcp get_documentation --arg url="$INPUT"
+    input:
+      type: string
+      description: URL of the AWS documentation page to retrieve
+
+  - name: list_services
+    type: read_invoke
+    handler: livefolders mcp call aws-mcp list_services
+
+  - name: recommend
+    type: write_invoke
+    handler: livefolders mcp call aws-mcp recommend --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to get related AWS documentation recommendations for
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # AWS MCP Server
+
+      This folder wraps the [AWS Labs MCP Servers](https://github.com/awslabs/mcp) — open source Model Context Protocol servers for AWS.
+
+      ## Available Tools
+
+      ### search_documentation
+      Search AWS documentation by keyword or phrase.
+      - **Input**: A search query string (e.g. `S3 bucket versioning`)
+
+      ### get_documentation
+      Retrieve the full content of an AWS documentation page by URL.
+      - **Input**: A valid AWS docs URL (e.g. `https://docs.aws.amazon.com/s3/index.html`)
+
+      ### list_services
+      List all available AWS services covered by the documentation server.
+      - No input required.
+
+      ### recommend
+      Get related documentation recommendations based on a given AWS docs URL.
+      - **Input**: A valid AWS docs URL
+
+      ## Configuration
+
+      AWS credentials are optional for documentation lookups but may be required for other AWS MCP servers in the suite:
+      - `AWS_ACCESS_KEY_ID`
+      - `AWS_SECRET_ACCESS_KEY`
+      - `AWS_REGION`
+
+      ## Notes
+      - This wrapper targets the AWS Documentation MCP server (`@aws/aws-documentation-mcp-server`).
+      - For other AWS MCP servers (CDK, Cost Analysis, etc.), update the `args` in `folder.yaml` accordingly.
+      - See the full list of servers at https://github.com/awslabs/mcp

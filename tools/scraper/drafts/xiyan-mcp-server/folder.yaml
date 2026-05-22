@@ -1,0 +1,79 @@
+name: xiyan-mcp-server
+description: Natural language queries to databases via the XiYan MCP server
+
+mcp:
+  server: xiyan_mcp_server
+  command: npx
+  args: ["-y", "xiyan_mcp_server"]
+
+env:
+  - name: XIYAN_API_KEY
+    description: API key for XiYan natural language to SQL service
+    secret: true
+    required: true
+  - name: DB_HOST
+    description: Database host address
+    secret: false
+    required: true
+  - name: DB_PORT
+    description: Database port number
+    secret: false
+    required: true
+  - name: DB_NAME
+    description: Database name to query
+    secret: false
+    required: true
+  - name: DB_USER
+    description: Database username
+    secret: false
+    required: true
+  - name: DB_PASSWORD
+    description: Database password
+    secret: true
+    required: true
+
+files:
+  - name: query
+    type: write_invoke
+    handler: livefolders mcp call xiyan_mcp_server query --arg query="$INPUT"
+    input:
+      type: string
+      description: Natural language question to query the database (e.g. "How many users signed up last month?")
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # XiYan MCP Server
+
+      This folder wraps the [xiyan_mcp_server](https://github.com/XGenerationLab/xiyan_mcp_server),
+      which lets you query databases using plain natural language. It translates your question
+      into SQL, executes it, and returns the results.
+
+      ## Setup
+
+      Set the following environment variables before use:
+
+      | Variable       | Description                          |
+      |----------------|--------------------------------------|
+      | XIYAN_API_KEY  | API key for the XiYan NL2SQL service |
+      | DB_HOST        | Hostname of your database server     |
+      | DB_PORT        | Port your database listens on        |
+      | DB_NAME        | Name of the database to query        |
+      | DB_USER        | Database login username              |
+      | DB_PASSWORD    | Database login password              |
+
+      ## Usage
+
+      Write your question in plain English inside the `query` file, for example:
+
+      ```
+      What were the top 5 products by revenue last quarter?
+      ```
+
+      The server will convert your question to SQL, run it against your database,
+      and return the results.
+
+      ## Supported Databases
+
+      Supports common relational databases including MySQL, PostgreSQL, and others
+      compatible with the XiYan NL2SQL engine.

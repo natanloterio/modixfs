@@ -1,0 +1,57 @@
+name: mcgravity
+description: Fast TUI that orchestrates AI coding tools (Claude Code, Codex, Gemini) in a plan→execute→review loop
+
+mcp:
+  server: mcgravity
+  command: npx
+  args: ["-y", "mcgravity"]
+
+files:
+  - name: create_plan
+    type: write_invoke
+    handler: livefolders mcp call mcgravity create_plan --arg task="$INPUT"
+    input:
+      type: string
+      description: High-level task description to break into atomic steps
+
+  - name: execute_plan
+    type: write_invoke
+    handler: livefolders mcp call mcgravity execute_plan --arg plan_id="$INPUT"
+    input:
+      type: string
+      description: Plan ID to execute through the AI coding tool pipeline
+
+  - name: review_results
+    type: write_invoke
+    handler: livefolders mcp call mcgravity review_results --arg plan_id="$INPUT"
+    input:
+      type: string
+      description: Plan ID whose results should be reviewed and summarized
+
+  - name: list_plans
+    type: read_invoke
+    handler: livefolders mcp call mcgravity list_plans
+
+  - name: get_plan
+    type: write_invoke
+    handler: livefolders mcp call mcgravity get_plan --arg plan_id="$INPUT"
+    input:
+      type: string
+      description: Plan ID to retrieve full details and current status for
+
+  - name: add_task
+    type: write_invoke
+    handler: livefolders mcp call mcgravity add_task --arg description="$INPUT"
+    input:
+      type: string
+      description: Description of an atomic task to add to the active plan
+
+  - name: run_tool
+    type: write_invoke
+    handler: livefolders mcp call mcgravity run_tool --arg tool="$INPUT"
+    input:
+      type: string
+      description: AI coding tool to invoke (claude_code, codex, or gemini)
+
+  - name: how_to.md
+    type: readonly

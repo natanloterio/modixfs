@@ -1,0 +1,137 @@
+name: leetcode-mcp-server
+description: Automated access to LeetCode problems, solutions, and public data with optional authentication for user-specific features
+
+mcp:
+  server: leetcode-mcp-server
+  command: npx
+  args: ["-y", "leetcode-mcp-server"]
+
+env:
+  - name: LEETCODE_SESSION
+    description: LeetCode session cookie for authenticated access (optional)
+    secret: true
+    required: false
+  - name: LEETCODE_CSRF_TOKEN
+    description: LeetCode CSRF token for authenticated access (optional)
+    secret: true
+    required: false
+  - name: LEETCODE_SITE
+    description: LeetCode site to use (leetcode.com or leetcode.cn)
+    secret: false
+    required: false
+
+files:
+  - name: get_problem
+    type: write_invoke
+    handler: livefolders mcp call leetcode-mcp-server get_problem --arg titleSlug="$INPUT"
+    input:
+      type: string
+      description: Problem title slug (e.g. "two-sum") to retrieve full problem details
+
+  - name: search_problems
+    type: write_invoke
+    handler: livefolders mcp call leetcode-mcp-server search_problems --arg keyword="$INPUT"
+    input:
+      type: string
+      description: Keyword to search for LeetCode problems
+
+  - name: get_problems_by_difficulty
+    type: write_invoke
+    handler: livefolders mcp call leetcode-mcp-server get_problems_by_difficulty --arg difficulty="$INPUT"
+    input:
+      type: string
+      description: Difficulty level to filter problems (Easy, Medium, or Hard)
+
+  - name: get_problems_by_tag
+    type: write_invoke
+    handler: livefolders mcp call leetcode-mcp-server get_problems_by_tag --arg tag="$INPUT"
+    input:
+      type: string
+      description: Topic tag to filter problems (e.g. "array", "dynamic-programming")
+
+  - name: get_daily_challenge
+    type: read_invoke
+    handler: livefolders mcp call leetcode-mcp-server get_daily_challenge
+
+  - name: get_problem_solution
+    type: write_invoke
+    handler: livefolders mcp call leetcode-mcp-server get_problem_solution --arg titleSlug="$INPUT"
+    input:
+      type: string
+      description: Problem title slug to retrieve the official solution
+
+  - name: get_problem_hints
+    type: write_invoke
+    handler: livefolders mcp call leetcode-mcp-server get_problem_hints --arg titleSlug="$INPUT"
+    input:
+      type: string
+      description: Problem title slug to retrieve hints
+
+  - name: get_user_profile
+    type: write_invoke
+    handler: livefolders mcp call leetcode-mcp-server get_user_profile --arg username="$INPUT"
+    input:
+      type: string
+      description: LeetCode username to retrieve public profile information
+
+  - name: get_user_submissions
+    type: write_invoke
+    handler: livefolders mcp call leetcode-mcp-server get_user_submissions --arg username="$INPUT"
+    input:
+      type: string
+      description: LeetCode username to retrieve recent submissions
+
+  - name: get_submission_detail
+    type: write_invoke
+    handler: livefolders mcp call leetcode-mcp-server get_submission_detail --arg submissionId="$INPUT"
+    input:
+      type: string
+      description: Submission ID to retrieve detailed submission information
+
+  - name: get_contest_info
+    type: write_invoke
+    handler: livefolders mcp call leetcode-mcp-server get_contest_info --arg contestSlug="$INPUT"
+    input:
+      type: string
+      description: Contest slug to retrieve contest details and problems
+
+  - name: get_problems_list
+    type: read_invoke
+    handler: livefolders mcp call leetcode-mcp-server get_problems_list
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # LeetCode MCP Server
+
+      This folder provides automated access to LeetCode problems, solutions, and user data.
+
+      ## Authentication (Optional)
+      Set the following environment variables for authenticated access to user-specific features:
+      - `LEETCODE_SESSION`: Your LeetCode session cookie
+      - `LEETCODE_CSRF_TOKEN`: Your LeetCode CSRF token
+      - `LEETCODE_SITE`: Site to use (`leetcode.com` or `leetcode.cn`, defaults to `leetcode.com`)
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | `get_problem` | Fetch full problem details by title slug (e.g. `two-sum`) |
+      | `search_problems` | Search problems by keyword |
+      | `get_problems_by_difficulty` | Filter problems by Easy, Medium, or Hard |
+      | `get_problems_by_tag` | Filter problems by topic tag (e.g. `array`) |
+      | `get_daily_challenge` | Get today's LeetCode daily challenge |
+      | `get_problem_solution` | Retrieve official editorial/solution for a problem |
+      | `get_problem_hints` | Get hints for a specific problem |
+      | `get_user_profile` | Fetch public profile for a username |
+      | `get_user_submissions` | Get recent submissions for a username |
+      | `get_submission_detail` | Get detailed info for a submission ID |
+      | `get_contest_info` | Get contest details by contest slug |
+      | `get_problems_list` | List all available LeetCode problems |
+
+      ## Examples
+      - Get problem: `two-sum`
+      - Search: `binary search`
+      - By difficulty: `Easy`
+      - By tag: `dynamic-programming`
+      - User profile: `your-username`

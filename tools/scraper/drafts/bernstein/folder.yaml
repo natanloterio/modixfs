@@ -1,0 +1,88 @@
+name: bernstein
+description: Audit-grade multi-agent orchestration with HMAC-chained audit log, signed agent cards, and per-artefact lineage
+
+mcp:
+  server: bernstein
+  command: npx
+  args: ["-y", "@sipyourdrink/bernstein-mcp"]
+
+env:
+  - name: BERNSTEIN_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: create_session
+    type: write_invoke
+    handler: livefolders mcp call bernstein create_session --arg name="$INPUT"
+    input:
+      type: string
+      description: Name or label for the new orchestration session
+
+  - name: list_sessions
+    type: read_invoke
+    handler: livefolders mcp call bernstein list_sessions
+
+  - name: get_session
+    type: write_invoke
+    handler: livefolders mcp call bernstein get_session --arg session_id="$INPUT"
+    input:
+      type: string
+      description: Session ID to retrieve details for
+
+  - name: register_agent
+    type: write_invoke
+    handler: livefolders mcp call bernstein register_agent --arg name="$INPUT"
+    input:
+      type: string
+      description: Agent name to register and generate a signed agent card for
+
+  - name: list_agents
+    type: read_invoke
+    handler: livefolders mcp call bernstein list_agents
+
+  - name: get_agent_card
+    type: write_invoke
+    handler: livefolders mcp call bernstein get_agent_card --arg agent_id="$INPUT"
+    input:
+      type: string
+      description: Agent ID to retrieve the signed agent card for
+
+  - name: submit_artefact
+    type: write_invoke
+    handler: livefolders mcp call bernstein submit_artefact --arg content="$INPUT"
+    input:
+      type: string
+      description: Artefact content to submit and record lineage for
+
+  - name: get_artefact
+    type: write_invoke
+    handler: livefolders mcp call bernstein get_artefact --arg artefact_id="$INPUT"
+    input:
+      type: string
+      description: Artefact ID to retrieve with full lineage chain
+
+  - name: list_artefacts
+    type: read_invoke
+    handler: livefolders mcp call bernstein list_artefacts
+
+  - name: get_audit_log
+    type: read_invoke
+    handler: livefolders mcp call bernstein get_audit_log
+
+  - name: verify_audit_chain
+    type: write_invoke
+    handler: livefolders mcp call bernstein verify_audit_chain --arg session_id="$INPUT"
+    input:
+      type: string
+      description: Session ID whose HMAC-chained audit log should be verified
+
+  - name: get_lineage
+    type: write_invoke
+    handler: livefolders mcp call bernstein get_lineage --arg artefact_id="$INPUT"
+    input:
+      type: string
+      description: Artefact ID to retrieve full provenance and lineage graph for
+
+  - name: how_to.md
+    type: readonly

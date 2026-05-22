@@ -1,0 +1,103 @@
+name: mkp
+description: MKP is a Model Context Protocol (MCP) server for Kubernetes
+
+mcp:
+  server: mkp
+  command: npx
+  args: ["-y", "mkp"]
+
+files:
+  - name: list_namespaces
+    type: read_invoke
+    handler: livefolders mcp call mkp list_namespaces
+
+  - name: list_pods
+    type: write_invoke
+    handler: livefolders mcp call mkp list_pods --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Kubernetes namespace to list pods in
+
+  - name: list_deployments
+    type: write_invoke
+    handler: livefolders mcp call mkp list_deployments --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Kubernetes namespace to list deployments in
+
+  - name: list_services
+    type: write_invoke
+    handler: livefolders mcp call mkp list_services --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Kubernetes namespace to list services in
+
+  - name: list_configmaps
+    type: write_invoke
+    handler: livefolders mcp call mkp list_configmaps --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Kubernetes namespace to list configmaps in
+
+  - name: list_secrets
+    type: write_invoke
+    handler: livefolders mcp call mkp list_secrets --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Kubernetes namespace to list secrets in
+
+  - name: list_nodes
+    type: read_invoke
+    handler: livefolders mcp call mkp list_nodes
+
+  - name: get_pod_logs
+    type: write_invoke
+    handler: livefolders mcp call mkp get_pod_logs --arg pod_name="$INPUT"
+    input:
+      type: string
+      description: Name of the pod to retrieve logs from
+
+  - name: describe_pod
+    type: write_invoke
+    handler: livefolders mcp call mkp describe_pod --arg pod_name="$INPUT"
+    input:
+      type: string
+      description: Name of the pod to describe
+
+  - name: describe_deployment
+    type: write_invoke
+    handler: livefolders mcp call mkp describe_deployment --arg deployment_name="$INPUT"
+    input:
+      type: string
+      description: Name of the deployment to describe
+
+  - name: describe_service
+    type: write_invoke
+    handler: livefolders mcp call mkp describe_service --arg service_name="$INPUT"
+    input:
+      type: string
+      description: Name of the service to describe
+
+  - name: describe_node
+    type: write_invoke
+    handler: livefolders mcp call mkp describe_node --arg node_name="$INPUT"
+    input:
+      type: string
+      description: Name of the node to describe
+
+  - name: apply_manifest
+    type: write_invoke
+    handler: livefolders mcp call mkp apply_manifest --arg manifest="$INPUT"
+    input:
+      type: string
+      description: YAML manifest content to apply to the cluster
+
+  - name: delete_resource
+    type: write_invoke
+    handler: livefolders mcp call mkp delete_resource --arg resource="$INPUT"
+    input:
+      type: string
+      description: Resource type/name (e.g. pod/my-pod) to delete
+
+  - name: how_to.md
+    type: readonly

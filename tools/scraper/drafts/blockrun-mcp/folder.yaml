@@ -1,0 +1,103 @@
+name: blockrun-mcp
+description: Live data for AI agents — search, research, markets, crypto, X/Twitter via pay-per-call micropayments
+
+mcp:
+  server: blockrun-mcp
+  command: npx
+  args: ["-y", "blockrun-mcp"]
+
+env:
+  - name: BLOCKRUN_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: web_search
+    type: write_invoke
+    handler: livefolders mcp call blockrun-mcp web_search --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to look up on the web
+
+  - name: research
+    type: write_invoke
+    handler: livefolders mcp call blockrun-mcp research --arg query="$INPUT"
+    input:
+      type: string
+      description: Topic or question to research in depth
+
+  - name: crypto_price
+    type: write_invoke
+    handler: livefolders mcp call blockrun-mcp crypto_price --arg symbol="$INPUT"
+    input:
+      type: string
+      description: Cryptocurrency symbol to fetch live price for (e.g. BTC, ETH)
+
+  - name: crypto_market
+    type: write_invoke
+    handler: livefolders mcp call blockrun-mcp crypto_market --arg query="$INPUT"
+    input:
+      type: string
+      description: Crypto market data query (e.g. top gainers, market cap rankings)
+
+  - name: stock_price
+    type: write_invoke
+    handler: livefolders mcp call blockrun-mcp stock_price --arg symbol="$INPUT"
+    input:
+      type: string
+      description: Stock ticker symbol to fetch live market price for (e.g. AAPL, TSLA)
+
+  - name: twitter_search
+    type: write_invoke
+    handler: livefolders mcp call blockrun-mcp twitter_search --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find recent posts on X/Twitter
+
+  - name: twitter_user
+    type: write_invoke
+    handler: livefolders mcp call blockrun-mcp twitter_user --arg username="$INPUT"
+    input:
+      type: string
+      description: X/Twitter username to fetch profile and recent posts for
+
+  - name: news_search
+    type: write_invoke
+    handler: livefolders mcp call blockrun-mcp news_search --arg query="$INPUT"
+    input:
+      type: string
+      description: Topic or keywords to search for in recent news articles
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # blockrun-mcp
+
+      Live data tools for AI agents powered by the Blockrun API.
+      Calls are pay-per-use via x402 micropayments billed against your API key.
+
+      ## Setup
+
+      Set your API key as an environment variable:
+      ```
+      BLOCKRUN_API_KEY=your_key_here
+      ```
+
+      Get a key at https://blockrun.ai
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | web_search | General web search |
+      | research | Deep research on any topic |
+      | crypto_price | Live price for a crypto symbol |
+      | crypto_market | Broader crypto market data |
+      | stock_price | Live stock market price |
+      | twitter_search | Search recent X/Twitter posts |
+      | twitter_user | Fetch an X/Twitter user profile |
+      | news_search | Search recent news articles |
+
+      ## Notes
+      - Each call deducts a small micropayment from your Blockrun balance.
+      - GitHub: https://github.com/blockrunai/blockrun-mcp

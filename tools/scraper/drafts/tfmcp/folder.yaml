@@ -1,0 +1,109 @@
+name: tfmcp
+description: Manage and operate Terraform environments via MCP - read configs, analyze plans, apply configurations, and manage state
+
+mcp:
+  server: tfmcp
+  command: npx
+  args: ["-y", "tfmcp"]
+
+files:
+  - name: read_terraform_config
+    type: write_invoke
+    handler: livefolders mcp call tfmcp read_terraform_config --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the Terraform configuration directory or file to read
+
+  - name: list_terraform_resources
+    type: write_invoke
+    handler: livefolders mcp call tfmcp list_terraform_resources --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the Terraform directory to list resources from
+
+  - name: analyze_terraform_plan
+    type: write_invoke
+    handler: livefolders mcp call tfmcp analyze_terraform_plan --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the Terraform directory to run and analyze a plan
+
+  - name: apply_terraform
+    type: write_invoke
+    handler: livefolders mcp call tfmcp apply_terraform --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the Terraform directory to apply configuration
+
+  - name: get_terraform_state
+    type: write_invoke
+    handler: livefolders mcp call tfmcp get_terraform_state --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the Terraform directory to read current state
+
+  - name: validate_terraform
+    type: write_invoke
+    handler: livefolders mcp call tfmcp validate_terraform --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the Terraform directory to validate configuration
+
+  - name: init_terraform
+    type: write_invoke
+    handler: livefolders mcp call tfmcp init_terraform --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the Terraform directory to initialize
+
+  - name: destroy_terraform
+    type: write_invoke
+    handler: livefolders mcp call tfmcp destroy_terraform --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the Terraform directory to destroy infrastructure
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # tfmcp - Terraform MCP Tool
+
+      This folder wraps the [tfmcp](https://github.com/nwiizo/tfmcp) MCP server, enabling AI-assisted management of Terraform environments.
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | `read_terraform_config` | Read and inspect Terraform configuration files |
+      | `list_terraform_resources` | List all resources defined in a Terraform directory |
+      | `analyze_terraform_plan` | Run `terraform plan` and analyze proposed changes |
+      | `apply_terraform` | Apply Terraform configuration to provision infrastructure |
+      | `get_terraform_state` | Read the current Terraform state |
+      | `validate_terraform` | Validate Terraform configuration syntax and semantics |
+      | `init_terraform` | Initialize a Terraform working directory |
+      | `destroy_terraform` | Destroy Terraform-managed infrastructure |
+
+      ## Usage
+
+      Each tool accepts a **path** to your Terraform directory or file as input.
+
+      ### Example paths
+      - `/home/user/my-infra` — a Terraform project directory
+      - `./modules/vpc` — a relative path to a module
+      - `/tmp/terraform/main.tf` — a specific config file (for read)
+
+      ## Workflow
+
+      A typical Terraform workflow with these tools:
+
+      1. **Init** → `init_terraform` with your project path
+      2. **Validate** → `validate_terraform` to check for errors
+      3. **Plan** → `analyze_terraform_plan` to preview changes
+      4. **Apply** → `apply_terraform` to provision resources
+      5. **State** → `get_terraform_state` to inspect current state
+
+      ## ⚠️ Caution
+
+      - `apply_terraform` and `destroy_terraform` make **real infrastructure changes**
+      - Always run `analyze_terraform_plan` before applying
+      - Ensure your cloud provider credentials are configured in the environment

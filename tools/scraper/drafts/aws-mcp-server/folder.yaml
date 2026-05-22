@@ -1,0 +1,96 @@
+name: aws-mcp-server
+description: Execute AWS CLI commands through MCP in a safe containerized environment
+
+mcp:
+  server: aws-mcp-server
+  command: npx
+  args: ["-y", "aws-mcp-server"]
+
+env:
+  - name: AWS_ACCESS_KEY_ID
+    secret: true
+    required: true
+  - name: AWS_SECRET_ACCESS_KEY
+    secret: true
+    required: true
+  - name: AWS_DEFAULT_REGION
+    secret: false
+    required: true
+
+files:
+  - name: execute_command
+    type: write_invoke
+    handler: livefolders mcp call aws-mcp-server execute_command --arg command="$INPUT"
+    input:
+      type: string
+      description: AWS CLI command to execute (e.g. "aws s3 ls" or "aws ec2 describe-instances")
+
+  - name: list_resources
+    type: write_invoke
+    handler: livefolders mcp call aws-mcp-server list_resources --arg resource_type="$INPUT"
+    input:
+      type: string
+      description: AWS resource type to list (e.g. "s3", "ec2", "lambda", "iam")
+
+  - name: describe_resource
+    type: write_invoke
+    handler: livefolders mcp call aws-mcp-server describe_resource --arg resource="$INPUT"
+    input:
+      type: string
+      description: AWS resource identifier to describe (e.g. ARN, resource ID, or name)
+
+  - name: get_logs
+    type: write_invoke
+    handler: livefolders mcp call aws-mcp-server get_logs --arg log_group="$INPUT"
+    input:
+      type: string
+      description: CloudWatch log group name to retrieve logs from
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # AWS MCP Server
+
+      This folder wraps the [aws-mcp-server](https://github.com/alexei-led/aws-mcp-server),
+      enabling AI assistants to execute AWS CLI commands through the Model Context Protocol (MCP).
+
+      ## Prerequisites
+
+      - Docker must be running locally (commands execute in a safe container)
+      - AWS credentials with appropriate permissions for your intended operations
+
+      ## Required Environment Variables
+
+      | Variable | Description |
+      |---|---|
+      | `AWS_ACCESS_KEY_ID` | Your AWS access key |
+      | `AWS_SECRET_ACCESS_KEY` | Your AWS secret access key |
+      | `AWS_DEFAULT_REGION` | Default AWS region (e.g. `us-east-1`) |
+
+      ## Available Tools
+
+      ### execute_command
+      Run any AWS CLI command directly.
+      - **Input:** Full AWS CLI command string
+      - **Example:** `aws s3 ls` or `aws ec2 describe-instances --filters Name=instance-state-name,Values=running`
+
+      ### list_resources
+      List AWS resources by service/type.
+      - **Input:** AWS service name
+      - **Example:** `s3`, `ec2`, `lambda`, `rds`, `iam`
+
+      ### describe_resource
+      Get detailed information about a specific AWS resource.
+      - **Input:** Resource identifier (ARN, ID, or name)
+      - **Example:** `arn:aws:s3:::my-bucket` or `i-1234567890abcdef0`
+
+      ### get_logs
+      Retrieve logs from a CloudWatch log group.
+      - **Input:** CloudWatch log group name
+      - **Example:** `/aws/lambda/my-function`
+
+      ## Safety
+
+      All commands execute inside a containerized environment, preventing unintended
+      access to your local system. Always ensure your IAM credentials follow the
+      principle of least privilege.

@@ -1,0 +1,77 @@
+name: mcp-browser-kit
+description: Enable AI assistants to interact with your local browsers via MCP
+
+mcp:
+  server: mcp-browser-kit
+  command: npx
+  args: ["-y", "mcp-browser-kit"]
+
+files:
+  - name: navigate
+    type: write_invoke
+    handler: livefolders mcp call mcp-browser-kit navigate --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to navigate to in the browser
+
+  - name: click
+    type: write_invoke
+    handler: livefolders mcp call mcp-browser-kit click --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element to click
+
+  - name: type_text
+    type: write_invoke
+    handler: livefolders mcp call mcp-browser-kit type --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector and text to type (e.g. "#input-id: Hello World")
+
+  - name: get_content
+    type: write_invoke
+    handler: livefolders mcp call mcp-browser-kit get_content --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of element to retrieve content from (use "body" for full page)
+
+  - name: screenshot
+    type: read_invoke
+    handler: livefolders mcp call mcp-browser-kit screenshot
+
+  - name: get_url
+    type: read_invoke
+    handler: livefolders mcp call mcp-browser-kit get_url
+
+  - name: get_title
+    type: read_invoke
+    handler: livefolders mcp call mcp-browser-kit get_title
+
+  - name: go_back
+    type: read_invoke
+    handler: livefolders mcp call mcp-browser-kit go_back
+
+  - name: go_forward
+    type: read_invoke
+    handler: livefolders mcp call mcp-browser-kit go_forward
+
+  - name: reload
+    type: read_invoke
+    handler: livefolders mcp call mcp-browser-kit reload
+
+  - name: scroll
+    type: write_invoke
+    handler: livefolders mcp call mcp-browser-kit scroll --arg direction="$INPUT"
+    input:
+      type: string
+      description: Scroll direction and amount (e.g. "down:500" or "up:300")
+
+  - name: evaluate
+    type: write_invoke
+    handler: livefolders mcp call mcp-browser-kit evaluate --arg script="$INPUT"
+    input:
+      type: string
+      description: JavaScript code to evaluate in the browser context
+
+  - name: how_to.md
+    type: readonly

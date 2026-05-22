@@ -1,0 +1,48 @@
+name: imagen3-mcp
+description: Generate images using Google's Imagen 3 model via MCP
+
+mcp:
+  server: imagen3-mcp
+  command: npx
+  args: ["-y", "imagen3-mcp"]
+
+env:
+  - name: GEMINI_API_KEY
+    description: Google Gemini API key for accessing Imagen 3
+    secret: true
+    required: true
+
+files:
+  - name: generate_image
+    type: write_invoke
+    handler: livefolders mcp call imagen3-mcp generate_image --arg prompt="$INPUT"
+    input:
+      type: string
+      description: Text prompt describing the image to generate
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # imagen3-mcp
+
+      Generate images using Google's Imagen 3 model.
+
+      ## Setup
+
+      Requires a Google Gemini API key with access to Imagen 3.
+
+      Set the following environment variable:
+      - `GEMINI_API_KEY`: Your Google Gemini API key
+
+      ## Usage
+
+      ### generate_image
+      Provide a text prompt describing the image you want to generate.
+
+      **Example prompts:**
+      - "A photorealistic sunset over the ocean with golden light"
+      - "A cute cartoon robot waving hello"
+      - "An oil painting of a mountain landscape in autumn"
+
+      ## Source
+      GitHub: https://github.com/hamflx/imagen3-mcp

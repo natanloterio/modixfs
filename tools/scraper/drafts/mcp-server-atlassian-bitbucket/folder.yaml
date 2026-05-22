@@ -1,0 +1,85 @@
+name: mcp-server-atlassian-bitbucket
+description: Interact with Atlassian Bitbucket workspaces, repositories, and pull requests via MCP
+
+mcp:
+  server: mcp-server-atlassian-bitbucket
+  command: npx
+  args: ["-y", "@aashari/mcp-server-atlassian-bitbucket"]
+
+env:
+  - name: ATLASSIAN_SITE_NAME
+    description: Your Atlassian site name (e.g. mycompany for mycompany.atlassian.net)
+    secret: false
+    required: true
+  - name: ATLASSIAN_USER_EMAIL
+    description: Your Atlassian account email address
+    secret: false
+    required: true
+  - name: ATLASSIAN_API_TOKEN
+    description: Your Atlassian API token
+    secret: true
+    required: true
+
+files:
+  - name: list_workspaces
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-atlassian-bitbucket bb_list_workspaces
+
+  - name: get_workspace
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-atlassian-bitbucket bb_get_workspace --arg workspace="$INPUT"
+    input:
+      type: string
+      description: Workspace slug to retrieve details for
+
+  - name: list_repositories
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-atlassian-bitbucket bb_list_repositories --arg workspace="$INPUT"
+    input:
+      type: string
+      description: Workspace slug to list repositories for
+
+  - name: get_repository
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-atlassian-bitbucket bb_get_repository --arg repository="$INPUT"
+    input:
+      type: string
+      description: Repository in the format workspace/repo-slug
+
+  - name: list_pull_requests
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-atlassian-bitbucket bb_list_pull_requests --arg repository="$INPUT"
+    input:
+      type: string
+      description: Repository in the format workspace/repo-slug to list pull requests for
+
+  - name: get_pull_request
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-atlassian-bitbucket bb_get_pull_request --arg pull_request="$INPUT"
+    input:
+      type: string
+      description: Pull request in the format workspace/repo-slug/pr-id
+
+  - name: comment_pull_request
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-atlassian-bitbucket bb_comment_pull_request --arg pull_request="$INPUT"
+    input:
+      type: string
+      description: Pull request and comment in the format workspace/repo-slug/pr-id with comment content
+
+  - name: search_repositories
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-atlassian-bitbucket bb_search_repositories --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find repositories across Bitbucket
+
+  - name: search_code
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-atlassian-bitbucket bb_search_code --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find code across Bitbucket repositories
+
+  - name: how_to.md
+    type: readonly

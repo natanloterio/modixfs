@@ -1,0 +1,44 @@
+name: excalidraw-architect-mcp
+description: Generate beautiful Excalidraw architecture diagrams with perfect auto-layout
+
+mcp:
+  server: excalidraw-architect-mcp
+  command: npx
+  args: ["-y", "excalidraw-architect-mcp"]
+
+files:
+  - name: generate_diagram
+    type: write_invoke
+    handler: livefolders mcp call excalidraw-architect-mcp generate_diagram --arg description="$INPUT"
+    input:
+      type: string
+      description: Natural language description of the architecture diagram to generate
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # excalidraw-architect-mcp
+
+      Generate beautiful Excalidraw architecture diagrams with perfect auto-layout using MCP.
+
+      ## Source
+      GitHub: https://github.com/BV-Venky/excalidraw-architect-mcp
+
+      ## Tools
+
+      ### generate_diagram
+      Generates an Excalidraw architecture diagram from a natural language description.
+
+      **Input:** A description of the architecture you want to visualize.
+
+      **Example inputs:**
+      - "A microservices architecture with an API gateway, three backend services, and a shared database"
+      - "A CI/CD pipeline from developer commit to production deployment"
+      - "A cloud architecture on AWS with load balancer, EC2 instances, RDS, and S3"
+
+      ## Usage
+
+      1. Open the `generate_diagram` file
+      2. Type a description of your architecture
+      3. The tool will return an Excalidraw JSON diagram with auto-layout applied
+      4. Paste the result into https://excalidraw.com to view and edit your diagram

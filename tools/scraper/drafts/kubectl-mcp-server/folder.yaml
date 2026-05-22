@@ -1,0 +1,100 @@
+name: kubectl-mcp-server
+description: A MCP server for Kubernetes — manage clusters, pods, deployments, and more via kubectl
+
+mcp:
+  server: kubectl-mcp-server
+  command: npx
+  args: ["-y", "kubectl-mcp-server"]
+
+files:
+  - name: get_pods
+    type: write_invoke
+    handler: livefolders mcp call kubectl-mcp-server get_pods --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list pods in (e.g. default, kube-system)
+
+  - name: get_namespaces
+    type: read_invoke
+    handler: livefolders mcp call kubectl-mcp-server get_namespaces
+
+  - name: get_deployments
+    type: write_invoke
+    handler: livefolders mcp call kubectl-mcp-server get_deployments --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list deployments in (e.g. default)
+
+  - name: get_services
+    type: write_invoke
+    handler: livefolders mcp call kubectl-mcp-server get_services --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list services in (e.g. default)
+
+  - name: get_nodes
+    type: read_invoke
+    handler: livefolders mcp call kubectl-mcp-server get_nodes
+
+  - name: describe_pod
+    type: write_invoke
+    handler: livefolders mcp call kubectl-mcp-server describe_pod --arg pod_name="$INPUT"
+    input:
+      type: string
+      description: Name of the pod to describe (optionally prefix with namespace/pod-name)
+
+  - name: get_pod_logs
+    type: write_invoke
+    handler: livefolders mcp call kubectl-mcp-server get_pod_logs --arg pod_name="$INPUT"
+    input:
+      type: string
+      description: Name of the pod to retrieve logs from
+
+  - name: get_contexts
+    type: read_invoke
+    handler: livefolders mcp call kubectl-mcp-server get_contexts
+
+  - name: use_context
+    type: write_invoke
+    handler: livefolders mcp call kubectl-mcp-server use_context --arg context_name="$INPUT"
+    input:
+      type: string
+      description: Kubernetes context name to switch to
+
+  - name: apply_manifest
+    type: write_invoke
+    handler: livefolders mcp call kubectl-mcp-server apply_manifest --arg manifest="$INPUT"
+    input:
+      type: string
+      description: YAML or JSON manifest content to apply to the cluster
+
+  - name: delete_resource
+    type: write_invoke
+    handler: livefolders mcp call kubectl-mcp-server delete_resource --arg resource="$INPUT"
+    input:
+      type: string
+      description: Resource type and name to delete (e.g. pod/my-pod or deployment/my-deployment)
+
+  - name: scale_deployment
+    type: write_invoke
+    handler: livefolders mcp call kubectl-mcp-server scale_deployment --arg deployment_name="$INPUT"
+    input:
+      type: string
+      description: Deployment name and replica count (e.g. my-deployment --replicas=3)
+
+  - name: get_events
+    type: write_invoke
+    handler: livefolders mcp call kubectl-mcp-server get_events --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list events in (e.g. default)
+
+  - name: exec_command
+    type: write_invoke
+    handler: livefolders mcp call kubectl-mcp-server exec_command --arg command="$INPUT"
+    input:
+      type: string
+      description: Command to execute inside a pod (e.g. my-pod -- ls /app)
+
+  - name: how_to.md
+    type: readonly

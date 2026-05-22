@@ -1,0 +1,134 @@
+name: portainer-mcp
+description: Portainer MCP server for managing Docker environments via Portainer
+
+mcp:
+  server: portainer-mcp
+  command: npx
+  args: ["-y", "portainer-mcp"]
+
+env:
+  - name: PORTAINER_URL
+    description: URL of your Portainer instance (e.g. https://portainer.example.com)
+    secret: false
+    required: true
+  - name: PORTAINER_API_KEY
+    description: Portainer API key for authentication
+    secret: true
+    required: true
+
+files:
+  - name: list_endpoints
+    type: read_invoke
+    handler: livefolders mcp call portainer-mcp list_endpoints
+
+  - name: get_endpoint
+    type: write_invoke
+    handler: livefolders mcp call portainer-mcp get_endpoint --arg id="$INPUT"
+    input:
+      type: string
+      description: Endpoint ID to retrieve details for
+
+  - name: list_containers
+    type: write_invoke
+    handler: livefolders mcp call portainer-mcp list_containers --arg endpointId="$INPUT"
+    input:
+      type: string
+      description: Endpoint ID to list containers for
+
+  - name: get_container
+    type: write_invoke
+    handler: livefolders mcp call portainer-mcp get_container --arg id="$INPUT"
+    input:
+      type: string
+      description: Container ID to retrieve details for
+
+  - name: start_container
+    type: write_invoke
+    handler: livefolders mcp call portainer-mcp start_container --arg id="$INPUT"
+    input:
+      type: string
+      description: Container ID to start
+
+  - name: stop_container
+    type: write_invoke
+    handler: livefolders mcp call portainer-mcp stop_container --arg id="$INPUT"
+    input:
+      type: string
+      description: Container ID to stop
+
+  - name: restart_container
+    type: write_invoke
+    handler: livefolders mcp call portainer-mcp restart_container --arg id="$INPUT"
+    input:
+      type: string
+      description: Container ID to restart
+
+  - name: list_stacks
+    type: read_invoke
+    handler: livefolders mcp call portainer-mcp list_stacks
+
+  - name: get_stack
+    type: write_invoke
+    handler: livefolders mcp call portainer-mcp get_stack --arg id="$INPUT"
+    input:
+      type: string
+      description: Stack ID to retrieve details for
+
+  - name: list_volumes
+    type: write_invoke
+    handler: livefolders mcp call portainer-mcp list_volumes --arg endpointId="$INPUT"
+    input:
+      type: string
+      description: Endpoint ID to list volumes for
+
+  - name: list_networks
+    type: write_invoke
+    handler: livefolders mcp call portainer-mcp list_networks --arg endpointId="$INPUT"
+    input:
+      type: string
+      description: Endpoint ID to list networks for
+
+  - name: list_images
+    type: write_invoke
+    handler: livefolders mcp call portainer-mcp list_images --arg endpointId="$INPUT"
+    input:
+      type: string
+      description: Endpoint ID to list images for
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # Portainer MCP
+
+      This folder wraps the [portainer-mcp](https://github.com/portainer/portainer-mcp) server,
+      allowing you to manage Docker environments through your Portainer instance.
+
+      ## Setup
+
+      Set the following environment variables before use:
+
+      - `PORTAINER_URL`: The base URL of your Portainer instance (e.g. `https://portainer.example.com`)
+      - `PORTAINER_API_KEY`: A valid Portainer API key (generate one in Portainer under User Settings > Access Tokens)
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | `list_endpoints` | List all Portainer endpoints/environments |
+      | `get_endpoint` | Get details for a specific endpoint by ID |
+      | `list_containers` | List containers on a given endpoint |
+      | `get_container` | Get details for a specific container |
+      | `start_container` | Start a stopped container |
+      | `stop_container` | Stop a running container |
+      | `restart_container` | Restart a container |
+      | `list_stacks` | List all stacks managed by Portainer |
+      | `get_stack` | Get details for a specific stack |
+      | `list_volumes` | List volumes on a given endpoint |
+      | `list_networks` | List networks on a given endpoint |
+      | `list_images` | List images on a given endpoint |
+
+      ## Usage Tips
+
+      - Start with `list_endpoints` to discover available environment IDs
+      - Use endpoint IDs when querying containers, volumes, networks, and images
+      - Container and stack IDs are returned from list calls and can be used for targeted operations

@@ -1,0 +1,59 @@
+name: grok-mcp
+description: MCP server for xAI's Grok API with agentic tool calling, image and video generation, vision, and file support
+
+mcp:
+  server: grok-mcp
+  command: npx
+  args: ["-y", "grok-mcp"]
+
+env:
+  - name: XAI_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: chat
+    type: write_invoke
+    handler: livefolders mcp call grok-mcp chat --arg message="$INPUT"
+    input:
+      type: string
+      description: Message to send to Grok for a chat completion response
+
+  - name: generate_image
+    type: write_invoke
+    handler: livefolders mcp call grok-mcp generate_image --arg prompt="$INPUT"
+    input:
+      type: string
+      description: Text prompt describing the image to generate
+
+  - name: generate_video
+    type: write_invoke
+    handler: livefolders mcp call grok-mcp generate_video --arg prompt="$INPUT"
+    input:
+      type: string
+      description: Text prompt describing the video to generate
+
+  - name: analyze_image
+    type: write_invoke
+    handler: livefolders mcp call grok-mcp analyze_image --arg image_url="$INPUT"
+    input:
+      type: string
+      description: URL of the image to analyze with Grok vision
+
+  - name: upload_file
+    type: write_invoke
+    handler: livefolders mcp call grok-mcp upload_file --arg file_path="$INPUT"
+    input:
+      type: string
+      description: Local file path to upload to the xAI API
+
+  - name: list_files
+    type: read_invoke
+    handler: livefolders mcp call grok-mcp list_files
+
+  - name: list_models
+    type: read_invoke
+    handler: livefolders mcp call grok-mcp list_models
+
+  - name: how_to.md
+    type: readonly

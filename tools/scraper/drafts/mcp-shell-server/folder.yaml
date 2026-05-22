@@ -1,0 +1,47 @@
+name: mcp-shell-server
+description: Execute shell commands securely via the MCP shell server
+
+mcp:
+  server: mcp-shell-server
+  command: npx
+  args: ["-y", "mcp-shell-server"]
+
+files:
+  - name: execute
+    type: write_invoke
+    handler: livefolders mcp call mcp-shell-server execute --arg command="$INPUT"
+    input:
+      type: string
+      description: Shell command to execute (e.g. "ls -la /tmp")
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcp-shell-server
+
+      Execute shell commands securely via the MCP shell server.
+
+      ## Usage
+
+      ### execute
+      Run any shell command and receive stdout, stderr, and exit code.
+
+      **Input:** A shell command string, e.g.:
+      - `ls -la /tmp`
+      - `echo "Hello World"`
+      - `cat /etc/hostname`
+      - `find /tmp -name "*.txt"`
+
+      ## Security Note
+      Only commands explicitly allowed by the ALLOW_COMMANDS environment variable
+      will be executed. Set this variable to a comma-separated list of permitted
+      commands before starting the server.
+
+      ## Environment Variables
+      - `ALLOW_COMMANDS` — Comma-separated list of allowed shell commands (e.g. `ls,cat,echo,find`)
+
+env:
+  - name: ALLOW_COMMANDS
+    description: Comma-separated list of shell commands permitted to run (e.g. ls,cat,echo,find)
+    secret: false
+    required: true

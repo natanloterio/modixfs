@@ -1,0 +1,110 @@
+name: alibaba-cloud-ops-mcp-server
+description: AlibabaCloud CloudOps MCP Server for managing Alibaba Cloud resources
+
+mcp:
+  server: alibaba-cloud-ops-mcp-server
+  command: npx
+  args: ["-y", "alibaba-cloud-ops-mcp-server"]
+
+env:
+  - name: ALIBABA_CLOUD_ACCESS_KEY_ID
+    secret: true
+    required: true
+  - name: ALIBABA_CLOUD_ACCESS_KEY_SECRET
+    secret: true
+    required: true
+  - name: ALIBABA_CLOUD_REGION
+    secret: false
+    required: false
+
+files:
+  - name: run_command
+    type: write_invoke
+    handler: livefolders mcp call alibaba-cloud-ops-mcp-server run_command --arg command="$INPUT"
+    input:
+      type: string
+      description: Shell command to run on an ECS instance
+
+  - name: describe_instances
+    type: write_invoke
+    handler: livefolders mcp call alibaba-cloud-ops-mcp-server describe_instances --arg region_id="$INPUT"
+    input:
+      type: string
+      description: Region ID to list ECS instances (e.g. cn-hangzhou)
+
+  - name: start_instance
+    type: write_invoke
+    handler: livefolders mcp call alibaba-cloud-ops-mcp-server start_instance --arg instance_id="$INPUT"
+    input:
+      type: string
+      description: ECS instance ID to start
+
+  - name: stop_instance
+    type: write_invoke
+    handler: livefolders mcp call alibaba-cloud-ops-mcp-server stop_instance --arg instance_id="$INPUT"
+    input:
+      type: string
+      description: ECS instance ID to stop
+
+  - name: reboot_instance
+    type: write_invoke
+    handler: livefolders mcp call alibaba-cloud-ops-mcp-server reboot_instance --arg instance_id="$INPUT"
+    input:
+      type: string
+      description: ECS instance ID to reboot
+
+  - name: describe_security_groups
+    type: write_invoke
+    handler: livefolders mcp call alibaba-cloud-ops-mcp-server describe_security_groups --arg region_id="$INPUT"
+    input:
+      type: string
+      description: Region ID to list security groups
+
+  - name: describe_disks
+    type: write_invoke
+    handler: livefolders mcp call alibaba-cloud-ops-mcp-server describe_disks --arg instance_id="$INPUT"
+    input:
+      type: string
+      description: ECS instance ID to list attached disks
+
+  - name: describe_vpcs
+    type: write_invoke
+    handler: livefolders mcp call alibaba-cloud-ops-mcp-server describe_vpcs --arg region_id="$INPUT"
+    input:
+      type: string
+      description: Region ID to list VPCs
+
+  - name: describe_vswitches
+    type: write_invoke
+    handler: livefolders mcp call alibaba-cloud-ops-mcp-server describe_vswitches --arg vpc_id="$INPUT"
+    input:
+      type: string
+      description: VPC ID to list vSwitches
+
+  - name: describe_regions
+    type: read_invoke
+    handler: livefolders mcp call alibaba-cloud-ops-mcp-server describe_regions
+
+  - name: describe_zones
+    type: write_invoke
+    handler: livefolders mcp call alibaba-cloud-ops-mcp-server describe_zones --arg region_id="$INPUT"
+    input:
+      type: string
+      description: Region ID to list availability zones
+
+  - name: describe_images
+    type: write_invoke
+    handler: livefolders mcp call alibaba-cloud-ops-mcp-server describe_images --arg region_id="$INPUT"
+    input:
+      type: string
+      description: Region ID to list available ECS images
+
+  - name: describe_instance_types
+    type: write_invoke
+    handler: livefolders mcp call alibaba-cloud-ops-mcp-server describe_instance_types --arg instance_type_family="$INPUT"
+    input:
+      type: string
+      description: Instance type family to filter results (e.g. ecs.g6)
+
+  - name: how_to.md
+    type: readonly

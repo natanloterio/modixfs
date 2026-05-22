@@ -1,0 +1,143 @@
+name: personalization-mcp
+description: Unified personal data hub connecting AI assistants to Steam, YouTube, Bilibili and more for personalized interactions
+
+mcp:
+  server: personalization-mcp
+  command: npx
+  args: ["-y", "personalization-mcp"]
+
+env:
+  - name: STEAM_API_KEY
+    description: Steam Web API key for accessing Steam data
+    secret: true
+    required: false
+  - name: STEAM_USER_ID
+    description: Your Steam user ID
+    secret: false
+    required: false
+  - name: YOUTUBE_API_KEY
+    description: YouTube Data API key for accessing YouTube data
+    secret: true
+    required: false
+  - name: BILIBILI_SESSDATA
+    description: Bilibili session data cookie for authentication
+    secret: true
+    required: false
+  - name: BILIBILI_BILI_JCT
+    description: Bilibili CSRF token for authentication
+    secret: true
+    required: false
+
+files:
+  - name: get_steam_games
+    type: read_invoke
+    handler: livefolders mcp call personalization-mcp get_steam_games
+    description: Retrieve the list of Steam games owned by the user
+
+  - name: get_steam_recent_games
+    type: read_invoke
+    handler: livefolders mcp call personalization-mcp get_steam_recent_games
+    description: Retrieve recently played Steam games
+
+  - name: get_steam_player_summary
+    type: read_invoke
+    handler: livefolders mcp call personalization-mcp get_steam_player_summary
+    description: Retrieve Steam player profile summary
+
+  - name: get_steam_achievements
+    type: write_invoke
+    handler: livefolders mcp call personalization-mcp get_steam_achievements --arg game_id="$INPUT"
+    input:
+      type: string
+      description: Steam game ID to retrieve achievements for
+
+  - name: get_youtube_subscriptions
+    type: read_invoke
+    handler: livefolders mcp call personalization-mcp get_youtube_subscriptions
+    description: Retrieve YouTube channel subscriptions
+
+  - name: get_youtube_watch_history
+    type: read_invoke
+    handler: livefolders mcp call personalization-mcp get_youtube_watch_history
+    description: Retrieve YouTube watch history
+
+  - name: get_youtube_liked_videos
+    type: read_invoke
+    handler: livefolders mcp call personalization-mcp get_youtube_liked_videos
+    description: Retrieve YouTube liked videos
+
+  - name: get_youtube_playlists
+    type: read_invoke
+    handler: livefolders mcp call personalization-mcp get_youtube_playlists
+    description: Retrieve YouTube playlists
+
+  - name: get_bilibili_favorites
+    type: read_invoke
+    handler: livefolders mcp call personalization-mcp get_bilibili_favorites
+    description: Retrieve Bilibili favorite videos
+
+  - name: get_bilibili_watch_history
+    type: read_invoke
+    handler: livefolders mcp call personalization-mcp get_bilibili_watch_history
+    description: Retrieve Bilibili watch history
+
+  - name: get_bilibili_subscriptions
+    type: read_invoke
+    handler: livefolders mcp call personalization-mcp get_bilibili_subscriptions
+    description: Retrieve Bilibili followed channels and users
+
+  - name: get_user_profile
+    type: read_invoke
+    handler: livefolders mcp call personalization-mcp get_user_profile
+    description: Retrieve aggregated user profile across all connected platforms
+
+  - name: search_personal_data
+    type: write_invoke
+    handler: livefolders mcp call personalization-mcp search_personal_data --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find relevant personal data across all platforms
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # PersonalizationMCP
+
+      A unified personal data hub that connects AI assistants to your digital life across Steam, YouTube, Bilibili and more.
+
+      ## Setup
+
+      Configure the environment variables for each platform you want to connect:
+
+      ### Steam
+      - `STEAM_API_KEY`: Get from https://steamcommunity.com/dev/apikey
+      - `STEAM_USER_ID`: Your 64-bit Steam ID
+
+      ### YouTube
+      - `YOUTUBE_API_KEY`: Get from https://console.cloud.google.com/
+
+      ### Bilibili
+      - `BILIBILI_SESSDATA`: Session cookie from your Bilibili login
+      - `BILIBILI_BILI_JCT`: CSRF token from your Bilibili login
+
+      ## Available Tools
+
+      | Tool | Description |
+      |------|-------------|
+      | get_steam_games | List all owned Steam games |
+      | get_steam_recent_games | Recently played Steam games |
+      | get_steam_player_summary | Steam profile summary |
+      | get_steam_achievements | Achievements for a specific game |
+      | get_youtube_subscriptions | YouTube subscriptions |
+      | get_youtube_watch_history | YouTube watch history |
+      | get_youtube_liked_videos | YouTube liked videos |
+      | get_youtube_playlists | YouTube playlists |
+      | get_bilibili_favorites | Bilibili favorite videos |
+      | get_bilibili_watch_history | Bilibili watch history |
+      | get_bilibili_subscriptions | Bilibili followed users |
+      | get_user_profile | Aggregated cross-platform profile |
+      | search_personal_data | Search across all personal data |
+
+      ## Source
+
+      GitHub: https://github.com/YangLiangwei/PersonalizationMCP

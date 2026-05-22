@@ -1,0 +1,147 @@
+name: mcp-redis
+description: Natural language interface for agentic applications to manage and search data in Redis
+
+mcp:
+  server: mcp-redis
+  command: npx
+  args: ["-y", "@redis/mcp-redis"]
+
+env:
+  - name: REDIS_URL
+    description: Redis connection URL (e.g. redis://localhost:6379)
+    secret: false
+    required: true
+  - name: REDIS_PASSWORD
+    description: Redis password for authentication
+    secret: true
+    required: false
+
+files:
+  - name: set
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis set --arg key="$INPUT"
+    input:
+      type: string
+      description: Key name to set a value for
+
+  - name: get
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis get --arg key="$INPUT"
+    input:
+      type: string
+      description: Key name to retrieve
+
+  - name: delete
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis delete --arg key="$INPUT"
+    input:
+      type: string
+      description: Key name to delete
+
+  - name: exists
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis exists --arg key="$INPUT"
+    input:
+      type: string
+      description: Key name to check existence of
+
+  - name: expire
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis expire --arg key="$INPUT"
+    input:
+      type: string
+      description: Key name to set an expiry on
+
+  - name: keys
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis keys --arg pattern="$INPUT"
+    input:
+      type: string
+      description: Pattern to match keys (e.g. * or prefix:*)
+
+  - name: hset
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis hset --arg key="$INPUT"
+    input:
+      type: string
+      description: Hash key name to set fields on
+
+  - name: hget
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis hget --arg key="$INPUT"
+    input:
+      type: string
+      description: Hash key name to get a field from
+
+  - name: hgetall
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis hgetall --arg key="$INPUT"
+    input:
+      type: string
+      description: Hash key name to retrieve all fields from
+
+  - name: lpush
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis lpush --arg key="$INPUT"
+    input:
+      type: string
+      description: List key name to push a value onto
+
+  - name: rpush
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis rpush --arg key="$INPUT"
+    input:
+      type: string
+      description: List key name to append a value to
+
+  - name: lrange
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis lrange --arg key="$INPUT"
+    input:
+      type: string
+      description: List key name to retrieve a range from
+
+  - name: sadd
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis sadd --arg key="$INPUT"
+    input:
+      type: string
+      description: Set key name to add a member to
+
+  - name: smembers
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis smembers --arg key="$INPUT"
+    input:
+      type: string
+      description: Set key name to retrieve all members of
+
+  - name: zadd
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis zadd --arg key="$INPUT"
+    input:
+      type: string
+      description: Sorted set key name to add a scored member to
+
+  - name: zrange
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis zrange --arg key="$INPUT"
+    input:
+      type: string
+      description: Sorted set key name to retrieve a range from
+
+  - name: search
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis search --arg query="$INPUT"
+    input:
+      type: string
+      description: Natural language or RediSearch query string
+
+  - name: publish
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis publish --arg channel="$INPUT"
+    input:
+      type: string
+      description: Channel name to publish a message to
+
+  - name: how_to.md
+    type: readonly

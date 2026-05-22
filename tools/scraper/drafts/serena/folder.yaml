@@ -1,0 +1,99 @@
+name: serena
+description: A powerful MCP toolkit for coding, providing semantic retrieval and editing capabilities - the IDE for your agent
+
+mcp:
+  server: serena
+  command: uvx
+  args: ["--from", "git+https://github.com/oraios/serena", "serena-mcp-server"]
+
+files:
+  - name: read_file
+    type: write_invoke
+    handler: livefolders mcp call serena read_file --arg path="$INPUT"
+    input:
+      type: string
+      description: File path to read
+
+  - name: list_dir
+    type: write_invoke
+    handler: livefolders mcp call serena list_dir --arg path="$INPUT"
+    input:
+      type: string
+      description: Directory path to list contents of
+
+  - name: search_for_pattern
+    type: write_invoke
+    handler: livefolders mcp call serena search_for_pattern --arg pattern="$INPUT"
+    input:
+      type: string
+      description: Regex pattern to search for across the codebase
+
+  - name: find_symbol
+    type: write_invoke
+    handler: livefolders mcp call serena find_symbol --arg name="$INPUT"
+    input:
+      type: string
+      description: Symbol name (function, class, variable) to locate in the codebase
+
+  - name: get_symbols_overview
+    type: write_invoke
+    handler: livefolders mcp call serena get_symbols_overview --arg path="$INPUT"
+    input:
+      type: string
+      description: File or directory path to retrieve a symbols overview for
+
+  - name: find_referencing_symbols
+    type: write_invoke
+    handler: livefolders mcp call serena find_referencing_symbols --arg name="$INPUT"
+    input:
+      type: string
+      description: Symbol name to find all references to across the codebase
+
+  - name: replace_symbol_body
+    type: write_invoke
+    handler: livefolders mcp call serena replace_symbol_body --arg name="$INPUT"
+    input:
+      type: string
+      description: Symbol name whose body should be replaced (follow with new body content)
+
+  - name: insert_after_symbol
+    type: write_invoke
+    handler: livefolders mcp call serena insert_after_symbol --arg name="$INPUT"
+    input:
+      type: string
+      description: Symbol name after which new code should be inserted
+
+  - name: create_file
+    type: write_invoke
+    handler: livefolders mcp call serena create_file --arg path="$INPUT"
+    input:
+      type: string
+      description: File path for the new file to create
+
+  - name: delete_lines
+    type: write_invoke
+    handler: livefolders mcp call serena delete_lines --arg path="$INPUT"
+    input:
+      type: string
+      description: File path and line range to delete (e.g. path:start-end)
+
+  - name: replace_lines
+    type: write_invoke
+    handler: livefolders mcp call serena replace_lines --arg path="$INPUT"
+    input:
+      type: string
+      description: File path and line range to replace with new content
+
+  - name: execute_command
+    type: write_invoke
+    handler: livefolders mcp call serena execute_command --arg command="$INPUT"
+    input:
+      type: string
+      description: Shell command to execute in the project context
+
+  - name: restart_language_server
+    type: read_invoke
+    handler: livefolders mcp call serena restart_language_server
+
+  - name: how_to.md
+    type: readonly

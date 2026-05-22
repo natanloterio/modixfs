@@ -1,0 +1,78 @@
+name: mcp-server-browserbase
+description: Allow LLMs to control a browser with Browserbase and Stagehand
+
+mcp:
+  server: mcp-server-browserbase
+  command: npx
+  args: ["-y", "@browserbasehq/mcp-server-browserbase"]
+
+env:
+  - name: BROWSERBASE_API_KEY
+    secret: true
+    required: true
+  - name: BROWSERBASE_PROJECT_ID
+    secret: true
+    required: true
+
+files:
+  - name: browserbase_create_session
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-browserbase browserbase_create_session
+    description: Create a new Browserbase browser session
+
+  - name: browserbase_session_info
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-browserbase browserbase_get_session --arg sessionId="$INPUT"
+    input:
+      type: string
+      description: Session ID to retrieve info for
+
+  - name: browserbase_list_sessions
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-browserbase browserbase_list_sessions
+    description: List all active Browserbase sessions
+
+  - name: browserbase_close_session
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-browserbase browserbase_delete_session --arg sessionId="$INPUT"
+    input:
+      type: string
+      description: Session ID to close
+
+  - name: stagehand_navigate
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-browserbase stagehand_navigate --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to navigate to in the browser
+
+  - name: stagehand_act
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-browserbase stagehand_act --arg action="$INPUT"
+    input:
+      type: string
+      description: Natural language action to perform in the browser (e.g. "click the login button")
+
+  - name: stagehand_extract
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-browserbase stagehand_extract --arg instruction="$INPUT"
+    input:
+      type: string
+      description: Natural language instruction describing what data to extract from the current page
+
+  - name: stagehand_observe
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-browserbase stagehand_observe --arg instruction="$INPUT"
+    input:
+      type: string
+      description: Natural language instruction to observe and describe elements on the current page
+
+  - name: browserbase_screenshot
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-browserbase browserbase_screenshot --arg sessionId="$INPUT"
+    input:
+      type: string
+      description: Session ID to take a screenshot of
+
+  - name: how_to.md
+    type: readonly

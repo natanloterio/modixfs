@@ -1,0 +1,32 @@
+name: bilibili-mcp-js
+description: Bilibili video search MCP service - 哔哩哔哩视频搜索MCP服务
+
+mcp:
+  server: bilibili-mcp-js
+  command: npx
+  args: ["-y", "bilibili-mcp-js"]
+
+files:
+  - name: search_videos
+    type: write_invoke
+    handler: livefolders mcp call bilibili-mcp-js search --arg keyword="$INPUT"
+    input:
+      type: string
+      description: Keyword to search for Bilibili videos (搜索关键词)
+
+  - name: get_video_info
+    type: write_invoke
+    handler: livefolders mcp call bilibili-mcp-js getVideoInfo --arg bvid="$INPUT"
+    input:
+      type: string
+      description: Bilibili video BV ID to fetch details for (视频BV号)
+
+  - name: get_video_comments
+    type: write_invoke
+    handler: livefolders mcp call bilibili-mcp-js getVideoComment --arg bvid="$INPUT"
+    input:
+      type: string
+      description: Bilibili video BV ID to fetch comments for (获取视频评论)
+
+  - name: how_to.md
+    type: readonly

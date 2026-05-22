@@ -7,3 +7,4 @@ paper/output.log
 research/criteria/11-token-efficiency/results.json
 research/criteria/11-token-efficiency/__pycache__/benchmark.cpython-314.pyc
 research/criteria/11-token-efficiency/__pycache__/tasks.cpython-314.pyc
+.livefolders/

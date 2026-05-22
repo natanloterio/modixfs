@@ -1,0 +1,91 @@
+name: mcp-server-qdrant
+description: Search and store vector embeddings in Qdrant via the official MCP server
+
+mcp:
+  server: mcp-server-qdrant
+  command: npx
+  args: ["-y", "mcp-server-qdrant"]
+
+env:
+  - name: QDRANT_URL
+    description: URL of your Qdrant instance (e.g. http://localhost:6333)
+    secret: false
+    required: true
+  - name: QDRANT_API_KEY
+    description: API key for authenticating with Qdrant
+    secret: true
+    required: false
+  - name: COLLECTION_NAME
+    description: Default Qdrant collection name to use
+    secret: false
+    required: true
+  - name: EMBEDDING_PROVIDER
+    description: Embedding provider to use (e.g. openai, fastembed)
+    secret: false
+    required: false
+  - name: OPENAI_API_KEY
+    description: OpenAI API key (required if using OpenAI embeddings)
+    secret: true
+    required: false
+
+files:
+  - name: qdrant-store
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-qdrant qdrant-store --arg information="$INPUT"
+    input:
+      type: string
+      description: Text information to embed and store in Qdrant
+
+  - name: qdrant-find
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-qdrant qdrant-find --arg query="$INPUT"
+    input:
+      type: string
+      description: Query text to search for semantically similar entries in Qdrant
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcp-server-qdrant
+
+      This folder wraps the [official Qdrant MCP server](https://github.com/qdrant/mcp-server-qdrant),
+      enabling semantic vector search and storage via LiveFolders.
+
+      ## Tools
+
+      ### qdrant-store
+      Embeds and stores a piece of text information into your Qdrant collection.
+
+      **Input:** The text you want to store as a vector embedding.
+
+      Example:
+      ```
+      The Eiffel Tower is located in Paris, France and was built in 1889.
+      ```
+
+      ### qdrant-find
+      Performs a semantic similarity search against your Qdrant collection.
+
+      **Input:** A natural language query to find related stored entries.
+
+      Example:
+      ```
+      famous landmarks in Europe
+      ```
+
+      ## Setup
+
+      Set the following environment variables before running:
+
+      | Variable            | Required | Description                                      |
+      |---------------------|----------|--------------------------------------------------|
+      | `QDRANT_URL`        | Yes      | URL of your Qdrant instance                      |
+      | `COLLECTION_NAME`   | Yes      | Name of the Qdrant collection to use             |
+      | `QDRANT_API_KEY`    | No       | API key for Qdrant Cloud or secured instances    |
+      | `EMBEDDING_PROVIDER`| No       | Embedding backend (`openai` or `fastembed`)      |
+      | `OPENAI_API_KEY`    | No       | Required when using OpenAI as embedding provider |
+
+      ## Notes
+      - If no `EMBEDDING_PROVIDER` is set, `fastembed` is used by default (no API key needed).
+      - For Qdrant Cloud, set both `QDRANT_URL` and `QDRANT_API_KEY`.
+      - Collections are created automatically if they do not exist.

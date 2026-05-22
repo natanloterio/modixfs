@@ -1,0 +1,46 @@
+name: depwire
+description: The missing context layer for AI-assisted refactoring
+
+mcp:
+  server: depwire
+  command: npx
+  args: ["-y", "depwire"]
+
+files:
+  - name: analyze_dependencies
+    type: write_invoke
+    handler: livefolders mcp call depwire analyze_dependencies --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the file or directory to analyze dependencies for
+
+  - name: get_dependency_graph
+    type: write_invoke
+    handler: livefolders mcp call depwire get_dependency_graph --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the project root or file to generate a dependency graph for
+
+  - name: find_dependents
+    type: write_invoke
+    handler: livefolders mcp call depwire find_dependents --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the file to find all dependents (files that import or depend on it)
+
+  - name: find_dependencies
+    type: write_invoke
+    handler: livefolders mcp call depwire find_dependencies --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the file to find all its dependencies (files it imports or depends on)
+
+  - name: refactor_impact
+    type: write_invoke
+    handler: livefolders mcp call depwire refactor_impact --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the file or symbol to assess the impact of refactoring
+
+  - name: how_to.md
+    type: readonly

@@ -1,0 +1,75 @@
+name: network-ai
+description: Traffic light for AI Agents and TypeScript/Node multi-agent orchestrator with shared state, guardrails, and adapters for 29 AI frameworks
+
+mcp:
+  server: network-ai
+  command: npx
+  args: ["-y", "network-ai-mcp"]
+
+files:
+  - name: check_agent_permission
+    type: write_invoke
+    handler: livefolders mcp call network-ai check_agent_permission --arg agentId="$INPUT"
+    input:
+      type: string
+      description: Agent ID to check traffic-light permission (green/yellow/red)
+
+  - name: register_agent
+    type: write_invoke
+    handler: livefolders mcp call network-ai register_agent --arg agentId="$INPUT"
+    input:
+      type: string
+      description: Register a new agent by ID into the orchestrator network
+
+  - name: get_agent_state
+    type: write_invoke
+    handler: livefolders mcp call network-ai get_agent_state --arg agentId="$INPUT"
+    input:
+      type: string
+      description: Retrieve shared state for a given agent ID
+
+  - name: set_agent_state
+    type: write_invoke
+    handler: livefolders mcp call network-ai set_agent_state --arg agentId="$INPUT"
+    input:
+      type: string
+      description: Set or update shared state for a given agent ID (provide agentId as input)
+
+  - name: list_agents
+    type: read_invoke
+    handler: livefolders mcp call network-ai list_agents
+    description: List all registered agents in the orchestrator network
+
+  - name: apply_guardrail
+    type: write_invoke
+    handler: livefolders mcp call network-ai apply_guardrail --arg agentId="$INPUT"
+    input:
+      type: string
+      description: Apply guardrail rules to the specified agent ID
+
+  - name: get_network_status
+    type: read_invoke
+    handler: livefolders mcp call network-ai get_network_status
+    description: Get overall network status including agent health and traffic signals
+
+  - name: send_message
+    type: write_invoke
+    handler: livefolders mcp call network-ai send_message --arg targetAgentId="$INPUT"
+    input:
+      type: string
+      description: Send a message to a target agent by ID
+
+  - name: broadcast_message
+    type: write_invoke
+    handler: livefolders mcp call network-ai broadcast_message --arg message="$INPUT"
+    input:
+      type: string
+      description: Broadcast a message to all registered agents in the network
+
+  - name: get_adapter_list
+    type: read_invoke
+    handler: livefolders mcp call network-ai get_adapter_list
+    description: List all 29 supported AI framework adapters available in Network-AI
+
+  - name: how_to.md
+    type: readonly

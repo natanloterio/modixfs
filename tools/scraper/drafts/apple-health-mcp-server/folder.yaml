@@ -1,0 +1,36 @@
+name: apple-health-mcp-server
+description: Query Apple Health data with natural language using DuckDB under the hood
+
+mcp:
+  server: apple-health-mcp-server
+  command: npx
+  args: ["-y", "@the-momentum/apple-health-mcp-server"]
+
+files:
+  - name: query_health_data
+    type: write_invoke
+    handler: livefolders mcp call apple-health-mcp-server query_health_data --arg query="$INPUT"
+    input:
+      type: string
+      description: Natural language query about your Apple Health data (e.g. "How many steps did I walk last week?")
+
+  - name: list_health_categories
+    type: read_invoke
+    handler: livefolders mcp call apple-health-mcp-server list_health_categories
+
+  - name: get_health_summary
+    type: write_invoke
+    handler: livefolders mcp call apple-health-mcp-server get_health_summary --arg period="$INPUT"
+    input:
+      type: string
+      description: Time period for the health summary (e.g. "last 7 days", "this month", "2024-01-01 to 2024-01-31")
+
+  - name: query_sql
+    type: write_invoke
+    handler: livefolders mcp call apple-health-mcp-server query_sql --arg sql="$INPUT"
+    input:
+      type: string
+      description: Raw SQL query to run against the Apple Health DuckDB database
+
+  - name: how_to.md
+    type: readonly

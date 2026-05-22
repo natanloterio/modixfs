@@ -1,0 +1,185 @@
+name: safari-mcp
+description: Native Safari browser automation for AI agents via AppleScript — zero overhead, keeps logins, runs silently in background
+
+mcp:
+  server: safari-mcp
+  command: npx
+  args: ["-y", "safari-mcp"]
+
+files:
+  - name: open_url
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp open_url --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to open in Safari
+
+  - name: get_current_url
+    type: read_invoke
+    handler: livefolders mcp call safari-mcp get_current_url
+
+  - name: get_page_title
+    type: read_invoke
+    handler: livefolders mcp call safari-mcp get_page_title
+
+  - name: get_page_content
+    type: read_invoke
+    handler: livefolders mcp call safari-mcp get_page_content
+
+  - name: get_page_html
+    type: read_invoke
+    handler: livefolders mcp call safari-mcp get_page_html
+
+  - name: get_page_text
+    type: read_invoke
+    handler: livefolders mcp call safari-mcp get_page_text
+
+  - name: execute_javascript
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp execute_javascript --arg script="$INPUT"
+    input:
+      type: string
+      description: JavaScript code to execute in the current Safari tab
+
+  - name: click_element
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp click_element --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element to click
+
+  - name: type_text
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp type_text --arg text="$INPUT"
+    input:
+      type: string
+      description: Text to type into the currently focused element
+
+  - name: fill_input
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp fill_input --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the input element to fill
+
+  - name: submit_form
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp submit_form --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the form to submit
+
+  - name: scroll_page
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp scroll_page --arg direction="$INPUT"
+    input:
+      type: string
+      description: Direction to scroll (up, down, left, right)
+
+  - name: scroll_to_element
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp scroll_to_element --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element to scroll into view
+
+  - name: take_screenshot
+    type: read_invoke
+    handler: livefolders mcp call safari-mcp take_screenshot
+
+  - name: go_back
+    type: read_invoke
+    handler: livefolders mcp call safari-mcp go_back
+
+  - name: go_forward
+    type: read_invoke
+    handler: livefolders mcp call safari-mcp go_forward
+
+  - name: reload_page
+    type: read_invoke
+    handler: livefolders mcp call safari-mcp reload_page
+
+  - name: new_tab
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp new_tab --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to open in a new Safari tab
+
+  - name: close_tab
+    type: read_invoke
+    handler: livefolders mcp call safari-mcp close_tab
+
+  - name: list_tabs
+    type: read_invoke
+    handler: livefolders mcp call safari-mcp list_tabs
+
+  - name: switch_tab
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp switch_tab --arg index="$INPUT"
+    input:
+      type: string
+      description: Index of the tab to switch to
+
+  - name: get_cookies
+    type: read_invoke
+    handler: livefolders mcp call safari-mcp get_cookies
+
+  - name: get_local_storage
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp get_local_storage --arg key="$INPUT"
+    input:
+      type: string
+      description: Local storage key to retrieve
+
+  - name: set_local_storage
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp set_local_storage --arg key="$INPUT"
+    input:
+      type: string
+      description: Local storage key to set (provide key, then value separately)
+
+  - name: find_element
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp find_element --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element to find and inspect
+
+  - name: find_elements
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp find_elements --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector to find all matching elements
+
+  - name: get_element_text
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp get_element_text --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element whose text to retrieve
+
+  - name: get_element_attribute
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp get_element_attribute --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element whose attribute to retrieve
+
+  - name: wait_for_element
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp wait_for_element --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element to wait for
+
+  - name: search_web
+    type: write_invoke
+    handler: livefolders mcp call safari-mcp search_web --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to look up in Safari
+
+  - name: how_to.md
+    type: readonly

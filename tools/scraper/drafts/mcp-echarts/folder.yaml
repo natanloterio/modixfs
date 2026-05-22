@@ -1,0 +1,49 @@
+name: mcp-echarts
+description: Generate visual charts using ECharts with AI MCP dynamically, used for chart generation and data analysis.
+
+mcp:
+  server: mcp-echarts
+  command: npx
+  args: ["-y", "mcp-echarts"]
+
+files:
+  - name: generate_chart
+    type: write_invoke
+    handler: livefolders mcp call mcp-echarts generate_chart --arg option="$INPUT"
+    input:
+      type: string
+      description: ECharts option object as a JSON string describing the chart configuration (type, data, title, series, etc.)
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcp-echarts
+
+      Generate visual charts dynamically using ECharts via the MCP protocol.
+
+      ## Usage
+
+      ### generate_chart
+      Provide an ECharts `option` JSON string to generate a chart.
+
+      **Example input:**
+      ```json
+      {
+        "title": { "text": "Monthly Sales" },
+        "xAxis": { "type": "category", "data": ["Jan", "Feb", "Mar", "Apr"] },
+        "yAxis": { "type": "value" },
+        "series": [{ "data": [120, 200, 150, 80], "type": "bar" }]
+      }
+      ```
+
+      ## Supported Chart Types
+      - Bar charts
+      - Line charts
+      - Pie charts
+      - Scatter plots
+      - Radar charts
+      - And many more ECharts-supported types
+
+      ## References
+      - GitHub: https://github.com/hustcc/mcp-echarts
+      - ECharts Docs: https://echarts.apache.org/en/option.html

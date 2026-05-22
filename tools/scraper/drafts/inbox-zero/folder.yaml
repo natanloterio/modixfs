@@ -1,0 +1,95 @@
+name: inbox-zero
+description: AI personal assistant for email to help you reach inbox zero fast
+
+mcp:
+  server: inbox-zero
+  command: npx
+  args: ["-y", "@inboxzero/mcp"]
+
+env:
+  - name: INBOX_ZERO_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: get_emails
+    type: read_invoke
+    handler: livefolders mcp call inbox-zero get_emails
+
+  - name: get_email
+    type: write_invoke
+    handler: livefolders mcp call inbox-zero get_email --arg emailId="$INPUT"
+    input:
+      type: string
+      description: The ID of the email to retrieve
+
+  - name: reply_to_email
+    type: write_invoke
+    handler: livefolders mcp call inbox-zero reply_to_email --arg emailId="$INPUT"
+    input:
+      type: string
+      description: The ID of the email to reply to
+
+  - name: send_email
+    type: write_invoke
+    handler: livefolders mcp call inbox-zero send_email --arg to="$INPUT"
+    input:
+      type: string
+      description: Recipient email address to send email to
+
+  - name: archive_email
+    type: write_invoke
+    handler: livefolders mcp call inbox-zero archive_email --arg emailId="$INPUT"
+    input:
+      type: string
+      description: The ID of the email to archive
+
+  - name: mark_email_as_read
+    type: write_invoke
+    handler: livefolders mcp call inbox-zero mark_email_as_read --arg emailId="$INPUT"
+    input:
+      type: string
+      description: The ID of the email to mark as read
+
+  - name: trash_email
+    type: write_invoke
+    handler: livefolders mcp call inbox-zero trash_email --arg emailId="$INPUT"
+    input:
+      type: string
+      description: The ID of the email to move to trash
+
+  - name: label_email
+    type: write_invoke
+    handler: livefolders mcp call inbox-zero label_email --arg emailId="$INPUT"
+    input:
+      type: string
+      description: The ID of the email to apply a label to
+
+  - name: get_labels
+    type: read_invoke
+    handler: livefolders mcp call inbox-zero get_labels
+
+  - name: get_rules
+    type: read_invoke
+    handler: livefolders mcp call inbox-zero get_rules
+
+  - name: run_rules
+    type: write_invoke
+    handler: livefolders mcp call inbox-zero run_rules --arg emailId="$INPUT"
+    input:
+      type: string
+      description: The ID of the email to run automation rules against
+
+  - name: get_newsletter_stats
+    type: read_invoke
+    handler: livefolders mcp call inbox-zero get_newsletter_stats
+
+  - name: unsubscribe
+    type: write_invoke
+    handler: livefolders mcp call inbox-zero unsubscribe --arg emailAddress="$INPUT"
+    input:
+      type: string
+      description: The sender email address to unsubscribe from
+
+  - name: how_to.md
+    type: readonly

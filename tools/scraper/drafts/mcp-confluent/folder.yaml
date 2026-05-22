@@ -1,0 +1,223 @@
+name: mcp-confluent
+description: Interact with Confluent Cloud resources including Kafka topics, schemas, connectors, and environments
+
+mcp:
+  server: mcp-confluent
+  command: npx
+  args: ["-y", "@confluentinc/mcp-confluent"]
+
+env:
+  - name: CONFLUENT_CLOUD_API_KEY
+    secret: true
+    required: true
+  - name: CONFLUENT_CLOUD_API_SECRET
+    secret: true
+    required: true
+  - name: CONFLUENT_KAFKA_API_KEY
+    secret: true
+    required: false
+  - name: CONFLUENT_KAFKA_API_SECRET
+    secret: true
+    required: false
+  - name: CONFLUENT_SCHEMA_REGISTRY_API_KEY
+    secret: true
+    required: false
+  - name: CONFLUENT_SCHEMA_REGISTRY_API_SECRET
+    secret: true
+    required: false
+  - name: BOOTSTRAP_SERVERS
+    secret: false
+    required: false
+  - name: KAFKA_REST_ENDPOINT
+    secret: false
+    required: false
+  - name: SCHEMA_REGISTRY_ENDPOINT
+    secret: false
+    required: false
+
+files:
+  - name: list_environments
+    type: read_invoke
+    handler: livefolders mcp call mcp-confluent list_environments
+    description: List all Confluent Cloud environments
+
+  - name: list_kafka_clusters
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent list_kafka_clusters --arg environment_id="$INPUT"
+    input:
+      type: string
+      description: Environment ID to list Kafka clusters for
+
+  - name: list_kafka_topics
+    type: read_invoke
+    handler: livefolders mcp call mcp-confluent list_kafka_topics
+    description: List all Kafka topics in the configured cluster
+
+  - name: create_kafka_topic
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent create_kafka_topic --arg topic_name="$INPUT"
+    input:
+      type: string
+      description: Name of the Kafka topic to create
+
+  - name: delete_kafka_topic
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent delete_kafka_topic --arg topic_name="$INPUT"
+    input:
+      type: string
+      description: Name of the Kafka topic to delete
+
+  - name: describe_kafka_topic
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent describe_kafka_topic --arg topic_name="$INPUT"
+    input:
+      type: string
+      description: Name of the Kafka topic to describe
+
+  - name: produce_kafka_message
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent produce_kafka_message --arg topic_name="$INPUT"
+    input:
+      type: string
+      description: Topic name to produce a message to
+
+  - name: consume_kafka_messages
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent consume_kafka_messages --arg topic_name="$INPUT"
+    input:
+      type: string
+      description: Topic name to consume messages from
+
+  - name: list_schema_registries
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent list_schema_registries --arg environment_id="$INPUT"
+    input:
+      type: string
+      description: Environment ID to list schema registries for
+
+  - name: list_schemas
+    type: read_invoke
+    handler: livefolders mcp call mcp-confluent list_schemas
+    description: List all schemas in the Schema Registry
+
+  - name: get_schema
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent get_schema --arg subject="$INPUT"
+    input:
+      type: string
+      description: Schema subject name to retrieve
+
+  - name: create_schema
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent create_schema --arg subject="$INPUT"
+    input:
+      type: string
+      description: Subject name for the schema to create
+
+  - name: delete_schema
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent delete_schema --arg subject="$INPUT"
+    input:
+      type: string
+      description: Subject name of the schema to delete
+
+  - name: list_connectors
+    type: read_invoke
+    handler: livefolders mcp call mcp-confluent list_connectors
+    description: List all connectors in the configured environment
+
+  - name: describe_connector
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent describe_connector --arg connector_name="$INPUT"
+    input:
+      type: string
+      description: Name of the connector to describe
+
+  - name: create_connector
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent create_connector --arg connector_name="$INPUT"
+    input:
+      type: string
+      description: Name of the connector to create
+
+  - name: delete_connector
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent delete_connector --arg connector_name="$INPUT"
+    input:
+      type: string
+      description: Name of the connector to delete
+
+  - name: pause_connector
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent pause_connector --arg connector_name="$INPUT"
+    input:
+      type: string
+      description: Name of the connector to pause
+
+  - name: resume_connector
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent resume_connector --arg connector_name="$INPUT"
+    input:
+      type: string
+      description: Name of the connector to resume
+
+  - name: list_flink_compute_pools
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent list_flink_compute_pools --arg environment_id="$INPUT"
+    input:
+      type: string
+      description: Environment ID to list Flink compute pools for
+
+  - name: list_flink_statements
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent list_flink_statements --arg environment_id="$INPUT"
+    input:
+      type: string
+      description: Environment ID to list Flink statements for
+
+  - name: create_flink_statement
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent create_flink_statement --arg statement="$INPUT"
+    input:
+      type: string
+      description: SQL statement to submit as a Flink job
+
+  - name: delete_flink_statement
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent delete_flink_statement --arg statement_name="$INPUT"
+    input:
+      type: string
+      description: Name of the Flink statement to delete
+
+  - name: list_service_accounts
+    type: read_invoke
+    handler: livefolders mcp call mcp-confluent list_service_accounts
+    description: List all service accounts in Confluent Cloud
+
+  - name: create_service_account
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent create_service_account --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the service account to create
+
+  - name: delete_service_account
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent delete_service_account --arg service_account_id="$INPUT"
+    input:
+      type: string
+      description: ID of the service account to delete
+
+  - name: list_api_keys
+    type: read_invoke
+    handler: livefolders mcp call mcp-confluent list_api_keys
+    description: List all API keys in Confluent Cloud
+
+  - name: create_api_key
+    type: write_invoke
+    handler: livefolders mcp call mcp-confluent create_api_key --arg owner_id="$INPUT"
+    input:
+      type: string
+      description: Owner resource ID for the new API key
+
+  - name:

@@ -1,0 +1,29 @@
+name: iterm-mcp
+description: Execute commands in the current iTerm session via MCP - useful for REPL and CLI assistance
+
+mcp:
+  server: iterm-mcp
+  command: npx
+  args: ["-y", "iterm-mcp"]
+
+files:
+  - name: write_to_terminal
+    type: write_invoke
+    handler: livefolders mcp call iterm-mcp write_to_terminal --arg text="$INPUT"
+    input:
+      type: string
+      description: Text or command to send to the current iTerm terminal session
+
+  - name: send_control_character
+    type: write_invoke
+    handler: livefolders mcp call iterm-mcp send_control_character --arg letter="$INPUT"
+    input:
+      type: string
+      description: Control character letter to send (e.g. 'c' for Ctrl+C, 'd' for Ctrl+D, 'z' for Ctrl+Z)
+
+  - name: read_terminal_output
+    type: read_invoke
+    handler: livefolders mcp call iterm-mcp read_terminal_output
+
+  - name: how_to.md
+    type: readonly

@@ -1,0 +1,36 @@
+name: manim-mcp-server
+description: Generate mathematical animations using Manim via MCP
+
+mcp:
+  server: manim-mcp-server
+  command: uvx
+  args: ["manim-mcp-server"]
+
+files:
+  - name: generate_animation
+    type: write_invoke
+    handler: livefolders mcp call manim-mcp-server generate_manim_animation --arg code="$INPUT"
+    input:
+      type: string
+      description: Manim Python code to render into an animation
+
+  - name: run_manim_scene
+    type: write_invoke
+    handler: livefolders mcp call manim-mcp-server run_manim_scene --arg scene_name="$INPUT"
+    input:
+      type: string
+      description: Name of the Manim scene class to render
+
+  - name: list_scenes
+    type: read_invoke
+    handler: livefolders mcp call manim-mcp-server list_scenes
+
+  - name: get_animation_status
+    type: write_invoke
+    handler: livefolders mcp call manim-mcp-server get_animation_status --arg job_id="$INPUT"
+    input:
+      type: string
+      description: Job ID of a previously submitted animation render
+
+  - name: how_to.md
+    type: readonly

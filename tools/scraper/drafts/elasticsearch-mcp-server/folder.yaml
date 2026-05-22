@@ -1,0 +1,151 @@
+name: elasticsearch-mcp-server
+description: Interact with Elasticsearch and OpenSearch via the MCP protocol
+
+mcp:
+  server: elasticsearch-mcp-server
+  command: npx
+  args: ["-y", "elasticsearch-mcp-server"]
+
+env:
+  - name: ES_URL
+    description: Elasticsearch or OpenSearch cluster URL (e.g. http://localhost:9200)
+    secret: false
+    required: true
+  - name: ES_USERNAME
+    description: Elasticsearch username for authentication
+    secret: false
+    required: false
+  - name: ES_PASSWORD
+    description: Elasticsearch password for authentication
+    secret: true
+    required: false
+  - name: ES_API_KEY
+    description: Elasticsearch API key for authentication
+    secret: true
+    required: false
+
+files:
+  - name: list_indices
+    type: read_invoke
+    handler: livefolders mcp call elasticsearch-mcp-server list_indices
+    description: List all indices in the Elasticsearch cluster
+
+  - name: get_mappings
+    type: write_invoke
+    handler: livefolders mcp call elasticsearch-mcp-server get_mappings --arg index="$INPUT"
+    input:
+      type: string
+      description: Index name to retrieve field mappings for
+
+  - name: search
+    type: write_invoke
+    handler: livefolders mcp call elasticsearch-mcp-server search --arg index="$INPUT"
+    input:
+      type: string
+      description: Index name to search against (combine with a query body as needed)
+
+  - name: get_document
+    type: write_invoke
+    handler: livefolders mcp call elasticsearch-mcp-server get_document --arg index="$INPUT"
+    input:
+      type: string
+      description: Index name from which to retrieve a document (also supply id parameter)
+
+  - name: index_document
+    type: write_invoke
+    handler: livefolders mcp call elasticsearch-mcp-server index_document --arg index="$INPUT"
+    input:
+      type: string
+      description: Index name in which to store a document
+
+  - name: delete_document
+    type: write_invoke
+    handler: livefolders mcp call elasticsearch-mcp-server delete_document --arg index="$INPUT"
+    input:
+      type: string
+      description: Index name from which to delete a document (also supply id parameter)
+
+  - name: create_index
+    type: write_invoke
+    handler: livefolders mcp call elasticsearch-mcp-server create_index --arg index="$INPUT"
+    input:
+      type: string
+      description: Name of the index to create
+
+  - name: delete_index
+    type: write_invoke
+    handler: livefolders mcp call elasticsearch-mcp-server delete_index --arg index="$INPUT"
+    input:
+      type: string
+      description: Name of the index to delete
+
+  - name: get_cluster_health
+    type: read_invoke
+    handler: livefolders mcp call elasticsearch-mcp-server get_cluster_health
+    description: Retrieve health status of the Elasticsearch cluster
+
+  - name: get_cluster_stats
+    type: read_invoke
+    handler: livefolders mcp call elasticsearch-mcp-server get_cluster_stats
+    description: Retrieve detailed statistics about the Elasticsearch cluster
+
+  - name: get_node_stats
+    type: read_invoke
+    handler: livefolders mcp call elasticsearch-mcp-server get_node_stats
+    description: Retrieve statistics for all nodes in the Elasticsearch cluster
+
+  - name: get_index_stats
+    type: write_invoke
+    handler: livefolders mcp call elasticsearch-mcp-server get_index_stats --arg index="$INPUT"
+    input:
+      type: string
+      description: Index name to retrieve statistics for
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # Elasticsearch MCP Server
+
+      This LiveFolder wraps the `elasticsearch-mcp-server` MCP server, giving you
+      natural-language and file-based access to Elasticsearch / OpenSearch clusters.
+
+      ## Setup
+
+      Set the following environment variables before use:
+
+      | Variable      | Required | Description                                      |
+      |---------------|----------|--------------------------------------------------|
+      | ES_URL        | Yes      | Cluster URL, e.g. `http://localhost:9200`        |
+      | ES_USERNAME   | No       | Username for basic auth                          |
+      | ES_PASSWORD   | No       | Password for basic auth                          |
+      | ES_API_KEY    | No       | API key (alternative to username/password)       |
+
+      ## Available Tools
+
+      | File                  | Description                                      |
+      |-----------------------|--------------------------------------------------|
+      | list_indices          | List all indices in the cluster                  |
+      | get_mappings          | Get field mappings for an index                  |
+      | search                | Run a search query against an index              |
+      | get_document          | Fetch a single document by index and ID          |
+      | index_document        | Index (create/update) a document                 |
+      | delete_document       | Delete a document by index and ID                |
+      | create_index          | Create a new index                               |
+      | delete_index          | Delete an existing index                         |
+      | get_cluster_health    | Check cluster health status                      |
+      | get_cluster_stats     | Get detailed cluster statistics                  |
+      | get_node_stats        | Get per-node statistics                          |
+      | get_index_stats       | Get statistics for a specific index              |
+
+      ## Example Usage
+
+      ```bash
+      # List all indices
+      livefolders mcp call elasticsearch-mcp-server list_indices
+
+      # Search an index
+      livefolders mcp call elasticsearch-mcp-server search --arg index="my-index"
+
+      # Get cluster health
+      livefolders mcp call elasticsearch-mcp-server get_cluster_health
+      ```

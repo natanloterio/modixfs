@@ -1,0 +1,123 @@
+name: k8s-mcp-server
+description: Execute Kubernetes CLI commands (kubectl, helm, istioctl, argocd) via AI-accessible MCP server
+
+mcp:
+  server: k8s-mcp-server
+  command: npx
+  args: ["-y", "k8s-mcp-server"]
+
+files:
+  - name: kubectl_describe
+    type: write_invoke
+    handler: livefolders mcp call k8s-mcp-server kubectl_describe --arg command="$INPUT"
+    input:
+      type: string
+      description: "kubectl describe command arguments (e.g. 'pod my-pod -n default')"
+
+  - name: kubectl_get
+    type: write_invoke
+    handler: livefolders mcp call k8s-mcp-server kubectl_get --arg command="$INPUT"
+    input:
+      type: string
+      description: "kubectl get command arguments (e.g. 'pods -n kube-system')"
+
+  - name: kubectl_logs
+    type: write_invoke
+    handler: livefolders mcp call k8s-mcp-server kubectl_logs --arg command="$INPUT"
+    input:
+      type: string
+      description: "kubectl logs command arguments (e.g. 'my-pod -n default --tail=100')"
+
+  - name: kubectl_exec
+    type: write_invoke
+    handler: livefolders mcp call k8s-mcp-server kubectl_exec --arg command="$INPUT"
+    input:
+      type: string
+      description: "kubectl exec command arguments (e.g. 'my-pod -- ls /app')"
+
+  - name: kubectl_apply
+    type: write_invoke
+    handler: livefolders mcp call k8s-mcp-server kubectl_apply --arg command="$INPUT"
+    input:
+      type: string
+      description: "kubectl apply command arguments (e.g. '-f deployment.yaml -n default')"
+
+  - name: kubectl_delete
+    type: write_invoke
+    handler: livefolders mcp call k8s-mcp-server kubectl_delete --arg command="$INPUT"
+    input:
+      type: string
+      description: "kubectl delete command arguments (e.g. 'pod my-pod -n default')"
+
+  - name: kubectl_rollout
+    type: write_invoke
+    handler: livefolders mcp call k8s-mcp-server kubectl_rollout --arg command="$INPUT"
+    input:
+      type: string
+      description: "kubectl rollout command arguments (e.g. 'status deployment/my-app -n default')"
+
+  - name: helm_install
+    type: write_invoke
+    handler: livefolders mcp call k8s-mcp-server helm_install --arg command="$INPUT"
+    input:
+      type: string
+      description: "helm install command arguments (e.g. 'my-release bitnami/nginx -n default')"
+
+  - name: helm_list
+    type: write_invoke
+    handler: livefolders mcp call k8s-mcp-server helm_list --arg command="$INPUT"
+    input:
+      type: string
+      description: "helm list command arguments (e.g. '-n default' or '--all-namespaces')"
+
+  - name: helm_upgrade
+    type: write_invoke
+    handler: livefolders mcp call k8s-mcp-server helm_upgrade --arg command="$INPUT"
+    input:
+      type: string
+      description: "helm upgrade command arguments (e.g. 'my-release bitnami/nginx --set replicas=2')"
+
+  - name: helm_uninstall
+    type: write_invoke
+    handler: livefolders mcp call k8s-mcp-server helm_uninstall --arg command="$INPUT"
+    input:
+      type: string
+      description: "helm uninstall command arguments (e.g. 'my-release -n default')"
+
+  - name: istioctl_analyze
+    type: write_invoke
+    handler: livefolders mcp call k8s-mcp-server istioctl_analyze --arg command="$INPUT"
+    input:
+      type: string
+      description: "istioctl analyze command arguments (e.g. '-n default' or '--all-namespaces')"
+
+  - name: istioctl_proxy_status
+    type: write_invoke
+    handler: livefolders mcp call k8s-mcp-server istioctl_proxy_status --arg command="$INPUT"
+    input:
+      type: string
+      description: "istioctl proxy-status command arguments (e.g. 'my-pod.default')"
+
+  - name: argocd_app_list
+    type: write_invoke
+    handler: livefolders mcp call k8s-mcp-server argocd_app_list --arg command="$INPUT"
+    input:
+      type: string
+      description: "argocd app list command arguments (e.g. '-p my-project' or leave empty)"
+
+  - name: argocd_app_sync
+    type: write_invoke
+    handler: livefolders mcp call k8s-mcp-server argocd_app_sync --arg command="$INPUT"
+    input:
+      type: string
+      description: "argocd app sync command arguments (e.g. 'my-app --prune')"
+
+  - name: argocd_app_status
+    type: write_invoke
+    handler: livefolders mcp call k8s-mcp-server argocd_app_status --arg command="$INPUT"
+    input:
+      type: string
+      description: "argocd app get command arguments (e.g. 'my-app')"
+
+  - name: how_to.md
+    type: readonly

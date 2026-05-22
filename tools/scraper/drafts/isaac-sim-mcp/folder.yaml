@@ -1,0 +1,107 @@
+name: isaac-sim-mcp
+description: Control and interact with NVIDIA Isaac Sim via MCP for robotics simulation
+
+mcp:
+  server: isaac-sim-mcp
+  command: python
+  args: ["isaac_sim_mcp_server.py"]
+
+files:
+  - name: execute_code
+    type: write_invoke
+    handler: livefolders mcp call isaac-sim-mcp execute_code --arg code="$INPUT"
+    input:
+      type: string
+      description: Python code to execute in the Isaac Sim environment
+
+  - name: load_usd
+    type: write_invoke
+    handler: livefolders mcp call isaac-sim-mcp load_usd --arg path="$INPUT"
+    input:
+      type: string
+      description: USD file path to load into the Isaac Sim scene
+
+  - name: create_object
+    type: write_invoke
+    handler: livefolders mcp call isaac-sim-mcp create_object --arg description="$INPUT"
+    input:
+      type: string
+      description: Description of the object to create in the simulation (e.g. "a cube at position 0,0,1")
+
+  - name: get_scene_info
+    type: read_invoke
+    handler: livefolders mcp call isaac-sim-mcp get_scene_info
+
+  - name: move_robot
+    type: write_invoke
+    handler: livefolders mcp call isaac-sim-mcp move_robot --arg command="$INPUT"
+    input:
+      type: string
+      description: Movement command for the robot (e.g. "move forward 1 meter")
+
+  - name: set_joint_positions
+    type: write_invoke
+    handler: livefolders mcp call isaac-sim-mcp set_joint_positions --arg positions="$INPUT"
+    input:
+      type: string
+      description: Joint positions to set on the robot (comma-separated values or JSON)
+
+  - name: get_robot_state
+    type: read_invoke
+    handler: livefolders mcp call isaac-sim-mcp get_robot_state
+
+  - name: run_simulation
+    type: write_invoke
+    handler: livefolders mcp call isaac-sim-mcp run_simulation --arg steps="$INPUT"
+    input:
+      type: string
+      description: Number of simulation steps to run (e.g. "100")
+
+  - name: reset_simulation
+    type: read_invoke
+    handler: livefolders mcp call isaac-sim-mcp reset_simulation
+
+  - name: capture_viewport
+    type: read_invoke
+    handler: livefolders mcp call isaac-sim-mcp capture_viewport
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # Isaac Sim MCP
+
+      Control NVIDIA Isaac Sim for robotics simulation via the Model Context Protocol.
+
+      ## Requirements
+      - NVIDIA Isaac Sim installed (https://developer.nvidia.com/isaac-sim)
+      - Isaac Sim MCP Extension enabled inside Isaac Sim
+      - Python server running: `python isaac_sim_mcp_server.py`
+
+      ## Setup
+      1. Launch Isaac Sim
+      2. Enable the Isaac Sim MCP Extension from the Extensions panel
+      3. Start the MCP server: `python isaac_sim_mcp_server.py`
+      4. Use the tools below to interact with the simulation
+
+      ## Available Tools
+
+      | Tool | Description |
+      |------|-------------|
+      | execute_code | Run arbitrary Python code inside Isaac Sim |
+      | load_usd | Load a USD file into the scene |
+      | create_object | Create simulation objects by description |
+      | get_scene_info | Retrieve current scene metadata |
+      | move_robot | Send movement commands to the robot |
+      | set_joint_positions | Set robot joint angles/positions |
+      | get_robot_state | Read current robot state |
+      | run_simulation | Advance the simulation by N steps |
+      | reset_simulation | Reset the simulation to its initial state |
+      | capture_viewport | Capture a screenshot of the current viewport |
+
+      ## Example Usage
+      - Load a robot: provide a USD path such as `/Isaac/Robots/Franka/franka.usd`
+      - Execute code: write Isaac Sim Python API calls directly
+      - Run steps: enter a number like `200` to advance the physics simulation
+
+      ## GitHub
+      https://github.com/omni-mcp/isaac-sim-mcp

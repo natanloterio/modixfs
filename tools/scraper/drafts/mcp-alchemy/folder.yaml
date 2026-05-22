@@ -1,0 +1,90 @@
+name: mcp-alchemy
+description: Query and explore relational databases (SQLite, PostgreSQL, MySQL, Oracle, MS-SQL) via MCP
+
+mcp:
+  server: mcp-alchemy
+  command: uvx
+  args: ["mcp-alchemy"]
+
+env:
+  - name: DB_URL
+    description: SQLAlchemy database connection URL (e.g. postgresql://user:pass@host/db or sqlite:///path/to/db.sqlite)
+    secret: true
+    required: true
+
+files:
+  - name: all_tables
+    type: read_invoke
+    handler: livefolders mcp call mcp-alchemy all_tables
+    description: List all tables in the connected database
+
+  - name: filter_table_names
+    type: write_invoke
+    handler: livefolders mcp call mcp-alchemy filter_table_names --arg q="$INPUT"
+    input:
+      type: string
+      description: Search string to filter table names
+
+  - name: schema
+    type: write_invoke
+    handler: livefolders mcp call mcp-alchemy schema --arg tables="$INPUT"
+    input:
+      type: string
+      description: Comma-separated list of table names to retrieve schema for
+
+  - name: execute_query
+    type: write_invoke
+    handler: livefolders mcp call mcp-alchemy execute_query --arg query="$INPUT"
+    input:
+      type: string
+      description: SQL query to execute against the database
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcp-alchemy
+
+      This folder wraps the [mcp-alchemy](https://github.com/runekaagaard/mcp-alchemy) MCP server,
+      giving you LLM-accessible tools to explore and query relational databases.
+
+      ## Supported Databases
+      - SQLite
+      - PostgreSQL
+      - MySQL & MariaDB
+      - Oracle
+      - MS-SQL
+
+      ## Configuration
+
+      Set the `DB_URL` environment variable to a valid SQLAlchemy connection URL:
+
+      | Database   | Example URL                                          |
+      |------------|------------------------------------------------------|
+      | SQLite     | `sqlite:///path/to/database.db`                      |
+      | PostgreSQL | `postgresql://user:password@localhost:5432/mydb`     |
+      | MySQL      | `mysql+pymysql://user:password@localhost:3306/mydb`  |
+      | MS-SQL     | `mssql+pyodbc://user:password@localhost/mydb`        |
+
+      ## Available Tools
+
+      ### `all_tables`
+      Lists every table in the connected database. No input required.
+
+      ### `filter_table_names`
+      Search for tables by name substring. Useful for large databases.
+      - **Input:** search string (e.g. `user`)
+
+      ### `schema`
+      Returns column definitions, types, and constraints for one or more tables.
+      - **Input:** comma-separated table names (e.g. `users,orders,products`)
+
+      ### `execute_query`
+      Runs a raw SQL query and returns the results.
+      - **Input:** SQL statement (e.g. `SELECT * FROM users LIMIT 10`)
+
+      ## Example Workflow
+
+      1. Use `all_tables` to discover what tables exist.
+      2. Use `filter_table_names` to narrow down tables of interest.
+      3. Use `schema` to understand table structure.
+      4. Use `execute_query` to run queries and retrieve data.

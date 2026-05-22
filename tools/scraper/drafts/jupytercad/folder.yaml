@@ -1,0 +1,106 @@
+name: jupytercad
+description: A JupyterLab extension for collaborative 3D geometry modeling
+
+mcp:
+  server: jupytercad
+  command: npx
+  args: ["-y", "@jupytercad/jupytercad-mcp"]
+
+files:
+  - name: create_box
+    type: write_invoke
+    handler: livefolders mcp call jupytercad create_box --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the box object to create
+
+  - name: create_sphere
+    type: write_invoke
+    handler: livefolders mcp call jupytercad create_sphere --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the sphere object to create
+
+  - name: create_cylinder
+    type: write_invoke
+    handler: livefolders mcp call jupytercad create_cylinder --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the cylinder object to create
+
+  - name: create_cone
+    type: write_invoke
+    handler: livefolders mcp call jupytercad create_cone --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the cone object to create
+
+  - name: create_torus
+    type: write_invoke
+    handler: livefolders mcp call jupytercad create_torus --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the torus object to create
+
+  - name: boolean_union
+    type: write_invoke
+    handler: livefolders mcp call jupytercad boolean_union --arg name="$INPUT"
+    input:
+      type: string
+      description: Name for the resulting union object
+
+  - name: boolean_cut
+    type: write_invoke
+    handler: livefolders mcp call jupytercad boolean_cut --arg name="$INPUT"
+    input:
+      type: string
+      description: Name for the resulting cut object
+
+  - name: boolean_intersection
+    type: write_invoke
+    handler: livefolders mcp call jupytercad boolean_intersection --arg name="$INPUT"
+    input:
+      type: string
+      description: Name for the resulting intersection object
+
+  - name: extrude
+    type: write_invoke
+    handler: livefolders mcp call jupytercad extrude --arg name="$INPUT"
+    input:
+      type: string
+      description: Name for the extruded object
+
+  - name: get_object_properties
+    type: write_invoke
+    handler: livefolders mcp call jupytercad get_object_properties --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the object to retrieve properties for
+
+  - name: list_objects
+    type: read_invoke
+    handler: livefolders mcp call jupytercad list_objects
+
+  - name: delete_object
+    type: write_invoke
+    handler: livefolders mcp call jupytercad delete_object --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the object to delete
+
+  - name: open_file
+    type: write_invoke
+    handler: livefolders mcp call jupytercad open_file --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to the JupyterCAD (.jcad) file to open
+
+  - name: save_file
+    type: write_invoke
+    handler: livefolders mcp call jupytercad save_file --arg path="$INPUT"
+    input:
+      type: string
+      description: Path where the JupyterCAD file should be saved
+
+  - name: how_to.md
+    type: readonly

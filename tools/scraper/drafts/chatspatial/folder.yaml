@@ -1,0 +1,117 @@
+name: chatspatial
+description: Spatial transcriptomics analysis through natural language interfaces
+
+mcp:
+  server: chatspatial
+  command: npx
+  args: ["-y", "chatspatial-mcp"]
+
+env:
+  - name: OPENAI_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: analyze_spatial_data
+    type: write_invoke
+    handler: livefolders mcp call chatspatial analyze_spatial_data --arg query="$INPUT"
+    input:
+      type: string
+      description: Natural language query for spatial transcriptomics analysis
+
+  - name: load_dataset
+    type: write_invoke
+    handler: livefolders mcp call chatspatial load_dataset --arg path="$INPUT"
+    input:
+      type: string
+      description: Path to spatial transcriptomics dataset file
+
+  - name: visualize_spatial
+    type: write_invoke
+    handler: livefolders mcp call chatspatial visualize_spatial --arg query="$INPUT"
+    input:
+      type: string
+      description: Natural language description of the spatial visualization to generate
+
+  - name: query_gene_expression
+    type: write_invoke
+    handler: livefolders mcp call chatspatial query_gene_expression --arg gene="$INPUT"
+    input:
+      type: string
+      description: Gene name or list of genes to query expression patterns for
+
+  - name: cluster_analysis
+    type: write_invoke
+    handler: livefolders mcp call chatspatial cluster_analysis --arg parameters="$INPUT"
+    input:
+      type: string
+      description: Natural language description or parameters for spatial clustering analysis
+
+  - name: cell_type_annotation
+    type: write_invoke
+    handler: livefolders mcp call chatspatial cell_type_annotation --arg query="$INPUT"
+    input:
+      type: string
+      description: Query or parameters for annotating cell types in spatial data
+
+  - name: spatial_statistics
+    type: write_invoke
+    handler: livefolders mcp call chatspatial spatial_statistics --arg query="$INPUT"
+    input:
+      type: string
+      description: Natural language query for computing spatial statistics
+
+  - name: export_results
+    type: write_invoke
+    handler: livefolders mcp call chatspatial export_results --arg output_path="$INPUT"
+    input:
+      type: string
+      description: Output path and format for exporting analysis results
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # ChatSpatial MCP Folder
+
+      This LiveFolder wraps the [ChatSpatial](https://github.com/cafferychen777/ChatSpatial) MCP server,
+      enabling spatial transcriptomics analysis through natural language interfaces.
+
+      ## Prerequisites
+
+      - Set `OPENAI_API_KEY` environment variable with your OpenAI API key.
+      - Ensure Node.js and npx are installed.
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | `analyze_spatial_data` | Run a natural language analysis query on loaded spatial data |
+      | `load_dataset` | Load a spatial transcriptomics dataset from a file path |
+      | `visualize_spatial` | Generate spatial visualizations via natural language |
+      | `query_gene_expression` | Query gene expression patterns by gene name |
+      | `cluster_analysis` | Perform spatial clustering with natural language parameters |
+      | `cell_type_annotation` | Annotate cell types in spatial transcriptomics data |
+      | `spatial_statistics` | Compute spatial statistics via natural language queries |
+      | `export_results` | Export analysis results to a specified path |
+
+      ## Example Usage
+
+      ```bash
+      # Load a dataset
+      echo "/data/my_spatial_data.h5ad" | livefolders invoke load_dataset
+
+      # Query gene expression
+      echo "VEGFA" | livefolders invoke query_gene_expression
+
+      # Run a natural language analysis
+      echo "Find spatially variable genes in the tumor region" | livefolders invoke analyze_spatial_data
+      ```
+
+      ## Supported Data Formats
+
+      ChatSpatial typically supports common spatial transcriptomics formats including:
+      - AnnData (`.h5ad`)
+      - 10x Visium outputs
+      - Seurat objects (via conversion)
+
+      Refer to the [ChatSpatial GitHub](https://github.com/cafferychen777/ChatSpatial) for full documentation.

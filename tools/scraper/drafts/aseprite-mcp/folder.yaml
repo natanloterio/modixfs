@@ -1,0 +1,98 @@
+name: aseprite-mcp
+description: Interact with the Aseprite pixel art editor via MCP
+
+mcp:
+  server: aseprite-mcp
+  command: npx
+  args: ["-y", "aseprite-mcp"]
+
+env:
+  - name: ASEPRITE_PATH
+    description: Path to the Aseprite executable
+    secret: false
+    required: true
+  - name: ASEPRITE_SCRIPTS_PATH
+    description: Path to the Aseprite scripts directory
+    secret: false
+    required: true
+
+files:
+  - name: create_sprite
+    type: write_invoke
+    handler: livefolders mcp call aseprite-mcp create_sprite --arg width="$INPUT"
+    input:
+      type: string
+      description: Width of the new sprite in pixels (e.g. 32)
+
+  - name: open_sprite
+    type: write_invoke
+    handler: livefolders mcp call aseprite-mcp open_sprite --arg path="$INPUT"
+    input:
+      type: string
+      description: File path to the sprite to open
+
+  - name: save_sprite
+    type: write_invoke
+    handler: livefolders mcp call aseprite-mcp save_sprite --arg path="$INPUT"
+    input:
+      type: string
+      description: File path where the sprite should be saved
+
+  - name: draw_pixel
+    type: write_invoke
+    handler: livefolders mcp call aseprite-mcp draw_pixel --arg x="$INPUT"
+    input:
+      type: string
+      description: X coordinate of the pixel to draw
+
+  - name: fill_rectangle
+    type: write_invoke
+    handler: livefolders mcp call aseprite-mcp fill_rectangle --arg x="$INPUT"
+    input:
+      type: string
+      description: X coordinate of the top-left corner of the rectangle to fill
+
+  - name: set_color
+    type: write_invoke
+    handler: livefolders mcp call aseprite-mcp set_color --arg color="$INPUT"
+    input:
+      type: string
+      description: Color value to set as the foreground color (e.g. hex or rgba)
+
+  - name: add_layer
+    type: write_invoke
+    handler: livefolders mcp call aseprite-mcp add_layer --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the new layer to add
+
+  - name: add_frame
+    type: write_invoke
+    handler: livefolders mcp call aseprite-mcp add_frame --arg sprite_path="$INPUT"
+    input:
+      type: string
+      description: Path to the sprite to add a frame to
+
+  - name: export_sprite
+    type: write_invoke
+    handler: livefolders mcp call aseprite-mcp export_sprite --arg path="$INPUT"
+    input:
+      type: string
+      description: Output file path for the exported sprite (e.g. PNG or GIF)
+
+  - name: run_script
+    type: write_invoke
+    handler: livefolders mcp call aseprite-mcp run_script --arg script="$INPUT"
+    input:
+      type: string
+      description: Lua script content to execute in Aseprite
+
+  - name: get_sprite_info
+    type: write_invoke
+    handler: livefolders mcp call aseprite-mcp get_sprite_info --arg path="$INPUT"
+    input:
+      type: string
+      description: File path of the sprite to retrieve info about
+
+  - name: how_to.md
+    type: readonly

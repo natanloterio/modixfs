@@ -1,0 +1,112 @@
+name: mcp-mongo-server
+description: Query and interact with MongoDB databases via the MCP MongoDB server
+
+mcp:
+  server: mcp-mongo-server
+  command: npx
+  args: ["-y", "mcp-mongo-server", "$MONGODB_URI"]
+
+env:
+  - name: MONGODB_URI
+    description: MongoDB connection URI (e.g. mongodb://localhost:27017/mydb)
+    secret: true
+    required: true
+
+files:
+  - name: find
+    type: write_invoke
+    handler: livefolders mcp call mcp-mongo-server find --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to query (optionally append JSON filter as second arg)
+
+  - name: aggregate
+    type: write_invoke
+    handler: livefolders mcp call mcp-mongo-server aggregate --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to run aggregation pipeline on
+
+  - name: count
+    type: write_invoke
+    handler: livefolders mcp call mcp-mongo-server count --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to count documents in
+
+  - name: insert_one
+    type: write_invoke
+    handler: livefolders mcp call mcp-mongo-server insert_one --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to insert a document into
+
+  - name: insert_many
+    type: write_invoke
+    handler: livefolders mcp call mcp-mongo-server insert_many --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to insert multiple documents into
+
+  - name: update_one
+    type: write_invoke
+    handler: livefolders mcp call mcp-mongo-server update_one --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to update a single matching document in
+
+  - name: update_many
+    type: write_invoke
+    handler: livefolders mcp call mcp-mongo-server update_many --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to update all matching documents in
+
+  - name: delete_one
+    type: write_invoke
+    handler: livefolders mcp call mcp-mongo-server delete_one --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to delete a single matching document from
+
+  - name: delete_many
+    type: write_invoke
+    handler: livefolders mcp call mcp-mongo-server delete_many --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to delete all matching documents from
+
+  - name: list_collections
+    type: read_invoke
+    handler: livefolders mcp call mcp-mongo-server list_collections
+
+  - name: create_collection
+    type: write_invoke
+    handler: livefolders mcp call mcp-mongo-server create_collection --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the new collection to create
+
+  - name: drop_collection
+    type: write_invoke
+    handler: livefolders mcp call mcp-mongo-server drop_collection --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to drop
+
+  - name: create_index
+    type: write_invoke
+    handler: livefolders mcp call mcp-mongo-server create_index --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to create an index on
+
+  - name: list_indexes
+    type: write_invoke
+    handler: livefolders mcp call mcp-mongo-server list_indexes --arg collection="$INPUT"
+    input:
+      type: string
+      description: Collection name to list indexes for
+
+  - name: how_to.md
+    type: readonly

@@ -1,0 +1,110 @@
+name: mcp-server-kubernetes
+description: Kubernetes cluster management via MCP server
+
+mcp:
+  server: mcp-server-kubernetes
+  command: npx
+  args: ["-y", "mcp-server-kubernetes"]
+
+files:
+  - name: list_pods
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-kubernetes list_pods --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list pods in (leave empty for all namespaces)
+
+  - name: list_namespaces
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-kubernetes list_namespaces
+
+  - name: list_deployments
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-kubernetes list_deployments --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list deployments in (leave empty for all namespaces)
+
+  - name: list_services
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-kubernetes list_services --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list services in (leave empty for all namespaces)
+
+  - name: list_nodes
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-kubernetes list_nodes
+
+  - name: get_pod_logs
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-kubernetes get_pod_logs --arg pod_name="$INPUT"
+    input:
+      type: string
+      description: Name of the pod to retrieve logs from
+
+  - name: describe_pod
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-kubernetes describe_pod --arg pod_name="$INPUT"
+    input:
+      type: string
+      description: Name of the pod to describe
+
+  - name: describe_node
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-kubernetes describe_node --arg node_name="$INPUT"
+    input:
+      type: string
+      description: Name of the node to describe
+
+  - name: describe_deployment
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-kubernetes describe_deployment --arg deployment_name="$INPUT"
+    input:
+      type: string
+      description: Name of the deployment to describe
+
+  - name: create_namespace
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-kubernetes create_namespace --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the namespace to create
+
+  - name: delete_namespace
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-kubernetes delete_namespace --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the namespace to delete
+
+  - name: delete_pod
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-kubernetes delete_pod --arg pod_name="$INPUT"
+    input:
+      type: string
+      description: Name of the pod to delete
+
+  - name: scale_deployment
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-kubernetes scale_deployment --arg deployment_name="$INPUT"
+    input:
+      type: string
+      description: Name of the deployment to scale
+
+  - name: get_events
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-kubernetes get_events --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to retrieve events from (leave empty for all namespaces)
+
+  - name: kubectl_get
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-kubernetes kubectl_get --arg resource_type="$INPUT"
+    input:
+      type: string
+      description: Resource type to get (e.g. pods, services, configmaps)
+
+  - name: how_to.md
+    type: readonly

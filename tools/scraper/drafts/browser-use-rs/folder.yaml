@@ -1,0 +1,72 @@
+name: browser-use-rs
+description: Browser automation via Chrome DevTools Protocol with AI integration through MCP
+
+mcp:
+  server: browser-use-rs
+  command: npx
+  args: ["-y", "browser-use-rs"]
+
+env:
+  - name: OPENAI_API_KEY
+    description: OpenAI API key for AI integration
+    secret: true
+    required: true
+
+files:
+  - name: navigate
+    type: write_invoke
+    handler: livefolders mcp call browser-use-rs navigate --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to navigate to in the browser
+
+  - name: screenshot
+    type: read_invoke
+    handler: livefolders mcp call browser-use-rs screenshot
+
+  - name: click
+    type: write_invoke
+    handler: livefolders mcp call browser-use-rs click --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element to click
+
+  - name: type_text
+    type: write_invoke
+    handler: livefolders mcp call browser-use-rs type_text --arg text="$INPUT"
+    input:
+      type: string
+      description: Text to type into the currently focused element
+
+  - name: get_page_content
+    type: read_invoke
+    handler: livefolders mcp call browser-use-rs get_page_content
+
+  - name: execute_script
+    type: write_invoke
+    handler: livefolders mcp call browser-use-rs execute_script --arg script="$INPUT"
+    input:
+      type: string
+      description: JavaScript code to execute in the browser context
+
+  - name: ai_action
+    type: write_invoke
+    handler: livefolders mcp call browser-use-rs ai_action --arg instruction="$INPUT"
+    input:
+      type: string
+      description: Natural language instruction for the AI to perform in the browser
+
+  - name: go_back
+    type: read_invoke
+    handler: livefolders mcp call browser-use-rs go_back
+
+  - name: go_forward
+    type: read_invoke
+    handler: livefolders mcp call browser-use-rs go_forward
+
+  - name: get_url
+    type: read_invoke
+    handler: livefolders mcp call browser-use-rs get_url
+
+  - name: how_to.md
+    type: readonly

@@ -1,0 +1,145 @@
+name: playwright-plus-python-mcp
+description: Browser automation and web scraping via Playwright with Python MCP server
+
+mcp:
+  server: playwright-plus-python-mcp
+  command: npx
+  args: ["-y", "playwright-plus-python-mcp"]
+
+files:
+  - name: playwright_navigate
+    type: write_invoke
+    handler: livefolders mcp call playwright-plus-python-mcp playwright_navigate --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to navigate to in the browser
+
+  - name: playwright_screenshot
+    type: write_invoke
+    handler: livefolders mcp call playwright-plus-python-mcp playwright_screenshot --arg name="$INPUT"
+    input:
+      type: string
+      description: Name for the screenshot file to capture
+
+  - name: playwright_click
+    type: write_invoke
+    handler: livefolders mcp call playwright-plus-python-mcp playwright_click --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element to click
+
+  - name: playwright_fill
+    type: write_invoke
+    handler: livefolders mcp call playwright-plus-python-mcp playwright_fill --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the input field to fill (use --arg value= for the text)
+
+  - name: playwright_select
+    type: write_invoke
+    handler: livefolders mcp call playwright-plus-python-mcp playwright_select --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the dropdown element to select from
+
+  - name: playwright_hover
+    type: write_invoke
+    handler: livefolders mcp call playwright-plus-python-mcp playwright_hover --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element to hover over
+
+  - name: playwright_evaluate
+    type: write_invoke
+    handler: livefolders mcp call playwright-plus-python-mcp playwright_evaluate --arg script="$INPUT"
+    input:
+      type: string
+      description: JavaScript code to evaluate in the browser context
+
+  - name: playwright_get_text
+    type: write_invoke
+    handler: livefolders mcp call playwright-plus-python-mcp playwright_get_text --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element to extract text from
+
+  - name: playwright_get_html
+    type: write_invoke
+    handler: livefolders mcp call playwright-plus-python-mcp playwright_get_html --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element to extract HTML from
+
+  - name: playwright_go_back
+    type: read_invoke
+    handler: livefolders mcp call playwright-plus-python-mcp playwright_go_back
+
+  - name: playwright_go_forward
+    type: read_invoke
+    handler: livefolders mcp call playwright-plus-python-mcp playwright_go_forward
+
+  - name: playwright_close
+    type: read_invoke
+    handler: livefolders mcp call playwright-plus-python-mcp playwright_close
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # playwright-plus-python-mcp
+
+      Browser automation and web scraping powered by Playwright via a Python MCP server.
+
+      ## Available Tools
+
+      ### Navigation
+      - **playwright_navigate** — Navigate to a URL
+      - **playwright_go_back** — Go back in browser history
+      - **playwright_go_forward** — Go forward in browser history
+      - **playwright_close** — Close the browser session
+
+      ### Interaction
+      - **playwright_click** — Click an element by CSS selector
+      - **playwright_fill** — Fill an input field by CSS selector
+      - **playwright_select** — Select a dropdown option by CSS selector
+      - **playwright_hover** — Hover over an element by CSS selector
+
+      ### Extraction
+      - **playwright_screenshot** — Take a screenshot and save it with a given name
+      - **playwright_get_text** — Extract text content from an element
+      - **playwright_get_html** — Extract HTML from an element
+
+      ### Scripting
+      - **playwright_evaluate** — Run arbitrary JavaScript in the browser context
+
+      ## Usage Examples
+
+      Navigate to a page:
+      ```
+      playwright_navigate → https://example.com
+      ```
+
+      Click a button:
+      ```
+      playwright_click → #submit-button
+      ```
+
+      Fill a form field:
+      ```
+      playwright_fill → input[name="email"]
+      ```
+
+      Extract page text:
+      ```
+      playwright_get_text → body
+      ```
+
+      Take a screenshot:
+      ```
+      playwright_screenshot → my-page
+      ```
+
+      ## Requirements
+
+      - Node.js and npx must be installed
+      - Python 3 with Playwright installed (`pip install playwright && playwright install`)
+      - Chromium or other Playwright browsers installed

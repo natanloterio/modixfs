@@ -1,0 +1,59 @@
+name: lunar
+description: "lunar.dev: Agent native MCP Gateway for governance and security"
+
+mcp:
+  server: lunar
+  command: npx
+  args: ["-y", "@lunar-tools/mcp-gateway"]
+
+env:
+  - name: LUNAR_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: proxy_request
+    type: write_invoke
+    handler: livefolders mcp call lunar proxy_request --arg url="$INPUT"
+    input:
+      type: string
+      description: The URL to proxy through the Lunar gateway
+
+  - name: list_policies
+    type: read_invoke
+    handler: livefolders mcp call lunar list_policies
+
+  - name: get_policy
+    type: write_invoke
+    handler: livefolders mcp call lunar get_policy --arg policy_id="$INPUT"
+    input:
+      type: string
+      description: The policy ID to retrieve
+
+  - name: apply_policy
+    type: write_invoke
+    handler: livefolders mcp call lunar apply_policy --arg policy_id="$INPUT"
+    input:
+      type: string
+      description: The policy ID to apply to the gateway
+
+  - name: list_endpoints
+    type: read_invoke
+    handler: livefolders mcp call lunar list_endpoints
+
+  - name: get_endpoint
+    type: write_invoke
+    handler: livefolders mcp call lunar get_endpoint --arg endpoint_id="$INPUT"
+    input:
+      type: string
+      description: The endpoint ID to retrieve details for
+
+  - name: audit_log
+    type: write_invoke
+    handler: livefolders mcp call lunar audit_log --arg filter="$INPUT"
+    input:
+      type: string
+      description: Filter criteria for audit log entries (e.g. date range, endpoint)
+
+  - name: how_to.md
+    type: readonly

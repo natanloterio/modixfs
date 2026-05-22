@@ -1,0 +1,117 @@
+name: alibabacloud-tablestore-mcp-server
+description: Interact with Alibaba Cloud Tablestore (OTS) via the MCP server
+
+mcp:
+  server: alibabacloud-tablestore-mcp-server
+  command: npx
+  args: ["-y", "alibabacloud-tablestore-mcp-server"]
+
+env:
+  - name: TABLESTORE_ENDPOINT
+    description: Alibaba Cloud Tablestore endpoint URL
+    secret: false
+    required: true
+  - name: TABLESTORE_INSTANCE_NAME
+    description: Alibaba Cloud Tablestore instance name
+    secret: false
+    required: true
+  - name: TABLESTORE_ACCESS_KEY_ID
+    description: Alibaba Cloud access key ID
+    secret: true
+    required: true
+  - name: TABLESTORE_ACCESS_KEY_SECRET
+    description: Alibaba Cloud access key secret
+    secret: true
+    required: true
+
+files:
+  - name: create_table
+    type: write_invoke
+    handler: livefolders mcp call alibabacloud-tablestore-mcp-server create_table --arg table_name="$INPUT"
+    input:
+      type: string
+      description: Name of the table to create in Tablestore
+
+  - name: list_tables
+    type: read_invoke
+    handler: livefolders mcp call alibabacloud-tablestore-mcp-server list_tables
+
+  - name: describe_table
+    type: write_invoke
+    handler: livefolders mcp call alibabacloud-tablestore-mcp-server describe_table --arg table_name="$INPUT"
+    input:
+      type: string
+      description: Name of the table to describe
+
+  - name: delete_table
+    type: write_invoke
+    handler: livefolders mcp call alibabacloud-tablestore-mcp-server delete_table --arg table_name="$INPUT"
+    input:
+      type: string
+      description: Name of the table to delete
+
+  - name: put_row
+    type: write_invoke
+    handler: livefolders mcp call alibabacloud-tablestore-mcp-server put_row --arg table_name="$INPUT"
+    input:
+      type: string
+      description: Table name in which to put a row (provide table_name; additional args like primary_key and attributes supplied separately)
+
+  - name: get_row
+    type: write_invoke
+    handler: livefolders mcp call alibabacloud-tablestore-mcp-server get_row --arg table_name="$INPUT"
+    input:
+      type: string
+      description: Table name from which to get a row
+
+  - name: update_row
+    type: write_invoke
+    handler: livefolders mcp call alibabacloud-tablestore-mcp-server update_row --arg table_name="$INPUT"
+    input:
+      type: string
+      description: Table name in which to update a row
+
+  - name: delete_row
+    type: write_invoke
+    handler: livefolders mcp call alibabacloud-tablestore-mcp-server delete_row --arg table_name="$INPUT"
+    input:
+      type: string
+      description: Table name from which to delete a row
+
+  - name: get_range
+    type: write_invoke
+    handler: livefolders mcp call alibabacloud-tablestore-mcp-server get_range --arg table_name="$INPUT"
+    input:
+      type: string
+      description: Table name to scan a range of rows from
+
+  - name: search
+    type: write_invoke
+    handler: livefolders mcp call alibabacloud-tablestore-mcp-server search --arg table_name="$INPUT"
+    input:
+      type: string
+      description: Table name to perform a search index query on
+
+  - name: create_search_index
+    type: write_invoke
+    handler: livefolders mcp call alibabacloud-tablestore-mcp-server create_search_index --arg table_name="$INPUT"
+    input:
+      type: string
+      description: Table name on which to create a search index
+
+  - name: list_search_indexes
+    type: write_invoke
+    handler: livefolders mcp call alibabacloud-tablestore-mcp-server list_search_indexes --arg table_name="$INPUT"
+    input:
+      type: string
+      description: Table name for which to list search indexes
+
+  - name: delete_search_index
+    type: write_invoke
+    handler: livefolders mcp call alibabacloud-tablestore-mcp-server delete_search_index --arg table_name="$INPUT"
+    input:
+      type: string
+      description: Table name from which to delete a search index
+
+  - name: how_to.md
+    type: readonly

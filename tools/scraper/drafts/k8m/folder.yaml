@@ -1,0 +1,185 @@
+name: k8m
+description: Lightweight Kubernetes AI Dashboard with multi-cluster management, intelligent analysis, and MCP support
+
+mcp:
+  server: k8m
+  command: npx
+  args: ["-y", "k8m-mcp"]
+
+env:
+  - name: K8M_URL
+    description: The URL of the k8m dashboard instance (e.g. http://localhost:3618)
+    secret: false
+    required: true
+  - name: K8M_TOKEN
+    description: Authentication token for the k8m dashboard API
+    secret: true
+    required: true
+
+files:
+  - name: list_clusters
+    type: read_invoke
+    handler: livefolders mcp call k8m list_clusters
+
+  - name: list_namespaces
+    type: write_invoke
+    handler: livefolders mcp call k8m list_namespaces --arg cluster="$INPUT"
+    input:
+      type: string
+      description: Cluster name to list namespaces for
+
+  - name: list_pods
+    type: write_invoke
+    handler: livefolders mcp call k8m list_pods --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list pods in (optionally prefix with cluster name)
+
+  - name: get_pod
+    type: write_invoke
+    handler: livefolders mcp call k8m get_pod --arg name="$INPUT"
+    input:
+      type: string
+      description: Pod name to retrieve details for
+
+  - name: list_deployments
+    type: write_invoke
+    handler: livefolders mcp call k8m list_deployments --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list deployments in
+
+  - name: get_deployment
+    type: write_invoke
+    handler: livefolders mcp call k8m get_deployment --arg name="$INPUT"
+    input:
+      type: string
+      description: Deployment name to retrieve details for
+
+  - name: list_services
+    type: write_invoke
+    handler: livefolders mcp call k8m list_services --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list services in
+
+  - name: get_service
+    type: write_invoke
+    handler: livefolders mcp call k8m get_service --arg name="$INPUT"
+    input:
+      type: string
+      description: Service name to retrieve details for
+
+  - name: list_nodes
+    type: read_invoke
+    handler: livefolders mcp call k8m list_nodes
+
+  - name: get_node
+    type: write_invoke
+    handler: livefolders mcp call k8m get_node --arg name="$INPUT"
+    input:
+      type: string
+      description: Node name to retrieve details for
+
+  - name: list_configmaps
+    type: write_invoke
+    handler: livefolders mcp call k8m list_configmaps --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list configmaps in
+
+  - name: list_secrets
+    type: write_invoke
+    handler: livefolders mcp call k8m list_secrets --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list secrets in
+
+  - name: list_ingresses
+    type: write_invoke
+    handler: livefolders mcp call k8m list_ingresses --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list ingresses in
+
+  - name: get_pod_logs
+    type: write_invoke
+    handler: livefolders mcp call k8m get_pod_logs --arg name="$INPUT"
+    input:
+      type: string
+      description: Pod name to retrieve logs from
+
+  - name: describe_resource
+    type: write_invoke
+    handler: livefolders mcp call k8m describe_resource --arg name="$INPUT"
+    input:
+      type: string
+      description: Resource identifier to describe (e.g. pod/my-pod -n default)
+
+  - name: analyze_resource
+    type: write_invoke
+    handler: livefolders mcp call k8m analyze_resource --arg name="$INPUT"
+    input:
+      type: string
+      description: Resource identifier to analyze with AI (e.g. pod/my-pod -n default)
+
+  - name: list_events
+    type: write_invoke
+    handler: livefolders mcp call k8m list_events --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list events in
+
+  - name: list_persistent_volumes
+    type: read_invoke
+    handler: livefolders mcp call k8m list_persistent_volumes
+
+  - name: list_persistent_volume_claims
+    type: write_invoke
+    handler: livefolders mcp call k8m list_persistent_volume_claims --arg namespace="$INPUT"
+    input:
+      type: string
+      description: Namespace to list persistent volume claims in
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # k8m MCP Folder
+
+      This folder wraps the k8m MCP server, providing AI-powered Kubernetes cluster management
+      via a lightweight dashboard interface.
+
+      ## Setup
+
+      Set the following environment variables before use:
+      - `K8M_URL`: URL of your k8m dashboard (e.g. `http://localhost:3618`)
+      - `K8M_TOKEN`: Authentication token for the k8m API
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | list_clusters | List all managed Kubernetes clusters |
+      | list_namespaces | List namespaces in a given cluster |
+      | list_pods | List pods in a namespace |
+      | get_pod | Get details of a specific pod |
+      | list_deployments | List deployments in a namespace |
+      | get_deployment | Get details of a specific deployment |
+      | list_services | List services in a namespace |
+      | get_service | Get details of a specific service |
+      | list_nodes | List all cluster nodes |
+      | get_node | Get details of a specific node |
+      | list_configmaps | List configmaps in a namespace |
+      | list_secrets | List secrets in a namespace |
+      | list_ingresses | List ingresses in a namespace |
+      | get_pod_logs | Retrieve logs from a pod |
+      | describe_resource | Describe any Kubernetes resource |
+      | analyze_resource | AI-powered analysis of a resource |
+      | list_events | List events in a namespace |
+      | list_persistent_volumes | List all persistent volumes |
+      | list_persistent_volume_claims | List PVCs in a namespace |
+
+      ## More Information
+
+      - GitHub: https://github.com/weibaohui/k8m
+      - Stars: 822

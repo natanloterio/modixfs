@@ -1,0 +1,89 @@
+name: pipedream
+description: Connect APIs, remarkably fast. Free for developers.
+
+mcp:
+  server: pipedream
+  command: npx
+  args: ["-y", "@pipedream/mcp"]
+
+env:
+  - name: PIPEDREAM_API_KEY
+    secret: true
+    required: true
+  - name: PIPEDREAM_PROJECT_ID
+    secret: false
+    required: true
+  - name: PIPEDREAM_PROJECT_ENVIRONMENT
+    secret: false
+    required: false
+
+files:
+  - name: search_components
+    type: write_invoke
+    handler: livefolders mcp call pipedream search_components --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find Pipedream components (triggers and actions)
+
+  - name: get_component
+    type: write_invoke
+    handler: livefolders mcp call pipedream get_component --arg component_key="$INPUT"
+    input:
+      type: string
+      description: The component key to retrieve details for (e.g. github-new-issue)
+
+  - name: run_component
+    type: write_invoke
+    handler: livefolders mcp call pipedream run_component --arg component_key="$INPUT"
+    input:
+      type: string
+      description: The component key to run along with its configuration props as JSON
+
+  - name: list_apps
+    type: write_invoke
+    handler: livefolders mcp call pipedream list_apps --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to list available Pipedream apps/integrations
+
+  - name: get_app
+    type: write_invoke
+    handler: livefolders mcp call pipedream get_app --arg app_name_slug="$INPUT"
+    input:
+      type: string
+      description: The app slug to retrieve details for (e.g. github, slack, stripe)
+
+  - name: list_connected_accounts
+    type: write_invoke
+    handler: livefolders mcp call pipedream list_connected_accounts --arg app_name_slug="$INPUT"
+    input:
+      type: string
+      description: App slug to list connected accounts for that integration
+
+  - name: deploy_trigger
+    type: write_invoke
+    handler: livefolders mcp call pipedream deploy_trigger --arg component_key="$INPUT"
+    input:
+      type: string
+      description: Component key of the trigger to deploy along with configuration as JSON
+
+  - name: list_triggers
+    type: read_invoke
+    handler: livefolders mcp call pipedream list_triggers
+
+  - name: delete_trigger
+    type: write_invoke
+    handler: livefolders mcp call pipedream delete_trigger --arg trigger_id="$INPUT"
+    input:
+      type: string
+      description: The trigger ID to delete
+
+  - name: retrieve_events
+    type: write_invoke
+    handler: livefolders mcp call pipedream retrieve_events --arg trigger_id="$INPUT"
+    input:
+      type: string
+      description: The trigger ID to retrieve events from
+
+  - name: how_to.md
+    type: readonly

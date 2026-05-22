@@ -1,0 +1,93 @@
+name: discogs-mcp-server
+description: MCP Server for Discogs - search and retrieve music release, artist, and label data
+
+mcp:
+  server: discogs-mcp-server
+  command: npx
+  args: ["-y", "discogs-mcp-server"]
+
+env:
+  - name: DISCOGS_USER_TOKEN
+    secret: true
+    required: true
+
+files:
+  - name: search_releases
+    type: write_invoke
+    handler: livefolders mcp call discogs-mcp-server search_releases --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query for releases (album/single title, artist name, etc.)
+
+  - name: get_release
+    type: write_invoke
+    handler: livefolders mcp call discogs-mcp-server get_release --arg release_id="$INPUT"
+    input:
+      type: string
+      description: Discogs release ID to retrieve
+
+  - name: get_master_release
+    type: write_invoke
+    handler: livefolders mcp call discogs-mcp-server get_master_release --arg master_id="$INPUT"
+    input:
+      type: string
+      description: Discogs master release ID to retrieve
+
+  - name: get_master_release_versions
+    type: write_invoke
+    handler: livefolders mcp call discogs-mcp-server get_master_release_versions --arg master_id="$INPUT"
+    input:
+      type: string
+      description: Discogs master release ID to list versions for
+
+  - name: search_artists
+    type: write_invoke
+    handler: livefolders mcp call discogs-mcp-server search_artists --arg query="$INPUT"
+    input:
+      type: string
+      description: Artist name to search for
+
+  - name: get_artist
+    type: write_invoke
+    handler: livefolders mcp call discogs-mcp-server get_artist --arg artist_id="$INPUT"
+    input:
+      type: string
+      description: Discogs artist ID to retrieve
+
+  - name: get_artist_releases
+    type: write_invoke
+    handler: livefolders mcp call discogs-mcp-server get_artist_releases --arg artist_id="$INPUT"
+    input:
+      type: string
+      description: Discogs artist ID to list releases for
+
+  - name: search_labels
+    type: write_invoke
+    handler: livefolders mcp call discogs-mcp-server search_labels --arg query="$INPUT"
+    input:
+      type: string
+      description: Label name to search for
+
+  - name: get_label
+    type: write_invoke
+    handler: livefolders mcp call discogs-mcp-server get_label --arg label_id="$INPUT"
+    input:
+      type: string
+      description: Discogs label ID to retrieve
+
+  - name: get_label_releases
+    type: write_invoke
+    handler: livefolders mcp call discogs-mcp-server get_label_releases --arg label_id="$INPUT"
+    input:
+      type: string
+      description: Discogs label ID to list releases for
+
+  - name: get_release_rating
+    type: write_invoke
+    handler: livefolders mcp call discogs-mcp-server get_release_rating --arg release_id="$INPUT"
+    input:
+      type: string
+      description: Discogs release ID to get community rating for
+
+  - name: how_to.md
+    type: readonly

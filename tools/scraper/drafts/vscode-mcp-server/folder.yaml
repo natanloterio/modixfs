@@ -1,0 +1,78 @@
+name: vscode-mcp-server
+description: Expose VS Code editing features to an LLM for AI coding via MCP
+
+mcp:
+  server: vscode-mcp-server
+  command: npx
+  args: ["-y", "vscode-mcp-server"]
+
+files:
+  - name: get_open_files
+    type: read_invoke
+    handler: livefolders mcp call vscode-mcp-server get_open_files
+    description: List all currently open files in VS Code
+
+  - name: get_current_file
+    type: read_invoke
+    handler: livefolders mcp call vscode-mcp-server get_current_file
+    description: Get the currently active file in VS Code
+
+  - name: get_file_content
+    type: write_invoke
+    handler: livefolders mcp call vscode-mcp-server get_file_content --arg path="$INPUT"
+    input:
+      type: string
+      description: Path of the file to retrieve content from
+
+  - name: get_selection
+    type: read_invoke
+    handler: livefolders mcp call vscode-mcp-server get_selection
+    description: Get the currently selected text in VS Code
+
+  - name: open_file
+    type: write_invoke
+    handler: livefolders mcp call vscode-mcp-server open_file --arg path="$INPUT"
+    input:
+      type: string
+      description: Path of the file to open in VS Code
+
+  - name: replace_file_content
+    type: write_invoke
+    handler: livefolders mcp call vscode-mcp-server replace_file_content --arg path="$INPUT" --arg content="$INPUT2"
+    input:
+      type: string
+      description: Path of the file to replace content in (first arg); new content (second arg)
+
+  - name: insert_at_cursor
+    type: write_invoke
+    handler: livefolders mcp call vscode-mcp-server insert_at_cursor --arg text="$INPUT"
+    input:
+      type: string
+      description: Text to insert at the current cursor position in VS Code
+
+  - name: replace_selection
+    type: write_invoke
+    handler: livefolders mcp call vscode-mcp-server replace_selection --arg text="$INPUT"
+    input:
+      type: string
+      description: Text to replace the current selection with in VS Code
+
+  - name: get_diagnostics
+    type: read_invoke
+    handler: livefolders mcp call vscode-mcp-server get_diagnostics
+    description: Get current diagnostics (errors, warnings) from VS Code
+
+  - name: get_workspace_folders
+    type: read_invoke
+    handler: livefolders mcp call vscode-mcp-server get_workspace_folders
+    description: List all workspace folders currently open in VS Code
+
+  - name: find_files
+    type: write_invoke
+    handler: livefolders mcp call vscode-mcp-server find_files --arg pattern="$INPUT"
+    input:
+      type: string
+      description: Glob pattern to search for files in the VS Code workspace
+
+  - name: how_to.md
+    type: readonly

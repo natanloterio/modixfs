@@ -1,0 +1,75 @@
+name: mcp-browser-agent
+description: Autonomous browser automation via MCP - interact with web content, manipulate DOM elements, execute JavaScript, and perform API requests
+
+mcp:
+  server: mcp-browser-agent
+  command: npx
+  args: ["-y", "mcp-browser-agent"]
+
+files:
+  - name: navigate
+    type: write_invoke
+    handler: livefolders mcp call mcp-browser-agent browser_navigate --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to navigate to in the browser
+
+  - name: click_element
+    type: write_invoke
+    handler: livefolders mcp call mcp-browser-agent browser_click --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element to click
+
+  - name: type_text
+    type: write_invoke
+    handler: livefolders mcp call mcp-browser-agent browser_type --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector and text to type (e.g. "#input-field")
+
+  - name: get_page_content
+    type: read_invoke
+    handler: livefolders mcp call mcp-browser-agent browser_get_content
+
+  - name: execute_javascript
+    type: write_invoke
+    handler: livefolders mcp call mcp-browser-agent browser_execute_script --arg script="$INPUT"
+    input:
+      type: string
+      description: JavaScript code to execute in the browser context
+
+  - name: take_screenshot
+    type: read_invoke
+    handler: livefolders mcp call mcp-browser-agent browser_screenshot
+
+  - name: get_element_text
+    type: write_invoke
+    handler: livefolders mcp call mcp-browser-agent browser_get_text --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the element to extract text from
+
+  - name: fill_form
+    type: write_invoke
+    handler: livefolders mcp call mcp-browser-agent browser_fill --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector of the form field to fill
+
+  - name: api_request
+    type: write_invoke
+    handler: livefolders mcp call mcp-browser-agent browser_api_request --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to perform an API request against
+
+  - name: wait_for_element
+    type: write_invoke
+    handler: livefolders mcp call mcp-browser-agent browser_wait_for --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector to wait for before proceeding
+
+  - name: how_to.md
+    type: readonly

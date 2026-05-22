@@ -1,0 +1,74 @@
+name: magg
+description: Magg - MCP Aggregator for combining and managing multiple MCP servers
+
+mcp:
+  server: magg
+  command: uvx
+  args: ["magg"]
+
+env:
+  - name: MAGG_CONFIG
+    description: Path to the Magg configuration file (optional, uses default if not set)
+    secret: false
+    required: false
+
+files:
+  - name: list_servers
+    type: read_invoke
+    handler: livefolders mcp call magg magg_list_servers
+    description: List all configured MCP servers managed by Magg
+
+  - name: get_server
+    type: write_invoke
+    handler: livefolders mcp call magg magg_get_server --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP server to get details for
+
+  - name: add_server
+    type: write_invoke
+    handler: livefolders mcp call magg magg_add_server --arg name="$INPUT"
+    input:
+      type: string
+      description: Name to register for the new MCP server
+
+  - name: remove_server
+    type: write_invoke
+    handler: livefolders mcp call magg magg_remove_server --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP server to remove
+
+  - name: enable_server
+    type: write_invoke
+    handler: livefolders mcp call magg magg_enable_server --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP server to enable
+
+  - name: disable_server
+    type: write_invoke
+    handler: livefolders mcp call magg magg_disable_server --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP server to disable
+
+  - name: list_tools
+    type: read_invoke
+    handler: livefolders mcp call magg magg_list_tools
+    description: List all tools available across all connected MCP servers
+
+  - name: call_tool
+    type: write_invoke
+    handler: livefolders mcp call magg magg_call_tool --arg tool="$INPUT"
+    input:
+      type: string
+      description: Name of the tool to call (use list_tools to discover available tools)
+
+  - name: get_config
+    type: read_invoke
+    handler: livefolders mcp call magg magg_get_config
+    description: Get the current Magg configuration
+
+  - name: how_to.md
+    type: readonly

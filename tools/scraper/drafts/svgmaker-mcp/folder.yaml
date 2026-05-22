@@ -1,0 +1,69 @@
+name: svgmaker-mcp
+description: AI-powered SVG generation and editing via the SVGMaker MCP server
+
+mcp:
+  server: svgmaker-mcp
+  command: npx
+  args: ["-y", "svgmaker-mcp"]
+
+env:
+  - name: SVGMAKER_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: generate_svg
+    type: write_invoke
+    handler: livefolders mcp call svgmaker-mcp generate_svg --arg prompt="$INPUT"
+    input:
+      type: string
+      description: Text prompt describing the SVG image to generate
+
+  - name: edit_svg
+    type: write_invoke
+    handler: livefolders mcp call svgmaker-mcp edit_svg --arg prompt="$INPUT"
+    input:
+      type: string
+      description: Description of edits to apply to an existing SVG
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # SVGMaker MCP
+
+      AI-powered SVG generation and editing integrated into your LiveFolders workflow.
+
+      ## Setup
+
+      Set your SVGMaker API key as an environment variable:
+      ```
+      SVGMAKER_API_KEY=your_api_key_here
+      ```
+
+      Get your API key at: https://svgmaker.io
+
+      ## Tools
+
+      ### generate_svg
+      Generate a new SVG from a text prompt.
+
+      **Input:** A descriptive prompt for the SVG you want to create.
+
+      Example:
+      ```
+      A minimalist mountain landscape with a setting sun
+      ```
+
+      ### edit_svg
+      Edit or modify an existing SVG using a text description of the changes.
+
+      **Input:** A description of the edits to apply.
+
+      Example:
+      ```
+      Change the sun color to orange and add clouds
+      ```
+
+      ## Resources
+      - GitHub: https://github.com/GenWaveLLC/svgmaker-mcp
+      - SVGMaker: https://svgmaker.io

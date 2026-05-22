@@ -1,0 +1,143 @@
+name: gtasks-mcp
+description: A Google Tasks Model Context Protocol Server for Claude
+
+mcp:
+  server: gtasks-mcp
+  command: npx
+  args: ["-y", "gtasks-mcp"]
+
+env:
+  - name: GOOGLE_CLIENT_ID
+    secret: false
+    required: true
+  - name: GOOGLE_CLIENT_SECRET
+    secret: true
+    required: true
+  - name: GOOGLE_REDIRECT_URI
+    secret: false
+    required: true
+  - name: GOOGLE_REFRESH_TOKEN
+    secret: true
+    required: true
+
+files:
+  - name: list_task_lists
+    type: read_invoke
+    handler: livefolders mcp call gtasks-mcp list_task_lists
+    description: List all Google Task lists
+
+  - name: get_task_list
+    type: write_invoke
+    handler: livefolders mcp call gtasks-mcp get_task_list --arg taskListId="$INPUT"
+    input:
+      type: string
+      description: The ID of the task list to retrieve
+
+  - name: create_task_list
+    type: write_invoke
+    handler: livefolders mcp call gtasks-mcp create_task_list --arg title="$INPUT"
+    input:
+      type: string
+      description: Title for the new task list
+
+  - name: update_task_list
+    type: write_invoke
+    handler: livefolders mcp call gtasks-mcp update_task_list --arg taskListId="$INPUT"
+    input:
+      type: string
+      description: ID of the task list to update (title passed as second arg)
+
+  - name: delete_task_list
+    type: write_invoke
+    handler: livefolders mcp call gtasks-mcp delete_task_list --arg taskListId="$INPUT"
+    input:
+      type: string
+      description: ID of the task list to delete
+
+  - name: list_tasks
+    type: write_invoke
+    handler: livefolders mcp call gtasks-mcp list_tasks --arg taskListId="$INPUT"
+    input:
+      type: string
+      description: ID of the task list to list tasks from
+
+  - name: get_task
+    type: write_invoke
+    handler: livefolders mcp call gtasks-mcp get_task --arg taskListId="$INPUT"
+    input:
+      type: string
+      description: ID of the task list containing the task (taskId passed as second arg)
+
+  - name: create_task
+    type: write_invoke
+    handler: livefolders mcp call gtasks-mcp create_task --arg taskListId="$INPUT"
+    input:
+      type: string
+      description: ID of the task list in which to create a task
+
+  - name: update_task
+    type: write_invoke
+    handler: livefolders mcp call gtasks-mcp update_task --arg taskListId="$INPUT"
+    input:
+      type: string
+      description: ID of the task list containing the task to update
+
+  - name: complete_task
+    type: write_invoke
+    handler: livefolders mcp call gtasks-mcp complete_task --arg taskListId="$INPUT"
+    input:
+      type: string
+      description: ID of the task list containing the task to mark complete
+
+  - name: delete_task
+    type: write_invoke
+    handler: livefolders mcp call gtasks-mcp delete_task --arg taskListId="$INPUT"
+    input:
+      type: string
+      description: ID of the task list containing the task to delete
+
+  - name: clear_completed_tasks
+    type: write_invoke
+    handler: livefolders mcp call gtasks-mcp clear_completed_tasks --arg taskListId="$INPUT"
+    input:
+      type: string
+      description: ID of the task list to clear completed tasks from
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # gtasks-mcp — Google Tasks MCP Server
+
+      Manage your Google Tasks via the Model Context Protocol.
+
+      ## Setup
+
+      Set the following environment variables before use:
+
+      | Variable | Description |
+      |---|---|
+      | GOOGLE_CLIENT_ID | OAuth2 client ID from Google Cloud Console |
+      | GOOGLE_CLIENT_SECRET | OAuth2 client secret |
+      | GOOGLE_REDIRECT_URI | Authorized redirect URI (e.g. http://localhost) |
+      | GOOGLE_REFRESH_TOKEN | Long-lived refresh token for offline access |
+
+      ## Available Tools
+
+      | File | Description |
+      |---|---|
+      | list_task_lists | List all task lists in your Google account |
+      | get_task_list | Retrieve a specific task list by ID |
+      | create_task_list | Create a new task list |
+      | update_task_list | Rename or update a task list |
+      | delete_task_list | Delete a task list |
+      | list_tasks | List all tasks in a task list |
+      | get_task | Get a specific task by ID |
+      | create_task | Create a new task in a list |
+      | update_task | Update an existing task |
+      | complete_task | Mark a task as completed |
+      | delete_task | Delete a task |
+      | clear_completed_tasks | Remove all completed tasks from a list |
+
+      ## Source
+
+      https://github.com/zcaceres/gtasks-mcp

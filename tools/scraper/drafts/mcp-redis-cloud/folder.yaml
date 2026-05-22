@@ -1,0 +1,121 @@
+name: mcp-redis-cloud
+description: Manage Redis Cloud resources including subscriptions, databases, and accounts via the MCP server
+
+mcp:
+  server: mcp-redis-cloud
+  command: npx
+  args: ["-y", "mcp-redis-cloud"]
+
+env:
+  - name: REDIS_CLOUD_API_KEY
+    secret: true
+    required: true
+  - name: REDIS_CLOUD_SECRET_KEY
+    secret: true
+    required: true
+
+files:
+  - name: get_current_account
+    type: read_invoke
+    handler: livefolders mcp call mcp-redis-cloud get_current_account
+    description: Get details about the current Redis Cloud account
+
+  - name: get_account_payment_methods
+    type: read_invoke
+    handler: livefolders mcp call mcp-redis-cloud get_account_payment_methods
+    description: List payment methods associated with the current account
+
+  - name: list_subscriptions
+    type: read_invoke
+    handler: livefolders mcp call mcp-redis-cloud list_subscriptions
+    description: List all subscriptions in the Redis Cloud account
+
+  - name: get_subscription
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis-cloud get_subscription --arg subscriptionId="$INPUT"
+    input:
+      type: string
+      description: The subscription ID to retrieve details for
+
+  - name: get_subscription_pricing
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis-cloud get_subscription_pricing --arg subscriptionId="$INPUT"
+    input:
+      type: string
+      description: The subscription ID to retrieve pricing for
+
+  - name: create_fixed_subscription
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis-cloud create_fixed_subscription --arg name="$INPUT"
+    input:
+      type: string
+      description: Name for the new fixed subscription
+
+  - name: update_subscription
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis-cloud update_subscription --arg subscriptionId="$INPUT"
+    input:
+      type: string
+      description: The subscription ID to update
+
+  - name: delete_subscription
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis-cloud delete_subscription --arg subscriptionId="$INPUT"
+    input:
+      type: string
+      description: The subscription ID to delete
+
+  - name: list_databases
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis-cloud list_databases --arg subscriptionId="$INPUT"
+    input:
+      type: string
+      description: The subscription ID to list databases for
+
+  - name: get_database
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis-cloud get_database --arg subscriptionId="$INPUT"
+    input:
+      type: string
+      description: The subscription ID to retrieve a database from (also requires databaseId)
+
+  - name: create_database
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis-cloud create_database --arg subscriptionId="$INPUT"
+    input:
+      type: string
+      description: The subscription ID under which to create the database
+
+  - name: update_database
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis-cloud update_database --arg subscriptionId="$INPUT"
+    input:
+      type: string
+      description: The subscription ID containing the database to update
+
+  - name: delete_database
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis-cloud delete_database --arg subscriptionId="$INPUT"
+    input:
+      type: string
+      description: The subscription ID containing the database to delete
+
+  - name: list_fixed_plans
+    type: read_invoke
+    handler: livefolders mcp call mcp-redis-cloud list_fixed_plans
+    description: List all available fixed subscription plans
+
+  - name: list_cloud_regions
+    type: read_invoke
+    handler: livefolders mcp call mcp-redis-cloud list_cloud_regions
+    description: List all available cloud providers and regions
+
+  - name: get_task
+    type: write_invoke
+    handler: livefolders mcp call mcp-redis-cloud get_task --arg taskId="$INPUT"
+    input:
+      type: string
+      description: The task ID to check status for
+
+  - name: how_to.md
+    type: readonly

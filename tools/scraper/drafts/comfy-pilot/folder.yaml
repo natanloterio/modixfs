@@ -1,0 +1,98 @@
+name: comfy-pilot
+description: MCP server that lets Claude Code see and edit your ComfyUI workflows via an embedded terminal
+
+mcp:
+  server: comfy-pilot
+  command: npx
+  args: ["-y", "comfy-pilot"]
+
+files:
+  - name: get_workflow
+    type: write_invoke
+    handler: livefolders mcp call comfy-pilot get_workflow --arg workflow_id="$INPUT"
+    input:
+      type: string
+      description: Workflow ID to retrieve from ComfyUI
+
+  - name: list_workflows
+    type: read_invoke
+    handler: livefolders mcp call comfy-pilot list_workflows
+
+  - name: update_workflow
+    type: write_invoke
+    handler: livefolders mcp call comfy-pilot update_workflow --arg workflow_id="$INPUT"
+    input:
+      type: string
+      description: Workflow ID to update in ComfyUI
+
+  - name: create_workflow
+    type: write_invoke
+    handler: livefolders mcp call comfy-pilot create_workflow --arg name="$INPUT"
+    input:
+      type: string
+      description: Name for the new ComfyUI workflow
+
+  - name: delete_workflow
+    type: write_invoke
+    handler: livefolders mcp call comfy-pilot delete_workflow --arg workflow_id="$INPUT"
+    input:
+      type: string
+      description: Workflow ID to delete from ComfyUI
+
+  - name: run_workflow
+    type: write_invoke
+    handler: livefolders mcp call comfy-pilot run_workflow --arg workflow_id="$INPUT"
+    input:
+      type: string
+      description: Workflow ID to execute in ComfyUI
+
+  - name: get_node
+    type: write_invoke
+    handler: livefolders mcp call comfy-pilot get_node --arg node_id="$INPUT"
+    input:
+      type: string
+      description: Node ID to inspect within a ComfyUI workflow
+
+  - name: list_nodes
+    type: write_invoke
+    handler: livefolders mcp call comfy-pilot list_nodes --arg workflow_id="$INPUT"
+    input:
+      type: string
+      description: Workflow ID whose nodes to list
+
+  - name: terminal_exec
+    type: write_invoke
+    handler: livefolders mcp call comfy-pilot terminal_exec --arg command="$INPUT"
+    input:
+      type: string
+      description: Shell command to run in the embedded ComfyUI terminal
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # comfy-pilot
+
+      MCP server + embedded terminal that lets Claude Code see and edit your ComfyUI workflows.
+
+      GitHub: https://github.com/ConstantineB6/comfy-pilot
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | list_workflows | List all workflows available in ComfyUI |
+      | get_workflow | Fetch a specific workflow by ID |
+      | create_workflow | Create a new named workflow |
+      | update_workflow | Update an existing workflow by ID |
+      | delete_workflow | Delete a workflow by ID |
+      | run_workflow | Execute a workflow by ID |
+      | list_nodes | List all nodes in a given workflow |
+      | get_node | Inspect a specific node by ID |
+      | terminal_exec | Run a shell command in the embedded ComfyUI terminal |
+
+      ## Usage Tips
+
+      - Use `list_workflows` first to discover available workflow IDs.
+      - Use `list_nodes` with a workflow ID to explore its graph structure.
+      - `terminal_exec` gives direct shell access to the ComfyUI environment for installing custom nodes or checking logs.
+      - Ensure ComfyUI is running and accessible before invoking workflow or node tools.

@@ -1,0 +1,109 @@
+name: discord-mcp
+description: A MCP server for Discord integration enabling AI assistants to interact with and automate Discord.
+
+mcp:
+  server: discord-mcp
+  command: npx
+  args: ["-y", "discord-mcp"]
+
+env:
+  - name: DISCORD_TOKEN
+    description: Discord bot token for authentication
+    secret: true
+    required: true
+
+files:
+  - name: send_message
+    type: write_invoke
+    handler: livefolders mcp call discord-mcp send_message --arg channel_id="$INPUT"
+    input:
+      type: string
+      description: Channel ID to send a message to (follow with message content)
+
+  - name: read_messages
+    type: write_invoke
+    handler: livefolders mcp call discord-mcp read_messages --arg channel_id="$INPUT"
+    input:
+      type: string
+      description: Channel ID to read recent messages from
+
+  - name: get_guild_info
+    type: write_invoke
+    handler: livefolders mcp call discord-mcp get_guild_info --arg guild_id="$INPUT"
+    input:
+      type: string
+      description: Guild (server) ID to retrieve information about
+
+  - name: list_channels
+    type: write_invoke
+    handler: livefolders mcp call discord-mcp list_channels --arg guild_id="$INPUT"
+    input:
+      type: string
+      description: Guild ID to list all channels for
+
+  - name: get_channel_info
+    type: write_invoke
+    handler: livefolders mcp call discord-mcp get_channel_info --arg channel_id="$INPUT"
+    input:
+      type: string
+      description: Channel ID to retrieve detailed information about
+
+  - name: list_members
+    type: write_invoke
+    handler: livefolders mcp call discord-mcp list_members --arg guild_id="$INPUT"
+    input:
+      type: string
+      description: Guild ID to list all members for
+
+  - name: add_reaction
+    type: write_invoke
+    handler: livefolders mcp call discord-mcp add_reaction --arg message_id="$INPUT"
+    input:
+      type: string
+      description: Message ID to add a reaction to
+
+  - name: delete_message
+    type: write_invoke
+    handler: livefolders mcp call discord-mcp delete_message --arg message_id="$INPUT"
+    input:
+      type: string
+      description: Message ID to delete
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # discord-mcp
+
+      This LiveFolder wraps the [discord-mcp](https://github.com/SaseQ/discord-mcp) MCP server,
+      enabling AI assistants to interact with Discord programmatically.
+
+      ## Setup
+
+      Set your Discord bot token as an environment variable:
+      ```
+      DISCORD_TOKEN=your_discord_bot_token_here
+      ```
+
+      To obtain a bot token:
+      1. Go to https://discord.com/developers/applications
+      2. Create a new application and add a Bot
+      3. Copy the bot token from the Bot settings page
+      4. Invite the bot to your server with appropriate permissions
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | send_message | Send a message to a Discord channel by channel ID |
+      | read_messages | Read recent messages from a channel by channel ID |
+      | get_guild_info | Retrieve information about a Discord guild/server |
+      | list_channels | List all channels in a guild |
+      | get_channel_info | Get detailed info about a specific channel |
+      | list_members | List members of a guild |
+      | add_reaction | Add an emoji reaction to a message |
+      | delete_message | Delete a specific message by ID |
+
+      ## Notes
+      - The bot must be a member of the guild/server you want to interact with
+      - Ensure the bot has the necessary permissions (Read Messages, Send Messages, etc.)
+      - Channel IDs and Guild IDs can be found by enabling Developer Mode in Discord settings

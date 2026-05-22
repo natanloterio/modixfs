@@ -1,0 +1,71 @@
+name: mcp-mermaid
+description: Generate Mermaid diagrams and charts dynamically using AI via MCP
+
+mcp:
+  server: mcp-mermaid
+  command: npx
+  args: ["-y", "mcp-mermaid"]
+
+files:
+  - name: mermaid
+    type: write_invoke
+    handler: livefolders mcp call mcp-mermaid mermaid --arg content="$INPUT"
+    input:
+      type: string
+      description: Mermaid diagram DSL content (e.g. "graph TD; A-->B; B-->C")
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcp-mermaid
+
+      Generate Mermaid diagrams and charts dynamically using the mcp-mermaid MCP server.
+
+      ## Usage
+
+      Write valid Mermaid diagram syntax into the `mermaid` endpoint to render a diagram.
+
+      ### Example Inputs
+
+      **Flowchart:**
+      ```
+      graph TD
+        A[Start] --> B{Decision}
+        B -->|Yes| C[Do something]
+        B -->|No| D[Do nothing]
+        C --> E[End]
+        D --> E
+      ```
+
+      **Sequence Diagram:**
+      ```
+      sequenceDiagram
+        Alice->>Bob: Hello Bob!
+        Bob-->>Alice: Hi Alice!
+      ```
+
+      **Gantt Chart:**
+      ```
+      gantt
+        title Project Timeline
+        dateFormat  YYYY-MM-DD
+        section Phase 1
+        Task A :a1, 2024-01-01, 7d
+        Task B :a2, after a1, 5d
+      ```
+
+      ## Supported Diagram Types
+
+      - Flowcharts (`graph` / `flowchart`)
+      - Sequence diagrams (`sequenceDiagram`)
+      - Gantt charts (`gantt`)
+      - Class diagrams (`classDiagram`)
+      - State diagrams (`stateDiagram`)
+      - Pie charts (`pie`)
+      - ER diagrams (`erDiagram`)
+      - User journey (`journey`)
+
+      ## More Info
+
+      - GitHub: https://github.com/hustcc/mcp-mermaid
+      - Mermaid docs: https://mermaid.js.org/

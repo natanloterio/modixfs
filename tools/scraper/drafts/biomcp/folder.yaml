@@ -1,0 +1,67 @@
+name: biomcp
+description: BioMCP - Biomedical Model Context Protocol for searching trials, articles, and variants
+
+mcp:
+  server: biomcp
+  command: uvx
+  args: ["biomcp"]
+
+files:
+  - name: search_trials
+    type: write_invoke
+    handler: livefolders mcp call biomcp trial_searcher --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query for clinical trials (e.g. disease, condition, intervention)
+
+  - name: get_trial
+    type: write_invoke
+    handler: livefolders mcp call biomcp trial_getter --arg nct_id="$INPUT"
+    input:
+      type: string
+      description: ClinicalTrials.gov NCT identifier (e.g. NCT04280783)
+
+  - name: search_articles
+    type: write_invoke
+    handler: livefolders mcp call biomcp article_searcher --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query for biomedical literature via PubMed
+
+  - name: get_article
+    type: write_invoke
+    handler: livefolders mcp call biomcp article_getter --arg pmid="$INPUT"
+    input:
+      type: string
+      description: PubMed identifier (PMID) of the article to retrieve
+
+  - name: search_variants
+    type: write_invoke
+    handler: livefolders mcp call biomcp variant_searcher --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query for genomic variants (e.g. gene name, variant ID, HGVS notation)
+
+  - name: get_variant
+    type: write_invoke
+    handler: livefolders mcp call biomcp variant_getter --arg hgvs="$INPUT"
+    input:
+      type: string
+      description: HGVS notation or variant identifier to retrieve detailed variant information
+
+  - name: search_genes
+    type: write_invoke
+    handler: livefolders mcp call biomcp gene_searcher --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query for gene information (e.g. gene symbol, name, or function)
+
+  - name: get_gene
+    type: write_invoke
+    handler: livefolders mcp call biomcp gene_getter --arg symbol="$INPUT"
+    input:
+      type: string
+      description: Gene symbol (e.g. BRAF, TP53, EGFR) to retrieve detailed gene information
+
+  - name: how_to.md
+    type: readonly

@@ -1,0 +1,77 @@
+name: blender-mcp
+description: Connect to Blender and control it via MCP for 3D modeling, scene management, and rendering
+
+mcp:
+  server: blender-mcp
+  command: uvx
+  args: ["blender-mcp"]
+
+files:
+  - name: get_scene_info
+    type: read_invoke
+    handler: livefolders mcp call blender-mcp get_scene_info
+    description: Get information about the current Blender scene including objects, materials, and settings
+
+  - name: get_object_info
+    type: write_invoke
+    handler: livefolders mcp call blender-mcp get_object_info --arg object_name="$INPUT"
+    input:
+      type: string
+      description: Name of the Blender object to retrieve detailed info about
+
+  - name: execute_blender_code
+    type: write_invoke
+    handler: livefolders mcp call blender-mcp execute_blender_code --arg code="$INPUT"
+    input:
+      type: string
+      description: Python code to execute inside Blender via bpy
+
+  - name: create_object
+    type: write_invoke
+    handler: livefolders mcp call blender-mcp create_object --arg type="$INPUT"
+    input:
+      type: string
+      description: Type of object to create (e.g. MESH, CURVE, LIGHT, CAMERA)
+
+  - name: delete_object
+    type: write_invoke
+    handler: livefolders mcp call blender-mcp delete_object --arg object_name="$INPUT"
+    input:
+      type: string
+      description: Name of the Blender object to delete from the scene
+
+  - name: modify_object
+    type: write_invoke
+    handler: livefolders mcp call blender-mcp modify_object --arg object_name="$INPUT"
+    input:
+      type: string
+      description: Name of the object to modify (follow with additional args for location, rotation, scale)
+
+  - name: set_material
+    type: write_invoke
+    handler: livefolders mcp call blender-mcp set_material --arg object_name="$INPUT"
+    input:
+      type: string
+      description: Name of the object to apply or update a material on
+
+  - name: render_scene
+    type: read_invoke
+    handler: livefolders mcp call blender-mcp render_scene
+    description: Render the current Blender scene and return the resulting image
+
+  - name: get_polyhaven_asset
+    type: write_invoke
+    handler: livefolders mcp call blender-mcp get_polyhaven_asset --arg asset_id="$INPUT"
+    input:
+      type: string
+      description: Polyhaven asset ID to download and import into the Blender scene
+
+  - name: search_polyhaven_assets
+    type: write_invoke
+    handler: livefolders mcp call blender-mcp search_polyhaven_assets --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query for finding assets on Polyhaven (HDRIs, textures, models)
+
+  - name: how_to.md
+    type: readonly

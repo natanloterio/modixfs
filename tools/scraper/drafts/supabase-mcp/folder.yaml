@@ -1,0 +1,179 @@
+name: supabase-mcp
+description: Connect Supabase to your AI assistants via MCP
+
+mcp:
+  server: supabase-mcp
+  command: npx
+  args: ["-y", "@supabase/mcp-server-supabase@latest", "--access-token", "$SUPABASE_ACCESS_TOKEN"]
+
+env:
+  - name: SUPABASE_ACCESS_TOKEN
+    description: Supabase personal access token for authenticating API requests
+    secret: true
+    required: true
+
+files:
+  - name: list_projects
+    type: read_invoke
+    handler: livefolders mcp call supabase-mcp list_projects
+
+  - name: get_project
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp get_project --arg id="$INPUT"
+    input:
+      type: string
+      description: Project ID to retrieve details for
+
+  - name: create_project
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp create_project --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the new Supabase project to create
+
+  - name: pause_project
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp pause_project --arg project_id="$INPUT"
+    input:
+      type: string
+      description: Project ID to pause
+
+  - name: restore_project
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp restore_project --arg project_id="$INPUT"
+    input:
+      type: string
+      description: Project ID to restore
+
+  - name: list_tables
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp list_tables --arg project_id="$INPUT"
+    input:
+      type: string
+      description: Project ID to list tables for
+
+  - name: list_extensions
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp list_extensions --arg project_id="$INPUT"
+    input:
+      type: string
+      description: Project ID to list Postgres extensions for
+
+  - name: list_migrations
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp list_migrations --arg project_id="$INPUT"
+    input:
+      type: string
+      description: Project ID to list migrations for
+
+  - name: apply_migration
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp apply_migration --arg project_id="$INPUT"
+    input:
+      type: string
+      description: Project ID to apply a migration to
+
+  - name: execute_sql
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp execute_sql --arg project_id="$INPUT"
+    input:
+      type: string
+      description: Project ID against which to execute a SQL query
+
+  - name: get_logs
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp get_logs --arg project_id="$INPUT"
+    input:
+      type: string
+      description: Project ID to retrieve service logs for
+
+  - name: get_project_url
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp get_project_url --arg project_id="$INPUT"
+    input:
+      type: string
+      description: Project ID to retrieve the API URL for
+
+  - name: get_anon_key
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp get_anon_key --arg project_id="$INPUT"
+    input:
+      type: string
+      description: Project ID to retrieve the anonymous API key for
+
+  - name: generate_typescript_types
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp generate_typescript_types --arg project_id="$INPUT"
+    input:
+      type: string
+      description: Project ID to generate TypeScript types from the database schema
+
+  - name: list_edge_functions
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp list_edge_functions --arg project_id="$INPUT"
+    input:
+      type: string
+      description: Project ID to list Edge Functions for
+
+  - name: deploy_edge_function
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp deploy_edge_function --arg project_id="$INPUT"
+    input:
+      type: string
+      description: Project ID to deploy an Edge Function to
+
+  - name: list_organizations
+    type: read_invoke
+    handler: livefolders mcp call supabase-mcp list_organizations
+
+  - name: get_organization
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp get_organization --arg id="$INPUT"
+    input:
+      type: string
+      description: Organization ID to retrieve details for
+
+  - name: create_branch
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp create_branch --arg project_id="$INPUT"
+    input:
+      type: string
+      description: Project ID to create a development branch for
+
+  - name: list_branches
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp list_branches --arg project_id="$INPUT"
+    input:
+      type: string
+      description: Project ID to list branches for
+
+  - name: delete_branch
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp delete_branch --arg branch_id="$INPUT"
+    input:
+      type: string
+      description: Branch ID to delete
+
+  - name: merge_branch
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp merge_branch --arg branch_id="$INPUT"
+    input:
+      type: string
+      description: Branch ID to merge into production
+
+  - name: reset_branch
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp reset_branch --arg branch_id="$INPUT"
+    input:
+      type: string
+      description: Branch ID to reset migrations for
+
+  - name: rebase_branch
+    type: write_invoke
+    handler: livefolders mcp call supabase-mcp rebase_branch --arg branch_id="$INPUT"
+    input:
+      type: string
+      description: Branch ID to rebase onto the latest production migrations
+
+  - name: how_to.md
+    type: readonly

@@ -1,0 +1,78 @@
+name: cli-mcp-server
+description: Command line interface for MCP clients with secure execution and customizable security policies
+
+mcp:
+  server: cli-mcp-server
+  command: uvx
+  args: ["cli-mcp-server"]
+
+env:
+  - name: ALLOWED_DIR
+    description: Base directory where commands are allowed to execute
+    secret: false
+    required: true
+  - name: ALLOWED_COMMANDS
+    description: Comma-separated list of allowed commands (e.g. ls,cat,echo)
+    secret: false
+    required: false
+  - name: ALLOWED_FLAGS
+    description: Comma-separated list of allowed flags/options (e.g. -l,-a,--help)
+    secret: false
+    required: false
+  - name: MAX_COMMAND_LENGTH
+    description: Maximum allowed command string length (default 1024)
+    secret: false
+    required: false
+  - name: COMMAND_TIMEOUT
+    description: Timeout in seconds for command execution (default 30)
+    secret: false
+    required: false
+
+files:
+  - name: run_command
+    type: write_invoke
+    handler: livefolders mcp call cli-mcp-server run_command --arg command="$INPUT"
+    input:
+      type: string
+      description: Shell command to execute securely within the allowed directory
+
+  - name: get_allowed_commands
+    type: read_invoke
+    handler: livefolders mcp call cli-mcp-server get_allowed_commands
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # cli-mcp-server
+
+      Wraps the [cli-mcp-server](https://github.com/MladenSU/cli-mcp-server) MCP server,
+      providing secure shell command execution with customizable security policies.
+
+      ## Tools
+
+      ### run_command
+      Execute a shell command within the configured allowed directory.
+      - Input: a shell command string (e.g. `ls -la /tmp`)
+      - Commands are validated against `ALLOWED_COMMANDS` and `ALLOWED_FLAGS`
+      - Execution is sandboxed to `ALLOWED_DIR`
+
+      ### get_allowed_commands
+      Returns the list of commands permitted by the current security policy.
+      No input required.
+
+      ## Environment Variables
+
+      | Variable | Required | Description |
+      |---|---|---|
+      | `ALLOWED_DIR` | Yes | Base directory for command execution |
+      | `ALLOWED_COMMANDS` | No | Comma-separated whitelist of commands |
+      | `ALLOWED_FLAGS` | No | Comma-separated whitelist of flags |
+      | `MAX_COMMAND_LENGTH` | No | Max command string length (default 1024) |
+      | `COMMAND_TIMEOUT` | No | Execution timeout in seconds (default 30) |
+
+      ## Security Notes
+      - Only commands listed in `ALLOWED_COMMANDS` may be executed
+      - Only flags listed in `ALLOWED_FLAGS` may be used
+      - All commands run relative to `ALLOWED_DIR`
+      - Commands exceeding `MAX_COMMAND_LENGTH` are rejected
+      - Commands running longer than `COMMAND_TIMEOUT` are killed

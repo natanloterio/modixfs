@@ -1,0 +1,95 @@
+name: video-editing-mcp
+description: MCP Interface for Video Jungle video editing and management
+
+mcp:
+  server: video-editing-mcp
+  command: npx
+  args: ["-y", "video-editing-mcp"]
+
+env:
+  - name: VIDEO_JUNGLE_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: search_videos
+    type: write_invoke
+    handler: livefolders mcp call video-editing-mcp search_videos --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find videos in Video Jungle
+
+  - name: get_video
+    type: write_invoke
+    handler: livefolders mcp call video-editing-mcp get_video --arg video_id="$INPUT"
+    input:
+      type: string
+      description: Video ID to retrieve details for
+
+  - name: list_videos
+    type: read_invoke
+    handler: livefolders mcp call video-editing-mcp list_videos
+
+  - name: create_video_edit
+    type: write_invoke
+    handler: livefolders mcp call video-editing-mcp create_video_edit --arg description="$INPUT"
+    input:
+      type: string
+      description: Description or prompt for the video edit to create
+
+  - name: get_video_edit
+    type: write_invoke
+    handler: livefolders mcp call video-editing-mcp get_video_edit --arg edit_id="$INPUT"
+    input:
+      type: string
+      description: Edit ID to retrieve the current status and details of a video edit
+
+  - name: list_video_edits
+    type: read_invoke
+    handler: livefolders mcp call video-editing-mcp list_video_edits
+
+  - name: upload_video
+    type: write_invoke
+    handler: livefolders mcp call video-editing-mcp upload_video --arg file_path="$INPUT"
+    input:
+      type: string
+      description: Local file path of the video to upload to Video Jungle
+
+  - name: delete_video
+    type: write_invoke
+    handler: livefolders mcp call video-editing-mcp delete_video --arg video_id="$INPUT"
+    input:
+      type: string
+      description: Video ID of the video to delete
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # video-editing-mcp
+
+      This folder wraps the [Video Jungle MCP server](https://github.com/burningion/video-editing-mcp),
+      providing an interface to manage and edit videos via the Video Jungle platform.
+
+      ## Setup
+
+      Set your `VIDEO_JUNGLE_API_KEY` environment variable before using any tools.
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | `search_videos` | Search for videos by query string |
+      | `get_video` | Retrieve details of a specific video by ID |
+      | `list_videos` | List all videos in your Video Jungle account |
+      | `create_video_edit` | Create a new video edit from a description or prompt |
+      | `get_video_edit` | Check the status and details of a video edit by ID |
+      | `list_video_edits` | List all video edits in your account |
+      | `upload_video` | Upload a local video file to Video Jungle |
+      | `delete_video` | Delete a video by its ID |
+
+      ## Example Usage
+
+      - Search for b-roll footage: write `sunset timelapse` into `search_videos`
+      - Upload a clip: write `/tmp/myclip.mp4` into `upload_video`
+      - Create an edit: write `Combine the top 3 clips into a 30-second highlight reel` into `create_video_edit`
+      - Check edit progress: write the returned edit ID into `get_video_edit`

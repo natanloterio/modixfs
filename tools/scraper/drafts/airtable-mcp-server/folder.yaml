@@ -1,0 +1,91 @@
+name: airtable-mcp-server
+description: Interact with Airtable bases, tables, and records via the Airtable MCP server
+
+mcp:
+  server: airtable-mcp-server
+  command: npx
+  args: ["-y", "airtable-mcp-server"]
+
+env:
+  - name: AIRTABLE_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: list_bases
+    type: read_invoke
+    handler: livefolders mcp call airtable-mcp-server list_bases
+    description: List all Airtable bases accessible with the current API key
+
+  - name: list_tables
+    type: write_invoke
+    handler: livefolders mcp call airtable-mcp-server list_tables --arg baseId="$INPUT"
+    input:
+      type: string
+      description: The ID of the Airtable base to list tables from
+
+  - name: list_records
+    type: write_invoke
+    handler: livefolders mcp call airtable-mcp-server list_records --arg tableId="$INPUT"
+    input:
+      type: string
+      description: The ID of the table to list records from (format baseId/tableId)
+
+  - name: get_record
+    type: write_invoke
+    handler: livefolders mcp call airtable-mcp-server get_record --arg tableId="$INPUT"
+    input:
+      type: string
+      description: The table ID and record ID to retrieve (format baseId/tableId, use with recordId arg)
+
+  - name: create_record
+    type: write_invoke
+    handler: livefolders mcp call airtable-mcp-server create_record --arg tableId="$INPUT"
+    input:
+      type: string
+      description: The table ID in which to create a record (format baseId/tableId)
+
+  - name: update_records
+    type: write_invoke
+    handler: livefolders mcp call airtable-mcp-server update_records --arg tableId="$INPUT"
+    input:
+      type: string
+      description: The table ID in which to update records (format baseId/tableId)
+
+  - name: delete_records
+    type: write_invoke
+    handler: livefolders mcp call airtable-mcp-server delete_records --arg tableId="$INPUT"
+    input:
+      type: string
+      description: The table ID from which to delete records (format baseId/tableId)
+
+  - name: create_table
+    type: write_invoke
+    handler: livefolders mcp call airtable-mcp-server create_table --arg baseId="$INPUT"
+    input:
+      type: string
+      description: The base ID in which to create a new table
+
+  - name: update_table
+    type: write_invoke
+    handler: livefolders mcp call airtable-mcp-server update_table --arg tableId="$INPUT"
+    input:
+      type: string
+      description: The table ID to update (format baseId/tableId)
+
+  - name: create_field
+    type: write_invoke
+    handler: livefolders mcp call airtable-mcp-server create_field --arg tableId="$INPUT"
+    input:
+      type: string
+      description: The table ID in which to create a new field (format baseId/tableId)
+
+  - name: update_field
+    type: write_invoke
+    handler: livefolders mcp call airtable-mcp-server update_field --arg tableId="$INPUT"
+    input:
+      type: string
+      description: The table ID containing the field to update (format baseId/tableId)
+
+  - name: how_to.md
+    type: readonly

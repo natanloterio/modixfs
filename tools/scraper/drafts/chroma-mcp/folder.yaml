@@ -1,0 +1,158 @@
+name: chroma-mcp
+description: Vector database capabilities for Chroma via MCP server
+
+mcp:
+  server: chroma-mcp
+  command: uvx
+  args: ["chroma-mcp"]
+
+env:
+  - name: CHROMA_CLIENT_TYPE
+    description: Chroma client type (e.g. ephemeral, persistent, http, cloud)
+    secret: false
+    required: false
+  - name: CHROMA_DATA_DIR
+    description: Directory for persistent Chroma data
+    secret: false
+    required: false
+  - name: CHROMA_HOST
+    description: Chroma HTTP server host
+    secret: false
+    required: false
+  - name: CHROMA_PORT
+    description: Chroma HTTP server port
+    secret: false
+    required: false
+  - name: CHROMA_API_KEY
+    description: API key for Chroma Cloud or secured HTTP server
+    secret: true
+    required: false
+  - name: CHROMA_TENANT
+    description: Tenant name for Chroma Cloud
+    secret: false
+    required: false
+  - name: CHROMA_DATABASE
+    description: Database name for Chroma Cloud
+    secret: false
+    required: false
+
+files:
+  - name: create_collection
+    type: write_invoke
+    handler: livefolders mcp call chroma-mcp chroma_create_collection --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to create
+
+  - name: list_collections
+    type: read_invoke
+    handler: livefolders mcp call chroma-mcp chroma_list_collections
+
+  - name: get_collection
+    type: write_invoke
+    handler: livefolders mcp call chroma-mcp chroma_get_collection --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to retrieve info about
+
+  - name: delete_collection
+    type: write_invoke
+    handler: livefolders mcp call chroma-mcp chroma_delete_collection --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to delete
+
+  - name: peek_collection
+    type: write_invoke
+    handler: livefolders mcp call chroma-mcp chroma_peek_collection --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to peek into (returns first few documents)
+
+  - name: add_documents
+    type: write_invoke
+    handler: livefolders mcp call chroma-mcp chroma_add_documents --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to add documents to
+
+  - name: query_documents
+    type: write_invoke
+    handler: livefolders mcp call chroma-mcp chroma_query_documents --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to query documents from
+
+  - name: get_documents
+    type: write_invoke
+    handler: livefolders mcp call chroma-mcp chroma_get_documents --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to get documents from
+
+  - name: update_documents
+    type: write_invoke
+    handler: livefolders mcp call chroma-mcp chroma_update_documents --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection whose documents to update
+
+  - name: delete_documents
+    type: write_invoke
+    handler: livefolders mcp call chroma-mcp chroma_delete_documents --arg collection_name="$INPUT"
+    input:
+      type: string
+      description: Name of the collection to delete documents from
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # chroma-mcp LiveFolder
+
+      This folder wraps the [chroma-mcp](https://github.com/chroma-core/chroma-mcp) server,
+      providing vector database operations for Chroma directly from your filesystem.
+
+      ## Configuration
+
+      Set environment variables to configure your Chroma client:
+
+      | Variable             | Description                                      |
+      |----------------------|--------------------------------------------------|
+      | CHROMA_CLIENT_TYPE   | `ephemeral` (default), `persistent`, `http`, or `cloud` |
+      | CHROMA_DATA_DIR      | Local directory for persistent storage           |
+      | CHROMA_HOST          | Host for HTTP client                             |
+      | CHROMA_PORT          | Port for HTTP client                             |
+      | CHROMA_API_KEY       | API key for Cloud or secured server              |
+      | CHROMA_TENANT        | Tenant for Chroma Cloud                          |
+      | CHROMA_DATABASE      | Database for Chroma Cloud                        |
+
+      ## Available Operations
+
+      | File                  | Description                                      |
+      |-----------------------|--------------------------------------------------|
+      | create_collection     | Create a new Chroma collection                   |
+      | list_collections      | List all collections                             |
+      | get_collection        | Get info about a specific collection             |
+      | delete_collection     | Delete a collection                              |
+      | peek_collection       | Preview first few documents in a collection      |
+      | add_documents         | Add documents (with embeddings) to a collection  |
+      | query_documents       | Semantic search / query a collection             |
+      | get_documents         | Retrieve documents by ID or filter               |
+      | update_documents      | Update existing documents in a collection        |
+      | delete_documents      | Delete documents from a collection               |
+
+      ## Quick Start
+
+      ```bash
+      # List all collections
+      cat list_collections
+
+      # Create a new collection
+      echo "my-collection" > create_collection
+
+      # Query documents
+      echo "my-collection" > query_documents
+      ```
+
+      For multi-parameter operations (e.g. adding documents with IDs and embeddings),
+      use the `livefolders mcp call` CLI directly with additional `--arg` flags.

@@ -1,0 +1,114 @@
+name: kom
+description: Kubernetes operations tool wrapping kubectl and client-go as an MCP server for managing K8s resources
+
+mcp:
+  server: kom
+  command: npx
+  args: ["-y", "kom-mcp"]
+
+env:
+  - name: KUBECONFIG
+    description: Path to kubeconfig file for Kubernetes cluster access
+    secret: false
+    required: false
+  - name: KOM_KUBE_CONFIG
+    description: Kubernetes config content or path used by kom
+    secret: true
+    required: false
+
+files:
+  - name: get_resource
+    type: write_invoke
+    handler: livefolders mcp call kom get_resource --arg resource_type="$INPUT"
+    input:
+      type: string
+      description: Kubernetes resource type to get (e.g. pod, deployment, service)
+
+  - name: list_resources
+    type: write_invoke
+    handler: livefolders mcp call kom list_resources --arg resource_type="$INPUT"
+    input:
+      type: string
+      description: Kubernetes resource type to list (e.g. pods, deployments, services)
+
+  - name: describe_resource
+    type: write_invoke
+    handler: livefolders mcp call kom describe_resource --arg resource_name="$INPUT"
+    input:
+      type: string
+      description: Name of the Kubernetes resource to describe
+
+  - name: create_resource
+    type: write_invoke
+    handler: livefolders mcp call kom create_resource --arg manifest="$INPUT"
+    input:
+      type: string
+      description: YAML or JSON manifest of the Kubernetes resource to create
+
+  - name: update_resource
+    type: write_invoke
+    handler: livefolders mcp call kom update_resource --arg manifest="$INPUT"
+    input:
+      type: string
+      description: YAML or JSON manifest of the Kubernetes resource to update
+
+  - name: delete_resource
+    type: write_invoke
+    handler: livefolders mcp call kom delete_resource --arg resource_name="$INPUT"
+    input:
+      type: string
+      description: Name of the Kubernetes resource to delete
+
+  - name: get_pod_logs
+    type: write_invoke
+    handler: livefolders mcp call kom get_pod_logs --arg pod_name="$INPUT"
+    input:
+      type: string
+      description: Name of the pod to retrieve logs from
+
+  - name: exec_in_pod
+    type: write_invoke
+    handler: livefolders mcp call kom exec_in_pod --arg command="$INPUT"
+    input:
+      type: string
+      description: Command to execute inside a pod (format: pod_name/namespace/command)
+
+  - name: sql_query
+    type: write_invoke
+    handler: livefolders mcp call kom sql_query --arg sql="$INPUT"
+    input:
+      type: string
+      description: SQL query to run against Kubernetes resources (e.g. SELECT * FROM pods WHERE namespace='default')
+
+  - name: list_namespaces
+    type: read_invoke
+    handler: livefolders mcp call kom list_namespaces
+
+  - name: get_nodes
+    type: read_invoke
+    handler: livefolders mcp call kom get_nodes
+
+  - name: list_crds
+    type: read_invoke
+    handler: livefolders mcp call kom list_crds
+
+  - name: get_cluster_info
+    type: read_invoke
+    handler: livefolders mcp call kom get_cluster_info
+
+  - name: list_pod_files
+    type: write_invoke
+    handler: livefolders mcp call kom list_pod_files --arg pod_path="$INPUT"
+    input:
+      type: string
+      description: Pod and path to list files in (format: pod_name/namespace/path)
+
+  - name: read_pod_file
+    type: write_invoke
+    handler: livefolders mcp call kom read_pod_file --arg pod_file="$INPUT"
+    input:
+      type: string
+      description: Pod and file path to read (format: pod_name/namespace/filepath)
+
+  - name: how_to.md
+    type: readonly

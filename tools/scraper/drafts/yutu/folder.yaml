@@ -1,0 +1,116 @@
+name: yutu
+description: The AI-powered toolkit that grows your YouTube channel on autopilot.
+
+mcp:
+  server: yutu
+  command: npx
+  args: ["-y", "yutu-mcp"]
+
+env:
+  - name: YOUTUBE_API_KEY
+    secret: true
+    required: true
+  - name: YOUTUBE_CLIENT_ID
+    secret: true
+    required: true
+  - name: YOUTUBE_CLIENT_SECRET
+    secret: true
+    required: true
+  - name: YOUTUBE_REFRESH_TOKEN
+    secret: true
+    required: true
+
+files:
+  - name: list_videos
+    type: write_invoke
+    handler: livefolders mcp call yutu list_videos --arg channelId="$INPUT"
+    input:
+      type: string
+      description: YouTube channel ID to list videos for
+
+  - name: get_video
+    type: write_invoke
+    handler: livefolders mcp call yutu get_video --arg videoId="$INPUT"
+    input:
+      type: string
+      description: YouTube video ID to retrieve details for
+
+  - name: search_videos
+    type: write_invoke
+    handler: livefolders mcp call yutu search_videos --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find YouTube videos
+
+  - name: get_video_analytics
+    type: write_invoke
+    handler: livefolders mcp call yutu get_video_analytics --arg videoId="$INPUT"
+    input:
+      type: string
+      description: YouTube video ID to retrieve analytics for
+
+  - name: get_channel_analytics
+    type: write_invoke
+    handler: livefolders mcp call yutu get_channel_analytics --arg channelId="$INPUT"
+    input:
+      type: string
+      description: YouTube channel ID to retrieve analytics for
+
+  - name: update_video
+    type: write_invoke
+    handler: livefolders mcp call yutu update_video --arg videoId="$INPUT"
+    input:
+      type: string
+      description: YouTube video ID to update metadata for
+
+  - name: list_playlists
+    type: write_invoke
+    handler: livefolders mcp call yutu list_playlists --arg channelId="$INPUT"
+    input:
+      type: string
+      description: YouTube channel ID to list playlists for
+
+  - name: get_playlist
+    type: write_invoke
+    handler: livefolders mcp call yutu get_playlist --arg playlistId="$INPUT"
+    input:
+      type: string
+      description: YouTube playlist ID to retrieve details for
+
+  - name: list_comments
+    type: write_invoke
+    handler: livefolders mcp call yutu list_comments --arg videoId="$INPUT"
+    input:
+      type: string
+      description: YouTube video ID to list comments for
+
+  - name: reply_to_comment
+    type: write_invoke
+    handler: livefolders mcp call yutu reply_to_comment --arg commentId="$INPUT"
+    input:
+      type: string
+      description: YouTube comment ID to reply to
+
+  - name: get_channel
+    type: write_invoke
+    handler: livefolders mcp call yutu get_channel --arg channelId="$INPUT"
+    input:
+      type: string
+      description: YouTube channel ID to retrieve details for
+
+  - name: generate_video_description
+    type: write_invoke
+    handler: livefolders mcp call yutu generate_video_description --arg videoId="$INPUT"
+    input:
+      type: string
+      description: YouTube video ID to generate an AI-powered description for
+
+  - name: generate_video_tags
+    type: write_invoke
+    handler: livefolders mcp call yutu generate_video_tags --arg videoId="$INPUT"
+    input:
+      type: string
+      description: YouTube video ID to generate AI-powered tags for
+
+  - name: how_to.md
+    type: readonly

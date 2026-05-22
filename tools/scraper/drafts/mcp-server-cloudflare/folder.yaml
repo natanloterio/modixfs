@@ -1,0 +1,190 @@
+name: mcp-server-cloudflare
+description: Manage Cloudflare Workers, KV, R2, D1, and more via the Cloudflare MCP server
+
+mcp:
+  server: mcp-server-cloudflare
+  command: npx
+  args: ["-y", "@cloudflare/mcp-server-cloudflare"]
+
+env:
+  - name: CLOUDFLARE_API_TOKEN
+    secret: true
+    required: true
+  - name: CLOUDFLARE_ACCOUNT_ID
+    secret: false
+    required: true
+
+files:
+  - name: worker_list
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-cloudflare worker_list
+    description: List all Cloudflare Workers in your account
+
+  - name: worker_get
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-cloudflare worker_get --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the Worker to retrieve
+
+  - name: worker_create
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-cloudflare worker_create --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the new Worker to create
+
+  - name: worker_update
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-cloudflare worker_update --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the Worker to update (followed by script content)
+
+  - name: worker_delete
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-cloudflare worker_delete --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the Worker to delete
+
+  - name: kv_namespace_list
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-cloudflare kv_namespace_list
+    description: List all KV namespaces in your account
+
+  - name: kv_namespace_create
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-cloudflare kv_namespace_create --arg title="$INPUT"
+    input:
+      type: string
+      description: Title for the new KV namespace
+
+  - name: kv_namespace_delete
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-cloudflare kv_namespace_delete --arg namespace_id="$INPUT"
+    input:
+      type: string
+      description: ID of the KV namespace to delete
+
+  - name: kv_key_list
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-cloudflare kv_key_list --arg namespace_id="$INPUT"
+    input:
+      type: string
+      description: KV namespace ID to list keys from
+
+  - name: kv_key_get
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-cloudflare kv_key_get --arg namespace_id="$INPUT"
+    input:
+      type: string
+      description: Namespace ID and key to retrieve (namespace_id)
+
+  - name: kv_key_put
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-cloudflare kv_key_put --arg namespace_id="$INPUT"
+    input:
+      type: string
+      description: Namespace ID to write a key-value pair into
+
+  - name: kv_key_delete
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-cloudflare kv_key_delete --arg namespace_id="$INPUT"
+    input:
+      type: string
+      description: Namespace ID to delete a key from
+
+  - name: r2_bucket_list
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-cloudflare r2_bucket_list
+    description: List all R2 buckets in your account
+
+  - name: r2_bucket_create
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-cloudflare r2_bucket_create --arg name="$INPUT"
+    input:
+      type: string
+      description: Name for the new R2 bucket
+
+  - name: r2_bucket_delete
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-cloudflare r2_bucket_delete --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the R2 bucket to delete
+
+  - name: d1_database_list
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-cloudflare d1_database_list
+    description: List all D1 databases in your account
+
+  - name: d1_database_create
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-cloudflare d1_database_create --arg name="$INPUT"
+    input:
+      type: string
+      description: Name for the new D1 database
+
+  - name: d1_database_delete
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-cloudflare d1_database_delete --arg database_id="$INPUT"
+    input:
+      type: string
+      description: ID of the D1 database to delete
+
+  - name: d1_database_query
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-cloudflare d1_database_query --arg database_id="$INPUT"
+    input:
+      type: string
+      description: Database ID to run a SQL query against
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # mcp-server-cloudflare
+
+      Manage Cloudflare resources including Workers, KV Storage, R2 Buckets, and D1 Databases.
+
+      ## Setup
+
+      Set the following environment variables before use:
+      - `CLOUDFLARE_API_TOKEN`: Your Cloudflare API token (with appropriate permissions)
+      - `CLOUDFLARE_ACCOUNT_ID`: Your Cloudflare account ID
+
+      You can find your Account ID in the Cloudflare dashboard URL or under the Overview page.
+      Generate an API token at https://dash.cloudflare.com/profile/api-tokens.
+
+      ## Available Tools
+
+      ### Workers
+      - `worker_list` — List all Workers
+      - `worker_get` — Get a Worker by name
+      - `worker_create` — Create a new Worker
+      - `worker_update` — Update an existing Worker
+      - `worker_delete` — Delete a Worker
+
+      ### KV Storage
+      - `kv_namespace_list` — List all KV namespaces
+      - `kv_namespace_create` — Create a new KV namespace
+      - `kv_namespace_delete` — Delete a KV namespace
+      - `kv_key_list` — List keys in a namespace
+      - `kv_key_get` — Get a value by key
+      - `kv_key_put` — Put a key-value pair
+      - `kv_key_delete` — Delete a key
+
+      ### R2 Object Storage
+      - `r2_bucket_list` — List all R2 buckets
+      - `r2_bucket_create` — Create a new R2 bucket
+      - `r2_bucket_delete` — Delete an R2 bucket
+
+      ### D1 Databases
+      - `d1_database_list` — List all D1 databases
+      - `d1_database_create` — Create a new D1 database
+      - `d1_database_delete` — Delete a D1 database
+      - `d1_database_query` — Run SQL queries against a D1 database
+
+      ## References
+      - GitHub: https://github.com/cloudflare/mcp-server-cloudflare
+      - Cloudflare Docs: https://developers.cloudflare.com

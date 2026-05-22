@@ -1,0 +1,112 @@
+name: agent
+description: A unified MCP server that aggregates multiple MCP servers into one
+
+mcp:
+  server: agent
+  command: npx
+  args: ["-y", "1mcp"]
+
+env:
+  - name: OPENAI_API_KEY
+    description: OpenAI API key (if using OpenAI-backed tools)
+    secret: true
+    required: false
+  - name: ANTHROPIC_API_KEY
+    description: Anthropic API key (if using Anthropic-backed tools)
+    secret: true
+    required: false
+  - name: MCP_CONFIG_PATH
+    description: Path to the 1mcp config file listing aggregated MCP servers
+    secret: false
+    required: false
+
+files:
+  - name: list_tools
+    type: read_invoke
+    handler: livefolders mcp call agent list_tools
+    description: List all tools available across aggregated MCP servers
+
+  - name: call_tool
+    type: write_invoke
+    handler: livefolders mcp call agent call_tool --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the tool to call on the aggregated agent
+
+  - name: list_servers
+    type: read_invoke
+    handler: livefolders mcp call agent list_servers
+    description: List all MCP servers currently aggregated by the agent
+
+  - name: get_server_info
+    type: write_invoke
+    handler: livefolders mcp call agent get_server_info --arg server="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP server to retrieve info about
+
+  - name: list_resources
+    type: read_invoke
+    handler: livefolders mcp call agent list_resources
+    description: List all resources exposed by aggregated MCP servers
+
+  - name: read_resource
+    type: write_invoke
+    handler: livefolders mcp call agent read_resource --arg uri="$INPUT"
+    input:
+      type: string
+      description: URI of the resource to read from the aggregated servers
+
+  - name: list_prompts
+    type: read_invoke
+    handler: livefolders mcp call agent list_prompts
+    description: List all prompts available across aggregated MCP servers
+
+  - name: get_prompt
+    type: write_invoke
+    handler: livefolders mcp call agent get_prompt --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the prompt to retrieve from the aggregated servers
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # agent — 1mcp LiveFolders Wrapper
+
+      This folder wraps [1mcp](https://github.com/1mcp-app/agent), a unified MCP server
+      that aggregates multiple MCP servers into a single interface.
+
+      ## Setup
+
+      1. Install dependencies:
+         ```bash
+         npx -y 1mcp
+         ```
+
+      2. Configure your aggregated servers by creating a config file (e.g., `~/.1mcp/config.json`)
+         listing the MCP servers you want to unify. Set `MCP_CONFIG_PATH` if your config is
+         in a non-default location.
+
+      3. Optionally set API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) if any of your
+         aggregated servers require them.
+
+      ## Available Endpoints
+
+      | File | Description |
+      |------|-------------|
+      | `list_tools` | List all tools across aggregated servers |
+      | `call_tool` | Invoke a named tool on the aggregated agent |
+      | `list_servers` | List all aggregated MCP servers |
+      | `get_server_info` | Get info about a specific server by name |
+      | `list_resources` | List all resources from aggregated servers |
+      | `read_resource` | Read a resource by URI |
+      | `list_prompts` | List all prompts from aggregated servers |
+      | `get_prompt` | Get a specific prompt by name |
+
+      ## Notes
+
+      - 1mcp merges tool namespaces; tool names may be prefixed with the source server name
+        to avoid conflicts.
+      - See the [1mcp GitHub repo](https://github.com/1mcp-app/agent) for full configuration
+        options and supported server integrations.

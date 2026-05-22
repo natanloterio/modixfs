@@ -1,0 +1,104 @@
+name: quarkus-mcp-servers
+description: Model Context Protocol Servers in Quarkus - filesystem, jbang, kubernetes, and more
+
+mcp:
+  server: quarkus-mcp-servers
+  command: npx
+  args: ["-y", "@quarkiverse/quarkus-mcp-servers"]
+
+files:
+  - name: how_to.md
+    type: readonly
+    content: |
+      # Quarkus MCP Servers
+
+      This folder wraps the Quarkus MCP Servers project, which provides a collection of
+      Model Context Protocol (MCP) servers built with Quarkus.
+
+      ## Available Tools
+
+      ### Filesystem
+      - **read_file** – Read the contents of a file by path
+      - **write_file** – Write content to a file at a given path
+      - **list_directory** – List the contents of a directory
+      - **delete_file** – Delete a file at a given path
+      - **move_file** – Move or rename a file
+
+      ### JBang
+      - **jbang_run** – Run a JBang script by source or URL
+
+      ### Kubernetes
+      - **kubectl_get** – Get Kubernetes resources
+      - **kubectl_describe** – Describe a Kubernetes resource
+      - **kubectl_logs** – Fetch logs from a Kubernetes pod
+
+      ## Usage
+
+      Each file in this folder maps to one MCP tool. Open a file and provide
+      the required input to invoke the corresponding tool.
+
+      ## References
+      - GitHub: https://github.com/quarkiverse/quarkus-mcp-servers
+
+  - name: read_file
+    type: write_invoke
+    handler: livefolders mcp call quarkus-mcp-servers read_file --arg path="$INPUT"
+    input:
+      type: string
+      description: Absolute or relative path of the file to read
+
+  - name: write_file
+    type: write_invoke
+    handler: livefolders mcp call quarkus-mcp-servers write_file --arg path="$INPUT"
+    input:
+      type: string
+      description: Path of the file to write (content passed as second arg if supported)
+
+  - name: list_directory
+    type: write_invoke
+    handler: livefolders mcp call quarkus-mcp-servers list_directory --arg path="$INPUT"
+    input:
+      type: string
+      description: Directory path to list
+
+  - name: delete_file
+    type: write_invoke
+    handler: livefolders mcp call quarkus-mcp-servers delete_file --arg path="$INPUT"
+    input:
+      type: string
+      description: Path of the file to delete
+
+  - name: move_file
+    type: write_invoke
+    handler: livefolders mcp call quarkus-mcp-servers move_file --arg source="$INPUT"
+    input:
+      type: string
+      description: Source path of the file to move
+
+  - name: jbang_run
+    type: write_invoke
+    handler: livefolders mcp call quarkus-mcp-servers jbang_run --arg script="$INPUT"
+    input:
+      type: string
+      description: JBang script source path or URL to run
+
+  - name: kubectl_get
+    type: write_invoke
+    handler: livefolders mcp call quarkus-mcp-servers kubectl_get --arg resource="$INPUT"
+    input:
+      type: string
+      description: Kubernetes resource type to get (e.g. pods, deployments, services)
+
+  - name: kubectl_describe
+    type: write_invoke
+    handler: livefolders mcp call quarkus-mcp-servers kubectl_describe --arg resource="$INPUT"
+    input:
+      type: string
+      description: Kubernetes resource type and name to describe (e.g. pod/my-pod)
+
+  - name: kubectl_logs
+    type: write_invoke
+    handler: livefolders mcp call quarkus-mcp-servers kubectl_logs --arg pod="$INPUT"
+    input:
+      type: string
+      description: Name of the Kubernetes pod to fetch logs from

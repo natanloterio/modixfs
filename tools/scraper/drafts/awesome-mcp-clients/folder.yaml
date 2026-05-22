@@ -1,0 +1,42 @@
+name: awesome-mcp-clients
+description: Browse and search a curated collection of MCP clients
+
+mcp:
+  server: awesome-mcp-clients
+  command: npx
+  args: ["-y", "awesome-mcp-clients-mcp"]
+
+files:
+  - name: list_clients
+    type: read_invoke
+    handler: livefolders mcp call awesome-mcp-clients list_clients
+    description: List all MCP clients in the collection
+
+  - name: get_client
+    type: write_invoke
+    handler: livefolders mcp call awesome-mcp-clients get_client --arg name="$INPUT"
+    input:
+      type: string
+      description: Name of the MCP client to retrieve details for
+
+  - name: search_clients
+    type: write_invoke
+    handler: livefolders mcp call awesome-mcp-clients search_clients --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to filter MCP clients by name, description, or tags
+
+  - name: list_categories
+    type: read_invoke
+    handler: livefolders mcp call awesome-mcp-clients list_categories
+    description: List all available categories of MCP clients
+
+  - name: get_clients_by_category
+    type: write_invoke
+    handler: livefolders mcp call awesome-mcp-clients get_clients_by_category --arg category="$INPUT"
+    input:
+      type: string
+      description: Category name to filter MCP clients by
+
+  - name: how_to.md
+    type: readonly

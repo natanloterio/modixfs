@@ -1,0 +1,87 @@
+name: servers-archived
+description: Reference MCP servers that are no longer maintained (archived collection)
+
+mcp:
+  server: servers-archived
+  command: npx
+  args: ["-y", "@modelcontextprotocol/server-everything"]
+
+env:
+  - name: BRAVE_API_KEY
+    description: API key for Brave Search (if using brave-search server)
+    secret: true
+    required: false
+  - name: EXA_API_KEY
+    description: API key for Exa search (if using exa server)
+    secret: true
+    required: false
+
+files:
+  - name: everything_echo
+    type: write_invoke
+    handler: livefolders mcp call servers-archived echo --arg message="$INPUT"
+    input:
+      type: string
+      description: Message to echo back via the everything test server
+
+  - name: everything_add
+    type: write_invoke
+    handler: livefolders mcp call servers-archived add --arg a="$INPUT"
+    input:
+      type: string
+      description: First number to add (integer)
+
+  - name: everything_long_task
+    type: write_invoke
+    handler: livefolders mcp call servers-archived longRunningOperation --arg duration="$INPUT"
+    input:
+      type: string
+      description: Duration in seconds for the long running operation
+
+  - name: everything_get_tiny_image
+    type: read_invoke
+    handler: livefolders mcp call servers-archived getTinyImage
+
+  - name: everything_sample_llm
+    type: write_invoke
+    handler: livefolders mcp call servers-archived sampleLLM --arg prompt="$INPUT"
+    input:
+      type: string
+      description: Prompt to send for LLM sampling demonstration
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # servers-archived
+
+      This folder wraps the archived/reference MCP servers from the
+      Model Context Protocol organization. These servers are no longer
+      actively maintained but serve as useful references and examples.
+
+      ## Available Tools
+
+      ### everything_echo
+      Echoes a message back. Useful for testing MCP connectivity.
+      - Input: any string message
+
+      ### everything_add
+      Adds two numbers together. Pass the first number as input.
+      - Input: first integer (e.g. "5")
+
+      ### everything_long_task
+      Simulates a long-running operation with progress updates.
+      - Input: duration in seconds (e.g. "10")
+
+      ### everything_get_tiny_image
+      Returns a tiny test image. No input required.
+
+      ### everything_sample_llm
+      Demonstrates LLM sampling capability.
+      - Input: a prompt string
+
+      ## Notes
+      - These are archived reference implementations; do not use in production.
+      - See https://github.com/modelcontextprotocol/servers-archived for full list
+        of included servers (brave-search, exa, postgres, sqlite, puppeteer, etc.).
+      - To use other archived servers, update the args in folder.yaml to point to
+        the specific server package (e.g. `@modelcontextprotocol/server-brave-search`).

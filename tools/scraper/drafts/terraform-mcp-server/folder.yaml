@@ -1,0 +1,60 @@
+name: terraform-mcp-server
+description: Terraform ecosystem integration for Infrastructure as Code automation and interaction
+
+mcp:
+  server: terraform-mcp-server
+  command: npx
+  args: ["-y", "@hashicorp/terraform-mcp-server"]
+
+files:
+  - name: resolveProviderDocID
+    type: write_invoke
+    handler: livefolders mcp call terraform-mcp-server resolveProviderDocID --arg serviceSlug="$INPUT"
+    input:
+      type: string
+      description: Provider service slug to resolve documentation ID (e.g. "aws/vpc")
+
+  - name: getProviderDocs
+    type: write_invoke
+    handler: livefolders mcp call terraform-mcp-server getProviderDocs --arg serviceSlug="$INPUT"
+    input:
+      type: string
+      description: Provider service slug to fetch full documentation for
+
+  - name: searchProviderDocs
+    type: write_invoke
+    handler: livefolders mcp call terraform-mcp-server searchProviderDocs --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find relevant Terraform provider documentation
+
+  - name: resolveModuleDocID
+    type: write_invoke
+    handler: livefolders mcp call terraform-mcp-server resolveModuleDocID --arg moduleSlug="$INPUT"
+    input:
+      type: string
+      description: Module slug to resolve documentation ID (e.g. "terraform-aws-modules/vpc/aws")
+
+  - name: getModuleDocs
+    type: write_invoke
+    handler: livefolders mcp call terraform-mcp-server getModuleDocs --arg moduleSlug="$INPUT"
+    input:
+      type: string
+      description: Module slug to fetch full documentation for
+
+  - name: searchModules
+    type: write_invoke
+    handler: livefolders mcp call terraform-mcp-server searchModules --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find Terraform modules in the registry
+
+  - name: searchProviders
+    type: write_invoke
+    handler: livefolders mcp call terraform-mcp-server searchProviders --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find Terraform providers in the registry
+
+  - name: how_to.md
+    type: readonly

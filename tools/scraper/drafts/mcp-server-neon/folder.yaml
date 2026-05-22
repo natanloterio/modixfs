@@ -1,0 +1,125 @@
+name: mcp-server-neon
+description: Interact with Neon serverless Postgres — manage projects, branches, databases, and run SQL
+
+mcp:
+  server: mcp-server-neon
+  command: npx
+  args: ["-y", "@neondatabase/mcp-server-neon", "start"]
+
+env:
+  - name: NEON_API_KEY
+    secret: true
+    required: true
+
+files:
+  - name: list_projects
+    type: read_invoke
+    handler: livefolders mcp call mcp-server-neon listProjects
+
+  - name: create_project
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-neon createProject --arg name="$INPUT"
+    input:
+      type: string
+      description: Name for the new Neon project
+
+  - name: delete_project
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-neon deleteProject --arg projectId="$INPUT"
+    input:
+      type: string
+      description: Project ID to delete
+
+  - name: describe_project
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-neon describeProject --arg projectId="$INPUT"
+    input:
+      type: string
+      description: Project ID to describe
+
+  - name: list_branches
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-neon listBranches --arg projectId="$INPUT"
+    input:
+      type: string
+      description: Project ID whose branches to list
+
+  - name: create_branch
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-neon createBranch --arg projectId="$INPUT"
+    input:
+      type: string
+      description: Project ID in which to create a new branch
+
+  - name: delete_branch
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-neon deleteBranch --arg projectId="$INPUT"
+    input:
+      type: string
+      description: Project ID of the branch to delete (also supply branchId separately)
+
+  - name: describe_branch
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-neon describeBranch --arg projectId="$INPUT"
+    input:
+      type: string
+      description: Project ID of the branch to describe
+
+  - name: run_sql
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-neon runSql --arg sql="$INPUT"
+    input:
+      type: string
+      description: SQL query to execute against the Neon database
+
+  - name: run_sql_transaction
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-neon runSqlTransaction --arg sqlStatements="$INPUT"
+    input:
+      type: string
+      description: Semicolon-separated SQL statements to run as a transaction
+
+  - name: get_connection_string
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-neon getConnectionString --arg projectId="$INPUT"
+    input:
+      type: string
+      description: Project ID for which to retrieve the connection string
+
+  - name: list_databases
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-neon listDatabases --arg projectId="$INPUT"
+    input:
+      type: string
+      description: Project ID whose databases to list
+
+  - name: describe_table_schema
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-neon describeTableSchema --arg tableName="$INPUT"
+    input:
+      type: string
+      description: Table name whose schema to describe
+
+  - name: get_database_tables
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-neon getDatabaseTables --arg projectId="$INPUT"
+    input:
+      type: string
+      description: Project ID whose table list to retrieve
+
+  - name: prepare_database_migration
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-neon prepareDatabaseMigration --arg migrationSql="$INPUT"
+    input:
+      type: string
+      description: SQL migration statement(s) to prepare on a temporary branch
+
+  - name: complete_database_migration
+    type: write_invoke
+    handler: livefolders mcp call mcp-server-neon completeDatabaseMigration --arg migrationId="$INPUT"
+    input:
+      type: string
+      description: Migration ID returned by prepareDatabaseMigration to apply and finalize
+
+  - name: how_to.md
+    type: readonly

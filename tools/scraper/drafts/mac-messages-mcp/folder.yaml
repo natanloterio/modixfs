@@ -1,0 +1,58 @@
+name: mac-messages-mcp
+description: Query and analyze iMessage conversations, send messages, and manage contacts via MCP
+
+mcp:
+  server: mac_messages_mcp
+  command: npx
+  args: ["-y", "mac-messages-mcp"]
+
+files:
+  - name: get_recent_chats
+    type: read_invoke
+    handler: livefolders mcp call mac_messages_mcp get_recent_chats
+
+  - name: search_messages
+    type: write_invoke
+    handler: livefolders mcp call mac_messages_mcp search_messages --arg query="$INPUT"
+    input:
+      type: string
+      description: Search query to find messages by text content
+
+  - name: get_chat_messages
+    type: write_invoke
+    handler: livefolders mcp call mac_messages_mcp get_chat_messages --arg chat_id="$INPUT"
+    input:
+      type: string
+      description: Chat ID to retrieve messages from
+
+  - name: send_message
+    type: write_invoke
+    handler: livefolders mcp call mac_messages_mcp send_message --arg phone_number="$INPUT"
+    input:
+      type: string
+      description: Phone number of the recipient to send a message to
+
+  - name: get_contact_info
+    type: write_invoke
+    handler: livefolders mcp call mac_messages_mcp get_contact_info --arg phone_number="$INPUT"
+    input:
+      type: string
+      description: Phone number to look up contact information for
+
+  - name: get_group_chats
+    type: read_invoke
+    handler: livefolders mcp call mac_messages_mcp get_group_chats
+
+  - name: get_attachments
+    type: write_invoke
+    handler: livefolders mcp call mac_messages_mcp get_attachments --arg chat_id="$INPUT"
+    input:
+      type: string
+      description: Chat ID to retrieve attachments from
+
+  - name: get_unread_messages
+    type: read_invoke
+    handler: livefolders mcp call mac_messages_mcp get_unread_messages
+
+  - name: how_to.md
+    type: readonly

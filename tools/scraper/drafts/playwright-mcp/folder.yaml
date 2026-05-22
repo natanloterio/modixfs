@@ -1,0 +1,135 @@
+name: playwright-mcp
+description: Browser automation and web scraping via Playwright MCP server
+
+mcp:
+  server: playwright-mcp
+  command: npx
+  args: ["-y", "@playwright/mcp@latest"]
+
+files:
+  - name: navigate
+    type: write_invoke
+    handler: livefolders mcp call playwright-mcp browser_navigate --arg url="$INPUT"
+    input:
+      type: string
+      description: URL to navigate to in the browser
+
+  - name: screenshot
+    type: read_invoke
+    handler: livefolders mcp call playwright-mcp browser_screenshot
+
+  - name: click
+    type: write_invoke
+    handler: livefolders mcp call playwright-mcp browser_click --arg element="$INPUT"
+    input:
+      type: string
+      description: Element description or selector to click
+
+  - name: type_text
+    type: write_invoke
+    handler: livefolders mcp call playwright-mcp browser_type --arg text="$INPUT"
+    input:
+      type: string
+      description: Text to type into the focused element
+
+  - name: get_page_text
+    type: read_invoke
+    handler: livefolders mcp call playwright-mcp browser_get_text
+
+  - name: evaluate_js
+    type: write_invoke
+    handler: livefolders mcp call playwright-mcp browser_evaluate --arg script="$INPUT"
+    input:
+      type: string
+      description: JavaScript expression to evaluate in the browser context
+
+  - name: go_back
+    type: read_invoke
+    handler: livefolders mcp call playwright-mcp browser_go_back
+
+  - name: go_forward
+    type: read_invoke
+    handler: livefolders mcp call playwright-mcp browser_go_forward
+
+  - name: wait_for_selector
+    type: write_invoke
+    handler: livefolders mcp call playwright-mcp browser_wait_for_selector --arg selector="$INPUT"
+    input:
+      type: string
+      description: CSS selector or element description to wait for
+
+  - name: fill_form
+    type: write_invoke
+    handler: livefolders mcp call playwright-mcp browser_fill --arg value="$INPUT"
+    input:
+      type: string
+      description: Value to fill into the currently focused form field
+
+  - name: select_option
+    type: write_invoke
+    handler: livefolders mcp call playwright-mcp browser_select_option --arg value="$INPUT"
+    input:
+      type: string
+      description: Option value or label to select from a dropdown
+
+  - name: close_browser
+    type: read_invoke
+    handler: livefolders mcp call playwright-mcp browser_close
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # Playwright MCP — How To
+
+      This folder wraps the [Playwright MCP server](https://github.com/microsoft/playwright-mcp)
+      (⭐ 32,000+), giving you browser automation tools as LiveFolders endpoints.
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | `navigate` | Open any URL in a Playwright-controlled browser |
+      | `screenshot` | Capture a screenshot of the current page |
+      | `click` | Click on an element by description or selector |
+      | `type_text` | Type text into the currently focused element |
+      | `get_page_text` | Extract all visible text from the current page |
+      | `evaluate_js` | Run arbitrary JavaScript in the page context |
+      | `go_back` | Navigate back in browser history |
+      | `go_forward` | Navigate forward in browser history |
+      | `wait_for_selector` | Wait until a selector/element appears |
+      | `fill_form` | Fill a value into a focused form field |
+      | `select_option` | Choose an option from a select/dropdown |
+      | `close_browser` | Close the browser session |
+
+      ## Quick Start
+
+      1. Navigate to a page:
+         ```
+         echo "https://example.com" > navigate
+         ```
+
+      2. Take a screenshot:
+         ```
+         cat screenshot
+         ```
+
+      3. Click a button:
+         ```
+         echo "Sign In button" > click
+         ```
+
+      4. Type into a field:
+         ```
+         echo "hello world" > type_text
+         ```
+
+      5. Run JavaScript:
+         ```
+         echo "document.title" > evaluate_js
+         ```
+
+      ## Notes
+      - No API key is required; Playwright runs locally.
+      - Ensure `npx` and Node.js (v18+) are installed.
+      - The browser session is shared across calls within a folder session.
+      - Use `screenshot` frequently to verify the current page state.

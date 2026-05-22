@@ -1,0 +1,138 @@
+name: maxmsp-mcp-server
+description: MCP server for controlling Max/MSP/Jitter programmatically
+
+mcp:
+  server: maxmsp-mcp-server
+  command: npx
+  args: ["-y", "maxmsp-mcp-server"]
+
+files:
+  - name: create_object
+    type: write_invoke
+    handler: livefolders mcp call maxmsp-mcp-server create_object --arg type="$INPUT"
+    input:
+      type: string
+      description: Max object type to create (e.g. "cycle~", "gain~", "dac~")
+
+  - name: delete_object
+    type: write_invoke
+    handler: livefolders mcp call maxmsp-mcp-server delete_object --arg id="$INPUT"
+    input:
+      type: string
+      description: ID of the Max object to delete
+
+  - name: connect_objects
+    type: write_invoke
+    handler: livefolders mcp call maxmsp-mcp-server connect_objects --arg source_id="$INPUT"
+    input:
+      type: string
+      description: Source object ID to connect from
+
+  - name: disconnect_objects
+    type: write_invoke
+    handler: livefolders mcp call maxmsp-mcp-server disconnect_objects --arg source_id="$INPUT"
+    input:
+      type: string
+      description: Source object ID to disconnect
+
+  - name: set_attribute
+    type: write_invoke
+    handler: livefolders mcp call maxmsp-mcp-server set_attribute --arg id="$INPUT"
+    input:
+      type: string
+      description: Object ID whose attribute to set
+
+  - name: get_attribute
+    type: write_invoke
+    handler: livefolders mcp call maxmsp-mcp-server get_attribute --arg id="$INPUT"
+    input:
+      type: string
+      description: Object ID whose attribute to get
+
+  - name: send_message
+    type: write_invoke
+    handler: livefolders mcp call maxmsp-mcp-server send_message --arg id="$INPUT"
+    input:
+      type: string
+      description: Object ID to send a message to
+
+  - name: get_patch_state
+    type: read_invoke
+    handler: livefolders mcp call maxmsp-mcp-server get_patch_state
+
+  - name: create_patch
+    type: write_invoke
+    handler: livefolders mcp call maxmsp-mcp-server create_patch --arg name="$INPUT"
+    input:
+      type: string
+      description: Name for the new Max patch
+
+  - name: open_patch
+    type: write_invoke
+    handler: livefolders mcp call maxmsp-mcp-server open_patch --arg path="$INPUT"
+    input:
+      type: string
+      description: File path of the Max patch to open
+
+  - name: save_patch
+    type: write_invoke
+    handler: livefolders mcp call maxmsp-mcp-server save_patch --arg path="$INPUT"
+    input:
+      type: string
+      description: File path to save the current patch to
+
+  - name: list_objects
+    type: read_invoke
+    handler: livefolders mcp call maxmsp-mcp-server list_objects
+
+  - name: start_dsp
+    type: read_invoke
+    handler: livefolders mcp call maxmsp-mcp-server start_dsp
+
+  - name: stop_dsp
+    type: read_invoke
+    handler: livefolders mcp call maxmsp-mcp-server stop_dsp
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # MaxMSP-MCP-Server
+
+      This folder wraps the MaxMSP-MCP-Server, which allows AI models to control
+      Max/MSP/Jitter programmatically via the Model Context Protocol.
+
+      ## Requirements
+
+      - Max (Max/MSP/Jitter) must be installed and running on your machine.
+      - The MaxMSP-MCP-Server package is installed automatically via npx.
+
+      ## Available Tools
+
+      | File | Description |
+      |------|-------------|
+      | create_object | Create a new Max object by type (e.g. cycle~, gain~) |
+      | delete_object | Delete an existing Max object by ID |
+      | connect_objects | Connect two Max objects by source ID |
+      | disconnect_objects | Disconnect Max objects by source ID |
+      | set_attribute | Set an attribute on a Max object |
+      | get_attribute | Get an attribute from a Max object |
+      | send_message | Send a message to a Max object |
+      | get_patch_state | Get the current state of the active patch |
+      | create_patch | Create a new Max patch |
+      | open_patch | Open an existing Max patch from disk |
+      | save_patch | Save the current patch to disk |
+      | list_objects | List all objects in the current patch |
+      | start_dsp | Start Max DSP audio engine |
+      | stop_dsp | Stop Max DSP audio engine |
+
+      ## Usage Tips
+
+      - Use `create_patch` or `open_patch` first to establish a working patch context.
+      - Object IDs are returned by `create_object` and `list_objects`.
+      - Use `start_dsp` before sending audio to outputs like `dac~`.
+      - Use `save_patch` to persist your work to a `.maxpat` file.
+
+      ## References
+
+      - GitHub: https://github.com/tiianhk/MaxMSP-MCP-Server
+      - Max documentation: https://docs.cycling74.com/

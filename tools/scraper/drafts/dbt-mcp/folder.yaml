@@ -1,0 +1,150 @@
+name: dbt-mcp
+description: Interact with dbt (data build tool) via the Model Context Protocol
+
+mcp:
+  server: dbt-mcp
+  command: uvx
+  args: ["dbt-mcp"]
+
+env:
+  - name: DBT_HOST
+    description: dbt Cloud host (e.g. cloud.getdbt.com)
+    required: true
+    secret: false
+  - name: DBT_TOKEN
+    description: dbt Cloud API token
+    required: true
+    secret: true
+  - name: DBT_PROJECT_ID
+    description: dbt Cloud project ID
+    required: true
+    secret: false
+  - name: DBT_ENVIRONMENT_ID
+    description: dbt Cloud environment ID
+    required: true
+    secret: false
+
+files:
+  - name: list_models
+    type: read_invoke
+    handler: livefolders mcp call dbt-mcp list_models
+
+  - name: get_model
+    type: write_invoke
+    handler: livefolders mcp call dbt-mcp get_model --arg model_name="$INPUT"
+    input:
+      type: string
+      description: Name of the dbt model to retrieve details for
+
+  - name: run_model
+    type: write_invoke
+    handler: livefolders mcp call dbt-mcp run_model --arg model_name="$INPUT"
+    input:
+      type: string
+      description: Name of the dbt model to run
+
+  - name: test_model
+    type: write_invoke
+    handler: livefolders mcp call dbt-mcp test_model --arg model_name="$INPUT"
+    input:
+      type: string
+      description: Name of the dbt model to run tests against
+
+  - name: compile_model
+    type: write_invoke
+    handler: livefolders mcp call dbt-mcp compile_model --arg model_name="$INPUT"
+    input:
+      type: string
+      description: Name of the dbt model to compile
+
+  - name: list_sources
+    type: read_invoke
+    handler: livefolders mcp call dbt-mcp list_sources
+
+  - name: get_source
+    type: write_invoke
+    handler: livefolders mcp call dbt-mcp get_source --arg source_name="$INPUT"
+    input:
+      type: string
+      description: Name of the dbt source to retrieve details for
+
+  - name: list_metrics
+    type: read_invoke
+    handler: livefolders mcp call dbt-mcp list_metrics
+
+  - name: get_metric
+    type: write_invoke
+    handler: livefolders mcp call dbt-mcp get_metric --arg metric_name="$INPUT"
+    input:
+      type: string
+      description: Name of the dbt metric to retrieve details for
+
+  - name: query_metric
+    type: write_invoke
+    handler: livefolders mcp call dbt-mcp query_metric --arg metric_name="$INPUT"
+    input:
+      type: string
+      description: Name of the dbt metric to query
+
+  - name: list_saved_queries
+    type: read_invoke
+    handler: livefolders mcp call dbt-mcp list_saved_queries
+
+  - name: get_lineage
+    type: write_invoke
+    handler: livefolders mcp call dbt-mcp get_lineage --arg model_name="$INPUT"
+    input:
+      type: string
+      description: Name of the dbt model to retrieve lineage for
+
+  - name: how_to.md
+    type: readonly
+    content: |
+      # dbt MCP Folder
+
+      This folder wraps the [dbt-mcp](https://github.com/dbt-labs/dbt-mcp) server,
+      enabling interaction with dbt Cloud projects via the Model Context Protocol.
+
+      ## Setup
+
+      Set the following environment variables before use:
+
+      | Variable | Description |
+      |---|---|
+      | `DBT_HOST` | Your dbt Cloud host (e.g. `cloud.getdbt.com`) |
+      | `DBT_TOKEN` | Your dbt Cloud personal access token or service token |
+      | `DBT_PROJECT_ID` | The numeric ID of your dbt Cloud project |
+      | `DBT_ENVIRONMENT_ID` | The numeric ID of your dbt Cloud environment |
+
+      ## Available Tools
+
+      | File | Description |
+      |---|---|
+      | `list_models` | List all models in the dbt project |
+      | `get_model` | Get details for a specific model by name |
+      | `run_model` | Trigger a run for a specific model |
+      | `test_model` | Run tests against a specific model |
+      | `compile_model` | Compile a specific model |
+      | `list_sources` | List all sources in the dbt project |
+      | `get_source` | Get details for a specific source |
+      | `list_metrics` | List all metrics defined in the project |
+      | `get_metric` | Get details for a specific metric |
+      | `query_metric` | Query a specific metric |
+      | `list_saved_queries` | List all saved queries |
+      | `get_lineage` | Get upstream/downstream lineage for a model |
+
+      ## Example Usage
+
+      ```bash
+      # List all models
+      cat list_models
+
+      # Get details about the orders model
+      echo "orders" > get_model
+
+      # Run the customers model
+      echo "customers" > run_model
+
+      # Check lineage for a model
+      echo "fct_revenue" > get_lineage
+      ```
