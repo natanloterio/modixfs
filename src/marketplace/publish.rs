@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 // Set via env var LIVEFOLDERS_GITHUB_CLIENT_ID or register an OAuth App at
 // https://github.com/settings/developers and hard-code the client_id here.
-const DEFAULT_CLIENT_ID: &str = "";
+const DEFAULT_CLIENT_ID: &str = "Ov23litjBhDq65tLjGoP";
 
 pub fn publish() -> anyhow::Result<()> {
     // 1. Detect repo slug from git remote
