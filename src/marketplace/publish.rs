@@ -60,6 +60,18 @@ pub fn publish() -> anyhow::Result<()> {
 
     if !status.is_success() {
         let msg = body.get("error").and_then(|e| e.as_str()).unwrap_or("unknown error");
+        if msg.contains("folder.yaml") {
+            anyhow::bail!(
+                "[ERROR:REGISTRY] {}\n\n\
+                 `livefolders publish` must be run from a GitHub repo that has a folder.yaml at its root.\n\n\
+                 To create a publishable tool:\n\
+                   1. Create a new repo for your tool (e.g. github.com/you/my-tool)\n\
+                   2. Add a folder.yaml describing the tool's endpoints\n\
+                   3. Push and run `livefolders publish` from that repo\n\n\
+                 Docs: https://livefoldersfs.org/publish",
+                msg
+            );
+        }
         anyhow::bail!("[ERROR:REGISTRY] {}", msg);
     }
 
@@ -98,6 +110,11 @@ fn github_device_flow() -> anyhow::Result<String> {
         .context("failed to contact GitHub")?;
 
     let device: serde_json::Value = resp.json().context("invalid response from GitHub device endpoint")?;
+
+    if let Some(err) = device["error"].as_str() {
+        let desc = device["error_description"].as_str().unwrap_or(err);
+        anyhow::bail!("[ERROR:AUTH] GitHub: {} — make sure Device Flow is enabled on the OAuth App at https://github.com/settings/developers", desc);
+    }
 
     let device_code = device["device_code"].as_str().context("missing device_code")?;
     let user_code = device["user_code"].as_str().context("missing user_code")?;
