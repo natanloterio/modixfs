@@ -82,7 +82,11 @@ fn bootstrap_and_publish(slug: &str, src: &Path) -> anyhow::Result<()> {
     let token = github_device_flow()?;
 
     let auth_url = format!("https://x-access-token:{}@github.com/{}", token, slug);
-    run_git(&clone_dir, &["remote", "set-url", "origin", &auth_url])?;
+    run_git_secret(
+        &clone_dir,
+        &["remote", "set-url", "origin", &auth_url],
+        "remote set-url origin <redacted>",
+    )?;
 
     if let Err(e) = run_git(&clone_dir, &["push"])
         .and_then(|_| run_git(&clone_dir, &["push", "--tags"]))
@@ -267,6 +271,18 @@ fn run_git(dir: &Path, args: &[&str]) -> anyhow::Result<()> {
         .with_context(|| format!("failed to run: git {}", args.join(" ")))?;
     if !status.success() {
         anyhow::bail!("[ERROR:GIT] git {} failed", args.join(" "));
+    }
+    Ok(())
+}
+
+fn run_git_secret(dir: &Path, args: &[&str], display_cmd: &str) -> anyhow::Result<()> {
+    let status = std::process::Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .status()
+        .with_context(|| format!("failed to run: git {}", display_cmd))?;
+    if !status.success() {
+        anyhow::bail!("[ERROR:GIT] git {} failed", display_cmd);
     }
     Ok(())
 }
