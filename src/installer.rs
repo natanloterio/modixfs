@@ -159,6 +159,13 @@ pub fn install(url: &str, cfg: &crate::config::Config) -> Result<()> {
 
     copy_dir_all(&tool_src, &dest)?;
 
+    if let Some(ref mcp) = manifest.mcp {
+        match register_mcp_server(&mcp.server, &mcp.command, &mcp.args) {
+            Ok(()) => println!("Registered MCP server '{}'.", mcp.server),
+            Err(e) => tracing::warn!("could not register MCP server: {}", e),
+        }
+    }
+
     println!("Installed {} → {}", tool_name, dest.display());
     println!("Run `livefolders mount` to start using it (or it will appear automatically if already mounted).");
 
@@ -228,9 +235,63 @@ pub fn install_from_tarball_url(
     }
 
     copy_dir_all(&top_level, &dest)?;
+
+    if let Ok(Some(manifest)) = crate::manifest::Manifest::load(&dest) {
+        if let Some(ref mcp) = manifest.mcp {
+            match register_mcp_server(&mcp.server, &mcp.command, &mcp.args) {
+                Ok(()) => println!("Registered MCP server '{}'.", mcp.server),
+                Err(e) => tracing::warn!("could not register MCP server: {}", e),
+            }
+        }
+    }
+
     println!("Installed {} → {}", tool_name, dest.display());
     println!("Run `livefolders mount` to start using it.");
     Ok(())
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Default)]
+struct McpServersConfig {
+    #[serde(default)]
+    servers: std::collections::HashMap<String, McpServerEntry>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct McpServerEntry {
+    command: String,
+    #[serde(default)]
+    args: Vec<String>,
+}
+
+/// Write/merge an MCP server entry into `<config_dir>/mcp-servers.yaml`.
+pub fn register_mcp_server_to_dir(
+    config_dir: &std::path::Path,
+    name: &str,
+    command: &str,
+    args: &[String],
+) -> anyhow::Result<()> {
+    std::fs::create_dir_all(config_dir)?;
+    let path = config_dir.join("mcp-servers.yaml");
+    let existing: McpServersConfig = if path.exists() {
+        serde_yaml::from_str(&std::fs::read_to_string(&path)?)?
+    } else {
+        McpServersConfig::default()
+    };
+    let new_entry = McpServerEntry { command: command.to_string(), args: args.to_vec() };
+    let servers = existing.servers.into_iter()
+        .chain(std::iter::once((name.to_string(), new_entry)))
+        .collect();
+    let updated = McpServersConfig { servers };
+    std::fs::write(&path, serde_yaml::to_string(&updated)?)?;
+    Ok(())
+}
+
+pub fn register_mcp_server(name: &str, command: &str, args: &[String]) -> anyhow::Result<()> {
+    let home = std::env::var("HOME").context("HOME environment variable is not set")?;
+    let config_dir = std::path::PathBuf::from(&home)
+        .join(".config")
+        .join("livefolders");
+    register_mcp_server_to_dir(&config_dir, name, command, args)
 }
 
 fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> Result<()> {
@@ -286,5 +347,32 @@ mod tests {
         let u = parse_github_url("github.com/alice/mytool/").unwrap();
         assert_eq!(u.owner, "alice");
         assert_eq!(u.repo, "mytool");
+    }
+
+    #[test]
+    fn register_mcp_server_writes_yaml() {
+        let tmp = tempfile::tempdir().unwrap();
+        let config_dir = tmp.path().to_path_buf();
+        super::register_mcp_server_to_dir(
+            &config_dir,
+            "brave-search",
+            "npx",
+            &["-y".to_string(), "@mcp/server-brave-search".to_string()],
+        ).unwrap();
+        let path = config_dir.join("mcp-servers.yaml");
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("brave-search"));
+        assert!(content.contains("npx"));
+    }
+
+    #[test]
+    fn register_mcp_server_merges_existing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().to_path_buf();
+        super::register_mcp_server_to_dir(&dir, "tool-a", "node", &[]).unwrap();
+        super::register_mcp_server_to_dir(&dir, "tool-b", "python", &["-m".to_string(), "mcp_b".to_string()]).unwrap();
+        let content = std::fs::read_to_string(dir.join("mcp-servers.yaml")).unwrap();
+        assert!(content.contains("tool-a"));
+        assert!(content.contains("tool-b"));
     }
 }
