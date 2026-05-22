@@ -1,0 +1,7 @@
+name: shout
+description: Converts text to uppercase.
+
+files:
+  - name: shout
+    type: write_invoke
+    handler: "tr '[:lower:]' '[:upper:]'"
