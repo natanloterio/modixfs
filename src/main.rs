@@ -40,8 +40,12 @@ Commands:
   info <owner/name>      Show tool info from the registry
   publish                Publish this repo to the registry
   doctor                 Check setup and print actionable fixes
-  mcp                    Expose LiveFolders tools as an MCP server over stdio
-  mcp register [config]  Register the MCP server in ~/.claude/settings.json
+  mcp proxy [--background]          Start the MCP bridge proxy daemon
+  mcp call <server> <tool> [--arg key=value ...]  Call a tool via proxy
+  mcp status                         Show proxy status
+  mcp stop                           Stop the proxy daemon
+  mcp register [config]              Register as MCP server in ~/.claude.json
+  mcp [mount]                        Expose tools as MCP server over stdio
   help                   Show this help
   --version, -v          Print version
 
@@ -514,34 +518,135 @@ fn cmd_mount(args: &[String]) -> Result<()> {
     Ok(())
 }
 
-fn cmd_mcp(args: &[String]) -> Result<()> {
-    if args.get(2).map(|s| s.as_str()) == Some("register") {
-        let home = std::env::var("HOME").context("$HOME is not set")?;
-        let claude_json = PathBuf::from(&home).join(".claude.json");
+struct McpCallArgs {
+    server: Option<String>,
+    tool: Option<String>,
+    arg_pairs: std::collections::HashMap<String, String>,
+}
 
-        let config_arg = args.get(3).map(PathBuf::from);
-        let (server_name, abs_config) = if let Some(ref cp) = config_arg {
-            let cfg = Config::load(cp)
-                .with_context(|| format!("reading config {}", cp.display()))?;
-            let abs = cp.canonicalize()
-                .with_context(|| format!("resolving path {}", cp.display()))?;
-            let raw_name = cfg.name.unwrap_or_else(|| {
-                abs.parent()
-                    .and_then(|p| p.file_name())
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| "livefolders".to_string())
-            });
-            (format!("livefolders-{}", sanitize_mcp_name(&raw_name)), Some(abs))
-        } else {
-            ("livefolders".to_string(), None)
-        };
-
-        let bin = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("livefolders"));
-        register_claude_mcp(&claude_json, &server_name, &bin, abs_config.as_deref())?;
-        println!("Registered MCP server '{}' in {}", server_name, claude_json.display());
-        return Ok(());
+fn parse_mcp_call_args(args: &[String]) -> McpCallArgs {
+    // args layout: ["livefolders", "mcp", "call", <server>, <tool>, "--arg", "k=v", ...]
+    let server = args.get(3).cloned();
+    let tool = args.get(4).cloned();
+    let mut arg_pairs = std::collections::HashMap::new();
+    let mut i = 5;
+    while i < args.len() {
+        if args[i] == "--arg" {
+            i += 1;
+            if i < args.len() {
+                if let Some((k, v)) = args[i].splitn(2, '=').collect::<Vec<_>>().as_slice().split_first().and_then(|(k, rest)| rest.first().map(|v| (*k, *v))) {
+                    arg_pairs.insert(k.to_string(), v.to_string());
+                }
+            }
+        }
+        i += 1;
     }
+    McpCallArgs { server, tool, arg_pairs }
+}
 
+fn cmd_mcp(args: &[String]) -> Result<()> {
+    let sub = args.get(2).map(|s| s.as_str()).unwrap_or("");
+    match sub {
+        "proxy" => {
+            let socket_path = mcp_proxy::default_socket_path();
+            let config_path = mcp_proxy::default_config_path();
+            if args.iter().any(|a| a == "--background") {
+                std::process::Command::new(std::env::current_exe()?)
+                    .args(["mcp", "proxy"])
+                    .stdin(std::process::Stdio::null())
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .spawn()?;
+                println!("mcp-proxy started in background");
+                return Ok(());
+            }
+            mcp_proxy::run_proxy(socket_path, config_path)
+        }
+        "call" => {
+            let parsed = parse_mcp_call_args(args);
+            let server = parsed.server.ok_or_else(|| {
+                anyhow::anyhow!("Usage: livefolders mcp call <server> <tool> [--arg key=value ...]")
+            })?;
+            let tool = parsed.tool.ok_or_else(|| {
+                anyhow::anyhow!("Usage: livefolders mcp call <server> <tool> [--arg key=value ...]")
+            })?;
+            let args_json: serde_json::Value = parsed.arg_pairs
+                .into_iter()
+                .map(|(k, v)| (k, serde_json::Value::String(v)))
+                .collect::<serde_json::Map<_, _>>()
+                .into();
+            let socket_path = mcp_proxy::default_socket_path();
+            let req = mcp_proxy::ProxyRequest::Call { server, tool, args: args_json };
+            let resp = mcp_proxy::proxy_call(&socket_path, &req)?;
+            if resp.ok {
+                print!("{}", resp.result.unwrap_or_default());
+            } else {
+                eprintln!("[ERROR:HANDLER] {}", resp.error.unwrap_or_default());
+                std::process::exit(1);
+            }
+            Ok(())
+        }
+        "status" => {
+            let socket_path = mcp_proxy::default_socket_path();
+            let req = mcp_proxy::ProxyRequest::Status;
+            let resp = mcp_proxy::proxy_call(&socket_path, &req)?;
+            println!("mcp-proxy socket: {}", socket_path.display());
+            if resp.ok {
+                let servers = resp.result.unwrap_or_default();
+                if servers.is_empty() {
+                    println!("No MCP servers running.");
+                } else {
+                    println!("Running servers:\n{}", servers);
+                }
+            }
+            Ok(())
+        }
+        "stop" => {
+            let socket_path = mcp_proxy::default_socket_path();
+            let req = mcp_proxy::ProxyRequest::Stop;
+            let resp = mcp_proxy::proxy_call(&socket_path, &req)?;
+            if resp.ok {
+                println!("mcp-proxy stopped.");
+            }
+            Ok(())
+        }
+        "register" => {
+            cmd_mcp_register(args)
+        }
+        _ => {
+            cmd_mcp_serve(args)
+        }
+    }
+}
+
+fn cmd_mcp_register(args: &[String]) -> Result<()> {
+    let home = std::env::var("HOME").context("$HOME is not set")?;
+    let claude_json = PathBuf::from(&home).join(".claude.json");
+
+    let config_arg = args.get(3).map(PathBuf::from);
+    let (server_name, abs_config) = if let Some(ref cp) = config_arg {
+        let cfg = Config::load(cp)
+            .with_context(|| format!("reading config {}", cp.display()))?;
+        let abs = cp.canonicalize()
+            .with_context(|| format!("resolving path {}", cp.display()))?;
+        let raw_name = cfg.name.unwrap_or_else(|| {
+            abs.parent()
+                .and_then(|p| p.file_name())
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "livefolders".to_string())
+        });
+        (format!("livefolders-{}", sanitize_mcp_name(&raw_name)), Some(abs))
+    } else {
+        ("livefolders".to_string(), None)
+    };
+
+    let bin = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("livefolders"));
+    register_claude_mcp(&claude_json, &server_name, &bin, abs_config.as_deref())?;
+    println!("Registered MCP server '{}' in {}", server_name, claude_json.display());
+    Ok(())
+}
+
+fn cmd_mcp_serve(args: &[String]) -> Result<()> {
     let (cli_mount, config_path, _) = parse_mount_args(args);
 
     let cfg_base: Option<PathBuf>;
@@ -880,5 +985,37 @@ mod tests {
         assert_eq!(super::sanitize_mcp_name("pitaia.me"), "pitaia-me");
         assert_eq!(super::sanitize_mcp_name("my project"), "my-project");
         assert_eq!(super::sanitize_mcp_name("valid-name_123"), "valid-name_123");
+    }
+
+    #[test]
+    fn parse_mcp_call_args_basic() {
+        let args: Vec<String> = ["livefolders", "mcp", "call", "brave", "web_search",
+            "--arg", "query=London", "--arg", "count=5"]
+            .iter().map(|s| s.to_string()).collect();
+        let parsed = super::parse_mcp_call_args(&args);
+        assert_eq!(parsed.server.as_deref(), Some("brave"));
+        assert_eq!(parsed.tool.as_deref(), Some("web_search"));
+        assert_eq!(parsed.arg_pairs.get("query").map(|s| s.as_str()), Some("London"));
+        assert_eq!(parsed.arg_pairs.get("count").map(|s| s.as_str()), Some("5"));
+    }
+
+    #[test]
+    fn parse_mcp_call_args_no_args() {
+        let args: Vec<String> = ["livefolders", "mcp", "call", "myserver", "mytool"]
+            .iter().map(|s| s.to_string()).collect();
+        let parsed = super::parse_mcp_call_args(&args);
+        assert_eq!(parsed.server.as_deref(), Some("myserver"));
+        assert_eq!(parsed.tool.as_deref(), Some("mytool"));
+        assert!(parsed.arg_pairs.is_empty());
+    }
+
+    #[test]
+    fn parse_mcp_call_args_value_with_equals() {
+        // --arg filter=a=b should parse as key="filter", value="a=b"
+        let args: Vec<String> = ["livefolders", "mcp", "call", "s", "t",
+            "--arg", "filter=a=b"]
+            .iter().map(|s| s.to_string()).collect();
+        let parsed = super::parse_mcp_call_args(&args);
+        assert_eq!(parsed.arg_pairs.get("filter").map(|s| s.as_str()), Some("a=b"));
     }
 }
