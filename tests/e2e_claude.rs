@@ -35,3 +35,88 @@ fn build_livefolders_binary() -> PathBuf {
     assert!(status.success(), "cargo build --bin livefolders failed");
     manifest.join("target/debug/livefolders")
 }
+
+// ── Fixture ────────────────────────────────────────────────────────────────────
+
+struct E2eFixture {
+    _tmp_dir: tempfile::TempDir,
+    pub tools_dir: PathBuf,
+    pub mount_dir: PathBuf,
+    pub work_dir: PathBuf,
+    pub config_path: PathBuf,
+    pub livefolders_bin: PathBuf,
+    mount_proc: Child,
+}
+
+impl E2eFixture {
+    fn new() -> Self {
+        let bin = build_livefolders_binary();
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+
+        let tools_dir = tmp.path().join("tools");
+        let work_dir = tmp.path().join("work");
+        let mount_dir = work_dir.join(".livefolders");
+
+        fs::create_dir_all(&tools_dir).unwrap();
+        fs::create_dir_all(&work_dir).unwrap();
+
+        // Copy shout fixture into tools_dir
+        let shout_dir = tools_dir.join("shout");
+        fs::create_dir_all(&shout_dir).unwrap();
+        fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/e2e/fixtures/shout/folder.yaml"),
+            shout_dir.join("folder.yaml"),
+        ).expect("copy shout fixture");
+
+        // Write livefolders.yaml with absolute paths
+        let config_path = work_dir.join("livefolders.yaml");
+        let config_yaml = format!(
+            "mount: {}\ntools_dir: {}\ntools:\n  - name: shout\n",
+            mount_dir.display(),
+            tools_dir.display(),
+        );
+        fs::write(&config_path, &config_yaml).unwrap();
+
+        // Spawn FUSE mount in foreground
+        let mount_proc = Command::new(&bin)
+            .args(["mount", "--foreground", "--config"])
+            .arg(&config_path)
+            .spawn()
+            .expect("spawn livefolders mount");
+
+        // Poll until mount is ready (index.md synthesized by FUSE)
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let index_md = mount_dir.join("tools").join("index.md");
+        while Instant::now() < deadline {
+            if index_md.exists() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        assert!(index_md.exists(), "FUSE mount did not come up within 5 seconds");
+
+        E2eFixture {
+            _tmp_dir: tmp,
+            tools_dir,
+            mount_dir,
+            work_dir,
+            config_path,
+            livefolders_bin: bin,
+            mount_proc,
+        }
+    }
+}
+
+impl Drop for E2eFixture {
+    fn drop(&mut self) {
+        let _ = self.mount_proc.kill();
+        let _ = self.mount_proc.wait();
+        let _ = Command::new("fusermount")
+            .args(["-u", &self.mount_dir.to_string_lossy()])
+            .status();
+        let _ = Command::new("umount")
+            .arg(&self.mount_dir)
+            .status();
+    }
+}
