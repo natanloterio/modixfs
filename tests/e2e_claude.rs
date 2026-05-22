@@ -232,18 +232,21 @@ fn test_mcp_create_and_call() {
     let mut fixture = E2eFixture::new();
     fixture.write_mcp_settings();
 
-    // Sub-case A: Claude writes a folder.yaml to create a ping tool, then calls it via MCP.
+    // Sub-case A: Claude writes a folder.yaml to create a ping tool, then calls it via
+    // the filesystem directly. Note: MCP tool list is fetched once at session start and
+    // doesn't refresh after hot-reload (no notifications/tools/list_changed support yet),
+    // so filesystem verification is used here rather than an MCP call.
     let tools_dir = fixture.tools_dir.to_str().unwrap().to_string();
     let prompt = format!(
-        "You have access to LiveFolders tools via MCP. \
+        "You have access to LiveFolders tools via MCP and also via the filesystem at `.livefolders/`. \
          Create a new tool by writing the following YAML content to the file \
          `{tools_dir}/ping/folder.yaml` (create the directory first):\n\
          \n```yaml\nname: ping\ndescription: Returns pong.\n\nfiles:\n  - name: ping\n    type: read_invoke\n    handler: \"echo pong\"\n    input:\n      type: none\n```\n\n\
-         Wait 3 seconds for hot-reload, then call the ping tool via MCP and tell me what it returned.",
+         Wait 3 seconds for the filesystem to hot-reload the new tool. \
+         Then verify it works by reading `.livefolders/tools/ping/ping` and tell me what it returned.",
         tools_dir = tools_dir,
     );
 
-    // Create-and-call needs more time: write file + 3s wait + MCP tool discovery + call
     let (output, ok) = fixture.run_claude_timeout(&prompt, 150);
 
     assert!(ok, "claude exited with failure. Output:\n{}", output);
