@@ -3,4 +3,4 @@ pub mod publish;
 pub mod resolve;
 pub mod search;
 
-pub const REGISTRY_URL: &str = "https://registry.livefolders.org";
+pub const REGISTRY_URL: &str = "https://registry.livefoldersfs.org";
