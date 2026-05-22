@@ -1,0 +1,25 @@
+name: filesystem
+description: Read and write files via the MCP filesystem server
+
+mcp:
+  server: filesystem
+  command: npx
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+
+files:
+  - name: read_file
+    type: write_invoke
+    handler: livefolders mcp call filesystem read_file --arg path="$INPUT"
+    input:
+      type: string
+      description: File path to read
+
+  - name: list_directory
+    type: write_invoke
+    handler: livefolders mcp call filesystem list_directory --arg path="$INPUT"
+    input:
+      type: string
+      description: Directory path to list
+
+  - name: how_to.md
+    type: readonly
