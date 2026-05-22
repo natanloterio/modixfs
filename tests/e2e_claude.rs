@@ -60,6 +60,9 @@ struct E2eFixture {
     pub config_path: PathBuf,
     pub livefolders_bin: PathBuf,
     mount_proc: Child,
+    /// Set by write_mcp_settings(); used by run_claude() as HOME override so
+    /// Claude Code reads the test MCP config from fake_home/.claude.json.
+    fake_home: Option<PathBuf>,
 }
 
 impl E2eFixture {
@@ -125,26 +128,30 @@ impl E2eFixture {
             config_path,
             livefolders_bin: bin,
             mount_proc,
+            fake_home: None,
         }
     }
 
-    /// Writes .claude/settings.json with MCP server entry for this fixture.
-    fn write_mcp_settings(&self) {
-        let dot_claude = self.work_dir.join(".claude");
-        fs::create_dir_all(&dot_claude).unwrap();
+    /// Writes a fake HOME with .claude.json containing the MCP server entry.
+    /// Claude Code reads mcpServers from ~/.claude.json, not from project settings.
+    fn write_mcp_settings(&mut self) {
+        let fake_home = self.work_dir.join("fake_home");
+        fs::create_dir_all(&fake_home).unwrap();
         let settings = serde_json::json!({
             "mcpServers": {
                 "livefolders": {
                     "type": "stdio",
                     "command": self.livefolders_bin.to_str().unwrap(),
-                    "args": ["mcp", "--config", self.config_path.to_str().unwrap()]
+                    "args": ["mcp", "--config", self.config_path.to_str().unwrap()],
+                    "env": {}
                 }
             }
         });
         fs::write(
-            dot_claude.join("settings.json"),
+            fake_home.join(".claude.json"),
             serde_json::to_string_pretty(&settings).unwrap(),
         ).unwrap();
+        self.fake_home = Some(fake_home);
     }
 
     /// Writes CLAUDE.md in work_dir.
@@ -153,15 +160,24 @@ impl E2eFixture {
     }
 
     /// Spawns `claude --print --dangerously-skip-permissions -p <prompt>` with
-    /// a 90-second timeout. Returns (stdout, exit_success).
+    /// a timeout. Returns (stdout, exit_success).
+    /// If write_mcp_settings() was called, HOME is overridden to the fake home
+    /// so Claude Code reads the test MCP config from fake_home/.claude.json.
     fn run_claude(&self, prompt: &str) -> (String, bool) {
-        let output = Command::new("timeout")
-            .args(["90", "claude", "--print", "--dangerously-skip-permissions", "-p", prompt])
-            .current_dir(&self.work_dir)
-            .output()
-            .expect("failed to spawn claude via timeout");
+        self.run_claude_timeout(prompt, 90)
+    }
+
+    fn run_claude_timeout(&self, prompt: &str, timeout_secs: u64) -> (String, bool) {
+        let timeout_str = timeout_secs.to_string();
+        let mut cmd = Command::new("timeout");
+        cmd.args([timeout_str.as_str(), "claude", "--print", "--dangerously-skip-permissions", "-p", prompt])
+            .current_dir(&self.work_dir);
+        if let Some(ref home) = self.fake_home {
+            cmd.env("HOME", home);
+        }
+        let output = cmd.output().expect("failed to spawn claude via timeout");
         if output.status.code() == Some(124) {
-            panic!("claude timed out after 90 seconds");
+            panic!("claude timed out after {} seconds", timeout_secs);
         }
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         (stdout, output.status.success())
@@ -190,7 +206,7 @@ fn test_mcp_discover_and_call() {
         return;
     }
 
-    let fixture = E2eFixture::new();
+    let mut fixture = E2eFixture::new();
     fixture.write_mcp_settings();
 
     let (output, ok) = fixture.run_claude(
@@ -213,7 +229,7 @@ fn test_mcp_create_and_call() {
         return;
     }
 
-    let fixture = E2eFixture::new();
+    let mut fixture = E2eFixture::new();
     fixture.write_mcp_settings();
 
     // Sub-case A: Claude writes a folder.yaml to create a ping tool, then calls it via MCP.
@@ -227,7 +243,8 @@ fn test_mcp_create_and_call() {
         tools_dir = tools_dir,
     );
 
-    let (output, ok) = fixture.run_claude(&prompt);
+    // Create-and-call needs more time: write file + 3s wait + MCP tool discovery + call
+    let (output, ok) = fixture.run_claude_timeout(&prompt, 150);
 
     assert!(ok, "claude exited with failure. Output:\n{}", output);
     assert!(
