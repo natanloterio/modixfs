@@ -2,6 +2,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
+use tokio::sync::Notify;
+
 use crate::manifest::{FileKind, InputSchema};
 
 /// Identity of an invocation slot.
@@ -30,6 +32,27 @@ pub struct EndpointSnapshot {
     pub manifest_version: u64,
 }
 
+/// State of a slot's invocation lifecycle.
+///
+/// `Idle` is the starting state. Once the handler is kicked (by
+/// `release` for WriteInvoke or by the first `read` for ReadInvoke),
+/// the state moves to `Pending`, which carries an `Arc<Notify>` so
+/// concurrent readers can `.notified().await` and wake up when the
+/// invocation completes. `Ready` indicates the result is in
+/// `InvocationSlot::result` and can be sliced.
+#[derive(Clone)]
+pub enum InvocationState {
+    Idle,
+    Pending(Arc<Notify>),
+    Ready,
+}
+
+impl InvocationState {
+    pub fn is_ready(&self) -> bool {
+        matches!(self, InvocationState::Ready)
+    }
+}
+
 /// Per-invocation state for one `(ino, sid)` pair.
 pub struct InvocationSlot {
     pub key: SlotKey,
@@ -37,10 +60,7 @@ pub struct InvocationSlot {
     pub write_buf: Vec<u8>,
     pub result: Vec<u8>,
     pub trace: Vec<u8>,
-    /// Set to true once `release` has run the handler (for WriteInvoke)
-    /// or once `read` has run it (for ReadInvoke). The result is then in
-    /// `result` and a subsequent `read` will drain it.
-    pub ready: bool,
+    pub state: InvocationState,
     pub last_touched: Instant,
 }
 
@@ -52,7 +72,7 @@ impl InvocationSlot {
             write_buf: Vec::new(),
             result: Vec::new(),
             trace: Vec::new(),
-            ready: false,
+            state: InvocationState::Idle,
             last_touched: Instant::now(),
         }
     }
