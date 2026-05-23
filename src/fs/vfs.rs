@@ -97,6 +97,23 @@ impl LiveFolders {
         self.slots.clone()
     }
 
+    /// Spawns a background task that periodically reaps slots whose
+    /// last touch is older than `max_idle`. Returns the JoinHandle so
+    /// callers can keep or detach it; the task lives for as long as the
+    /// SlotTable Arc is reachable.
+    pub fn spawn_reaper(&self, interval: Duration, max_idle: Duration) -> tokio::task::JoinHandle<()> {
+        let slots = self.slots.clone();
+        self.rt.spawn(async move {
+            loop {
+                tokio::time::sleep(interval).await;
+                let reaped = slots.reap_idle(max_idle);
+                if reaped > 0 {
+                    tracing::warn!(count = reaped, "reaped {} idle invocation slot(s)", reaped);
+                }
+            }
+        })
+    }
+
     /// Bump the manifest version. The watcher calls this on every
     /// reload; in-flight slots keep their snapshot, but the next slot
     /// created after the bump sees the new version.

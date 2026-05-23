@@ -513,6 +513,15 @@ fn cmd_mount(args: &[String]) -> Result<()> {
         }
 
     let fs = LiveFolders::new(registry, tools_dir, mountpoint.clone(), session, handle, cfg.timeout_secs, cfg.sandbox_mode());
+
+    // Reap invocation slots whose last touch is older than 15 minutes,
+    // checking once a minute. Protects against fd leaks when a client
+    // dies without close()ing (no release() ever fires for that fh).
+    let _reaper = fs.spawn_reaper(
+        std::time::Duration::from_secs(60),
+        std::time::Duration::from_secs(15 * 60),
+    );
+
     fuser::mount2(fs, &mountpoint, &options)?;
 
     Ok(())
