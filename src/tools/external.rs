@@ -103,7 +103,7 @@ pub async fn invoke_command(
 
     match timed {
         Err(_) => {
-            let _ = child.kill().await;
+            kill_and_reap(&mut child).await;
             ToolResult::err(format_error("TIMEOUT", &format!("handler exceeded {}s", timeout_secs)))
         }
         Ok(Err(e)) => ToolResult::err(format_error("PROCESS", &e.to_string())),
@@ -119,6 +119,30 @@ pub async fn invoke_command(
                     stderr: err_bytes,
                 }
             }
+        }
+    }
+}
+
+/// Tries to kill `child` cleanly with SIGTERM and reaps it. If the child
+/// is still alive after a 1s grace period, escalates to SIGKILL so a
+/// handler that ignores SIGTERM cannot hang the daemon or leak as a
+/// zombie. Always awaits `wait()` so the OS reclaims the process slot.
+async fn kill_and_reap(child: &mut tokio::process::Child) {
+    let pid = child.id();
+    // start_kill sends SIGTERM via tokio (does not wait).
+    let _ = child.start_kill();
+    match tokio::time::timeout(Duration::from_secs(1), child.wait()).await {
+        Ok(_) => return,
+        Err(_) => {
+            if let Some(pid) = pid {
+                // SAFETY: pid is fresh from the running Child. Even if the
+                // kernel has reaped it between the timeout and now, SIGKILL
+                // to a nonexistent pid is a harmless ESRCH.
+                unsafe {
+                    libc::kill(pid as libc::pid_t, libc::SIGKILL);
+                }
+            }
+            let _ = child.wait().await;
         }
     }
 }
@@ -392,7 +416,7 @@ pub async fn invoke_command_sandboxed(
 
     match timed {
         Err(_) => {
-            let _ = child.kill().await;
+            kill_and_reap(&mut child).await;
             ToolResult::err(format_error("TIMEOUT", &format!("handler exceeded {}s", timeout_secs)))
         }
         Ok(Err(e)) => ToolResult::err(format_error("PROCESS", &e.to_string())),
@@ -655,6 +679,36 @@ mod tests {
         assert!(result.is_error());
         let err = result.error.unwrap();
         assert!(err.starts_with("[ERROR:TIMEOUT]"), "got: {}", err);
+    }
+
+    #[tokio::test]
+    async fn invoke_command_sigkills_handler_that_ignores_sigterm() {
+        // Handler traps SIGTERM and sleeps. Timeout sends SIGTERM, waits 1s,
+        // then escalates to SIGKILL. Total wall time should be under
+        // timeout + grace + epsilon (~3s for a 1s timeout).
+        let started = std::time::Instant::now();
+        let result = invoke_command(
+            "trap '' TERM; sleep 30",
+            b"",
+            "testtool",
+            "testep",
+            Path::new("/tmp"),
+            1,
+            None,
+        ).await;
+        let elapsed = started.elapsed();
+        assert!(result.is_error());
+        assert!(
+            result.error.as_deref().unwrap_or("").starts_with("[ERROR:TIMEOUT]"),
+            "got: {:?}",
+            result.error
+        );
+        // Generous bound: 1s timeout + 1s SIGTERM grace + 1s slack.
+        assert!(
+            elapsed < std::time::Duration::from_secs(4),
+            "kill escalation took too long: {:?}",
+            elapsed
+        );
     }
 
     // ── invoke_pipe tests ────────────────────────────────────────────────────

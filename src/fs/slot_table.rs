@@ -94,7 +94,7 @@ impl SlotTable {
             .filter(|(k, _)| k.0 == ino)
             .filter_map(|(_, h)| {
                 let s = h.lock().ok()?;
-                if s.ready && !s.trace.is_empty() {
+                if s.state.is_ready() && !s.trace.is_empty() {
                     Some((s.last_touched, s.trace.clone()))
                 } else {
                     None

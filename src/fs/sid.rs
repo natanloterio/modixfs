@@ -1,20 +1,27 @@
 use fuser::Request;
 
-/// Returns the kernel session id of the FUSE caller.
+/// Returns the kernel session id of the FUSE caller, or `None` when
+/// FUSE did not give us a usable pid.
 ///
 /// `echo` and `cat` spawned from the same shell pipeline share a sid
 /// even though their pids differ, so keying invocation state on the sid
 /// routes results back to the right caller without any client ceremony.
 ///
-/// Falls back to `0` when `getsid` fails (caller already exited, or some
-/// macOS edge case). `sid == 0` is treated by the runtime as a shared
-/// default session, which preserves the pre-refactor behaviour for any
-/// caller we cannot identify.
-pub fn caller_sid(req: &Request<'_>) -> i32 {
+/// Caveat: FUSE issues some operations (notably `release` and async
+/// `read`) with `pid == 0`. `getsid(0)` would return the daemon's own
+/// session id, which is wrong. When that happens we return `None` so
+/// the caller can fall back to a per-inode cache.
+pub fn caller_sid(req: &Request<'_>) -> Option<i32> {
     let pid = req.pid() as libc::pid_t;
+    if pid == 0 {
+        return None;
+    }
     // SAFETY: getsid is a pure syscall; pid comes from the kernel.
     let sid = unsafe { libc::getsid(pid) };
-    if sid < 0 { 0 } else { sid as i32 }
+    if sid < 0 {
+        return None;
+    }
+    Some(sid as i32)
 }
 
 #[cfg(test)]
