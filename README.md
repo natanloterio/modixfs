@@ -107,7 +107,13 @@ Every tool is a directory under `/tools/<name>/`. Each file inside is an **endpo
     └── list            ← read to fetch users from the API
 ```
 
-The write call **blocks until the tool finishes** — by the time `cat` runs, the result is ready.
+By the time `cat` returns, the handler has finished. Internally the runtime spawns each handler onto a Tokio task and the `cat` blocks on a notification rather than the FUSE thread, so unrelated tools stay responsive while a slow handler runs.
+
+### Concurrency
+
+Two shells can run `echo X > ep && cat ep` against the same endpoint in parallel and each will get its own correct result. State is scoped per shell session (via `getsid`), so `echo` and `cat` from the same pipeline share a slot and pipelines from different shells don't clobber each other. Handlers themselves run in parallel on the Tokio runtime — slow handlers don't queue.
+
+The boundary is the *shell session*, not the user. Two pipelines launched from the same shell will still serialise on the slot; for cross-session isolation across the same endpoint, use distinct shells (`setsid bash -c …` or just two terminal windows). Handlers that share external state (a file, a database, an API quota) should declare a `state_file` — see [Building tools](docs/building-tools.md).
 
 ---
 
@@ -216,8 +222,9 @@ Each endpoint becomes an MCP tool named `<tool>__<endpoint>` (e.g. `weather__for
 
 ## Going further
 
-- [Building tools](docs/building-tools.md) — `folder.yaml` reference, file types, input validation, pipelines, stateful tools, secrets, hot-reload
-- [Security](docs/security.md) — sandbox model, Landlock/seccomp, network access, strict mode
+- [Building tools](docs/building-tools.md) — `folder.yaml` reference, file types, input validation, stateful tools, concurrency model, pipelines, secrets, hot-reload
+- [Security](docs/security.md) — sandbox model, Landlock/seccomp, network access, strict mode, session scoping, known limitations
+- [LiveFoldersFS vs MCP](docs/livefoldersfs-vs-mcp.md) — comparison framework across 10 criteria
 
 ---
 

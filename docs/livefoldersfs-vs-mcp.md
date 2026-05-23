@@ -47,7 +47,7 @@ Both approaches run as a user process with no OS-level sandboxing. The key diffe
 
 ### 06 — Stateful Tools
 
-LiveFoldersFS state lives in files (e.g., `/tmp/lf_counter`). This state persists across restarts, but concurrent writes can corrupt state without explicit locking. MCP state lives in Python process memory: fast and lock-free for single-threaded servers, but lost on server restart. Tools that need persistence across restarts benefit from LiveFoldersFS's file-based model; tools with short-lived, in-memory state are more naturally expressed in MCP.
+LiveFoldersFS state lives in files (e.g., `/tmp/lf_counter`). This state persists across restarts. Per-invocation buffers are scoped to the caller's shell session, so concurrent `echo + cat` from different shells do not clobber each other; for cross-invocation state shared across sessions, declare a `state_file` in `folder.yaml` and the runtime will hold an exclusive `flock` for the duration of each handler call. MCP state lives in Python process memory: fast and lock-free for single-threaded servers, but lost on server restart. Tools that need persistence across restarts benefit from LiveFoldersFS's file-based model; tools with short-lived, in-memory state are more naturally expressed in MCP.
 
 ### 07 — Composability
 

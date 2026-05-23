@@ -93,6 +93,18 @@ The resolved path is passed to the handler as `LIVEFOLDERS_STATE_FILE`. The file
 
 ---
 
+## Concurrency model
+
+What you need to know when writing a handler:
+
+- **Handlers run in parallel.** Each invocation is spawned onto a Tokio task. Two shells calling your endpoint at the same time will execute your handler concurrently, not in sequence. The FUSE thread is never blocked, so a slow handler does not hold up unrelated tools.
+- **Per-session state isolation.** `write_invoke` results are scoped to the caller's shell session (`getsid(pid)`). `echo` and `cat` from the same shell pipeline share state and route correctly; two different shells writing to the same endpoint each get back their own result.
+- **Shared external state is your responsibility.** If your handler reads or writes a file, hits a database, calls an API with a rate limit, or otherwise touches resources outside its own process, declare a `state_file` to serialise across invocations, or design the handler to be idempotent.
+- **Timeouts hard-kill.** When the configured timeout (default 30s, set globally in `livefolders.yaml`) fires, the runtime sends SIGTERM and waits 1 second. If the handler is still alive it sends SIGKILL. Handlers that need to do cleanup on shutdown should trap SIGTERM and exit quickly; handlers that ignore SIGTERM will be killed unconditionally.
+- **Stdin and stdout are streamed.** The runtime collects stdout in memory until the handler exits — keep responses bounded.
+
+---
+
 ## Pipelines
 
 Chain endpoints with `pipe:`. A single write invocation runs the stages in order, passing each stage's stdout as the next stage's stdin:
