@@ -18,12 +18,19 @@ use crate::registry::{Session, ToolRegistry};
 use crate::tools::{invoke_command_validated, ExternalTool};
 
 use super::inode::*;
-use super::invocation::{EndpointSnapshot, SlotHandle};
+use super::invocation::{EndpointSnapshot, InvocationState, SlotHandle};
 use super::root_doc::{ROOT_CREATE_TOOL, ROOT_HOW_TO};
 use super::sid::caller_sid;
 use super::slot_table::SlotTable;
 
 const TTL: Duration = Duration::from_secs(1);
+
+/// What the read state machine should do next.
+enum ReadAction {
+    Kick,
+    Wait(std::sync::Arc<tokio::sync::Notify>),
+    Slice,
+}
 
 /// Inode → disk path mapping for external tool files (inodes >= 100_000).
 type InodeTable = Arc<Mutex<HashMap<u64, PathBuf>>>;
@@ -95,6 +102,23 @@ impl LiveFolders {
     #[allow(dead_code)]
     pub fn slots(&self) -> Arc<SlotTable> {
         self.slots.clone()
+    }
+
+    /// Spawns a background task that periodically reaps slots whose
+    /// last touch is older than `max_idle`. Returns the JoinHandle so
+    /// callers can keep or detach it; the task lives for as long as the
+    /// SlotTable Arc is reachable.
+    pub fn spawn_reaper(&self, interval: Duration, max_idle: Duration) -> tokio::task::JoinHandle<()> {
+        let slots = self.slots.clone();
+        self.rt.spawn(async move {
+            loop {
+                tokio::time::sleep(interval).await;
+                let reaped = slots.reap_idle(max_idle);
+                if reaped > 0 {
+                    tracing::warn!(count = reaped, "reaped {} idle invocation slot(s)", reaped);
+                }
+            }
+        })
     }
 
     /// Bump the manifest version. The watcher calls this on every
@@ -572,27 +596,37 @@ impl LiveFolders {
             .into_bytes()
     }
 
-    /// Writes a finished ToolResult into the slot: stores the bytes in
-    /// `result`, the trace in `trace`, and flips `ready`.
-    fn commit_result(&self, handle: &SlotHandle, _ino: u64, result: crate::registry::ToolResult) {
+    /// Writes a finished ToolResult into a slot: stores the bytes,
+    /// trace, flips state to Ready, and notifies any awaiters. Standalone
+    /// fn so it can be called from spawned tasks without `&self`.
+    fn commit_result_into(handle: &SlotHandle, result: crate::registry::ToolResult) {
         let trace = Self::format_trace(result.duration_ms, result.is_error(), &result.stderr);
         let bytes = if result.is_error() {
             format!("{}\n", result.error.unwrap()).into_bytes()
         } else {
             result.output
         };
-        let mut s = handle.lock().unwrap();
-        s.result = bytes;
-        s.trace = trace;
-        s.ready = true;
-        s.touch();
+        let notify_to_wake = {
+            let mut s = handle.lock().unwrap();
+            s.result = bytes;
+            s.trace = trace;
+            let prev = std::mem::replace(&mut s.state, InvocationState::Ready);
+            s.touch();
+            match prev {
+                InvocationState::Pending(n) => Some(n),
+                _ => None,
+            }
+        };
+        if let Some(n) = notify_to_wake {
+            n.notify_waiters();
+        }
     }
 
-    /// Runs the slot's handler synchronously (Phase 1). The slot's
-    /// snapshot pins all manifest data, so a hot reload mid-flight does
-    /// not corrupt the invocation. Phase 3 will move this off the FUSE
-    /// dispatcher thread.
-    fn run_invocation_sync(&self, handle: &SlotHandle) {
+    /// Async invocation runner: takes input out of the slot's write_buf
+    /// and runs the handler (or pipe) against the slot's pinned
+    /// snapshot. Returns the ToolResult; the caller commits it via
+    /// `commit_result_into`.
+    async fn run_invocation_async(handle: SlotHandle) -> crate::registry::ToolResult {
         let (snapshot, input) = {
             let mut s = handle.lock().unwrap();
             let snap = s.snapshot.clone();
@@ -600,48 +634,47 @@ impl LiveFolders {
             (snap, input)
         };
 
-        let result = if let Some(stages) = snapshot.pipe.as_ref() {
+        if let Some(stages) = snapshot.pipe.as_ref() {
             let stages = stages.clone();
             let cwd = snapshot.cwd.clone();
             let tool_name = snapshot.tool_name.clone();
             let timeout = snapshot.timeout_secs;
-            self.rt.block_on(async move {
-                match crate::manifest::Manifest::load(&cwd) {
-                    Ok(Some(m)) => {
-                        let sandbox = crate::sandbox::build(
-                            m.sandbox.as_ref(),
-                            crate::sandbox::SandboxMode::Disabled,
-                        );
-                        crate::tools::invoke_pipe(
-                            &stages, &input, &m, &tool_name, &cwd, timeout, sandbox.as_ref(),
-                        ).await
-                    }
-                    _ => crate::registry::ToolResult::err("[ERROR:SPAWN] manifest not found"),
+            match crate::manifest::Manifest::load(&cwd) {
+                Ok(Some(m)) => {
+                    let sandbox = crate::sandbox::build(
+                        m.sandbox.as_ref(),
+                        crate::sandbox::SandboxMode::Disabled,
+                    );
+                    crate::tools::invoke_pipe(
+                        &stages, &input, &m, &tool_name, &cwd, timeout, sandbox.as_ref(),
+                    ).await
                 }
-            })
+                _ => crate::registry::ToolResult::err("[ERROR:SPAWN] manifest not found"),
+            }
         } else {
             let handler = snapshot.handler.clone().unwrap_or_default();
-            let tool_name = snapshot.tool_name.clone();
-            let file_name = snapshot.file_name.clone();
-            let cwd = snapshot.cwd.clone();
-            let timeout = snapshot.timeout_secs;
-            let input_schema = snapshot.input_schema.clone();
-            let state_file = snapshot.state_file.clone();
-            self.rt.block_on(async move {
-                invoke_command_validated(
-                    &handler,
-                    &input,
-                    &tool_name,
-                    &file_name,
-                    &cwd,
-                    timeout,
-                    input_schema.as_ref(),
-                    state_file.as_deref(),
-                ).await
-            })
-        };
+            invoke_command_validated(
+                &handler,
+                &input,
+                &snapshot.tool_name,
+                &snapshot.file_name,
+                &snapshot.cwd,
+                snapshot.timeout_secs,
+                snapshot.input_schema.as_ref(),
+                snapshot.state_file.as_deref(),
+            ).await
+        }
+    }
 
-        self.commit_result(handle, 0, result);
+    /// Marks the slot as Pending and returns the Notify that will be
+    /// signaled when the invocation completes. Called before spawning
+    /// the invocation task.
+    fn mark_pending(handle: &SlotHandle) -> std::sync::Arc<tokio::sync::Notify> {
+        let notify = std::sync::Arc::new(tokio::sync::Notify::new());
+        let mut s = handle.lock().unwrap();
+        s.state = InvocationState::Pending(notify.clone());
+        s.touch();
+        notify
     }
 }
 
@@ -768,7 +801,7 @@ impl Filesystem for LiveFolders {
                     s.write_buf.truncate(new_size as usize);
                     s.result.clear();
                     s.trace.clear();
-                    s.ready = false;
+                    s.state = InvocationState::Idle;
                     s.touch();
                 }
             } else if let Some(disk_path) = self.path_for_ino(ino)
@@ -823,41 +856,86 @@ impl Filesystem for LiveFolders {
                             reply.error(ENOENT);
                             return;
                         };
-                        // Phase 1: synchronous invocation. Phase 3 will move
-                        // this off the FUSE dispatcher thread.
-                        if !handle.lock().unwrap().ready {
-                            self.run_invocation_sync(&handle);
-                        }
-                        let mut s = handle.lock().unwrap();
-                        s.touch();
-                        let bytes = s.slice(offset, size).to_vec();
-                        let past_end = (offset as usize) >= s.result.len();
-                        drop(s);
-                        if past_end {
-                            // EOF reached: drop the slot so the next call
-                            // from this sid re-invokes the handler.
-                            self.slots.remove((ino, sid));
-                        }
-                        reply.data(&bytes);
+                        let slots = self.slots.clone();
+                        // First-read kicks the handler; subsequent reads
+                        // (and reads from concurrent fhs on the same slot)
+                        // wait via the slot's Notify. Spawned task owns
+                        // the reply so the FUSE dispatcher returns now.
+                        let action = {
+                            let s = handle.lock().unwrap();
+                            match &s.state {
+                                InvocationState::Idle => ReadAction::Kick,
+                                InvocationState::Pending(n) => ReadAction::Wait(n.clone()),
+                                InvocationState::Ready => ReadAction::Slice,
+                            }
+                        };
+                        let (notify, needs_kick) = match action {
+                            ReadAction::Kick => (Some(Self::mark_pending(&handle)), true),
+                            ReadAction::Wait(n) => (Some(n), false),
+                            ReadAction::Slice => (None, false),
+                        };
+                        let handle_for_task = handle.clone();
+                        self.rt.spawn(async move {
+                            if needs_kick {
+                                let h2 = handle_for_task.clone();
+                                tokio::spawn(async move {
+                                    let result = Self::run_invocation_async(h2.clone()).await;
+                                    Self::commit_result_into(&h2, result);
+                                });
+                            }
+                            if let Some(n) = notify {
+                                n.notified().await;
+                            }
+                            let (bytes, past_end) = {
+                                let mut s = handle_for_task.lock().unwrap();
+                                s.touch();
+                                let bytes = s.slice(offset, size).to_vec();
+                                let past_end = (offset as usize) >= s.result.len();
+                                (bytes, past_end)
+                            };
+                            if past_end {
+                                slots.remove((ino, sid));
+                            }
+                            reply.data(&bytes);
+                        });
                         return;
                     }
                     FileKind::WriteInvoke => {
-                        // Return result of the last invocation from this sid.
+                        // Result was set by release(). If release's
+                        // invocation is still in flight, wait for it.
                         let Some(handle) = self.slot_for_manifest(ino, sid) else {
                             reply.error(ENOENT);
                             return;
                         };
-                        let mut s = handle.lock().unwrap();
-                        s.touch();
-                        let bytes = s.slice(offset, size).to_vec();
-                        let past_end = (offset as usize) >= s.result.len();
-                        drop(s);
-                        if past_end {
-                            // Fully drained: clear the slot so the next
-                            // echo+cat round starts clean.
-                            self.slots.remove((ino, sid));
-                        }
-                        reply.data(&bytes);
+                        let slots = self.slots.clone();
+                        let action = {
+                            let s = handle.lock().unwrap();
+                            match &s.state {
+                                InvocationState::Pending(n) => ReadAction::Wait(n.clone()),
+                                _ => ReadAction::Slice,
+                            }
+                        };
+                        let notify = match action {
+                            ReadAction::Wait(n) => Some(n),
+                            _ => None,
+                        };
+                        let handle_for_task = handle.clone();
+                        self.rt.spawn(async move {
+                            if let Some(n) = notify {
+                                n.notified().await;
+                            }
+                            let (bytes, past_end) = {
+                                let mut s = handle_for_task.lock().unwrap();
+                                s.touch();
+                                let bytes = s.slice(offset, size).to_vec();
+                                let past_end = (offset as usize) >= s.result.len();
+                                (bytes, past_end)
+                            };
+                            if past_end {
+                                slots.remove((ino, sid));
+                            }
+                            reply.data(&bytes);
+                        });
                         return;
                     }
                     FileKind::Passthrough | FileKind::Readonly => {
@@ -1063,12 +1141,19 @@ impl Filesystem for LiveFolders {
                             reply.ok();
                             return;
                         };
-                        // Run the handler iff this sid actually wrote
-                        // bytes to the slot. Pure stat/open without write
-                        // is a no-op.
+                        // Async dispatch: mark the slot Pending now so a
+                        // racing read() waits on the Notify, spawn the
+                        // handler, and return immediately. The FUSE
+                        // thread is freed to handle other ops while the
+                        // handler runs.
                         let has_input = !handle.lock().unwrap().write_buf.is_empty();
                         if has_input {
-                            self.run_invocation_sync(&handle);
+                            Self::mark_pending(&handle);
+                            let h = handle.clone();
+                            self.rt.spawn(async move {
+                                let result = Self::run_invocation_async(h.clone()).await;
+                                Self::commit_result_into(&h, result);
+                            });
                         }
                         reply.ok();
                         return;
@@ -1132,14 +1217,16 @@ impl Filesystem for LiveFolders {
                             });
                             let input = std::mem::take(&mut handle.lock().unwrap().write_buf);
                             if !input.is_empty() {
+                                Self::mark_pending(&handle);
                                 let session = self.session.clone();
+                                let h = handle.clone();
                                 let tool_name_dbg = tool_name.clone();
                                 let ep_name_dbg = ep_name.clone();
-                                let result = self.rt.block_on(async move {
+                                self.rt.spawn(async move {
                                     tracing::debug!("invoke start: tool={} endpoint={}", tool_name_dbg, ep_name_dbg);
-                                    tool.invoke(&ep_name, &input, &session).await
+                                    let result = tool.invoke(&ep_name, &input, &session).await;
+                                    Self::commit_result_into(&h, result);
                                 });
-                                self.commit_result(&handle, ino, result);
                             }
                         }
                     }
@@ -1179,15 +1266,17 @@ impl Filesystem for LiveFolders {
             return;
         }
 
+        Self::mark_pending(&handle);
         let session = self.session.clone();
         tracing::debug!("invoking tool={} endpoint={} input_len={}", tool_name, endpoint, input.len());
+        let h = handle.clone();
         let tool_name_dbg = tool_name.clone();
         let endpoint_dbg = endpoint.clone();
-        let result = self.rt.block_on(async move {
+        self.rt.spawn(async move {
             tracing::debug!("invoke start: tool={} endpoint={}", tool_name_dbg, endpoint_dbg);
-            tool.invoke(&endpoint, &input, &session).await
+            let result = tool.invoke(&endpoint, &input, &session).await;
+            Self::commit_result_into(&h, result);
         });
-        self.commit_result(&handle, ino, result);
         reply.ok();
     }
 

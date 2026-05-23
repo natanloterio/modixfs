@@ -230,6 +230,90 @@ fn many_parallel_shells_each_get_their_own_result() {
     assert!(wrong.is_empty(), "wrong results: {wrong:?}");
 }
 
+/// Mounts a fixture with a slow endpoint (sleeps 1s then echoes back)
+/// to validate that two concurrent invocations run in parallel, not
+/// serially.
+fn new_with_slow_endpoint() -> MountFixture {
+    let bin = build_binary();
+    let tmp = tempfile::TempDir::new().expect("tempdir");
+    let tools_dir = tmp.path().join("tools");
+    let work_dir = tmp.path().join("work");
+    let mount_dir = work_dir.join(".livefolders");
+    fs::create_dir_all(&tools_dir).unwrap();
+    fs::create_dir_all(&work_dir).unwrap();
+    fs::create_dir_all(&mount_dir).unwrap();
+    let slow_dir = tools_dir.join("slow");
+    fs::create_dir_all(&slow_dir).unwrap();
+    fs::write(
+        slow_dir.join("folder.yaml"),
+        "name: slow\n\
+         description: Sleeps 1s then echoes input.\n\
+         files:\n  - name: slow\n    type: write_invoke\n    handler: \"sleep 1; cat\"\n",
+    )
+    .unwrap();
+    let config_path = work_dir.join("livefolders.yaml");
+    let config_yaml = format!(
+        "mount: {}\ntools_dir: {}\ntools:\n  - name: slow\n",
+        mount_dir.display(),
+        tools_dir.display(),
+    );
+    fs::write(&config_path, &config_yaml).unwrap();
+    let mut proc = Command::new(&bin)
+        .args(["mount", "--foreground", "--config"])
+        .arg(&config_path)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn");
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let index_md = mount_dir.join("index.md");
+    loop {
+        if index_md.exists() {
+            break;
+        }
+        if Instant::now() >= deadline {
+            let _ = proc.kill();
+            panic!("mount did not come up");
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    MountFixture {
+        _tmp: tmp,
+        mount_dir,
+        proc,
+    }
+}
+
+#[test]
+fn two_slow_handlers_run_in_parallel() {
+    if fuse_unavailable() {
+        return;
+    }
+    let fix = new_with_slow_endpoint();
+    let ep = fix.mount_dir.join("tools/slow/slow");
+    let ep_a = ep.clone();
+    let ep_b = ep.clone();
+
+    let started = Instant::now();
+    let t_a = std::thread::spawn(move || {
+        run_in_new_session(&format!("echo a > {ep} && cat {ep}", ep = ep_a.display()))
+    });
+    let t_b = std::thread::spawn(move || {
+        run_in_new_session(&format!("echo b > {ep} && cat {ep}", ep = ep_b.display()))
+    });
+    let _ = t_a.join().unwrap();
+    let _ = t_b.join().unwrap();
+    let elapsed = started.elapsed();
+
+    // Each handler sleeps 1s. Serial = ~2s, parallel = ~1s.
+    // Generous bound: 1.8s lets us detect serialisation without being flaky.
+    assert!(
+        elapsed < Duration::from_millis(1800),
+        "expected parallel execution (~1s), got {:?} — handlers appear to be serialised",
+        elapsed
+    );
+}
+
 #[test]
 fn same_shell_pipeline_works_sequentially() {
     if fuse_unavailable() {

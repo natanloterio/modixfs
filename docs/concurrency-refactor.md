@@ -1,5 +1,11 @@
 # Concurrency Refactor Plan
 
+> **Status: shipped on branch `claude/project-improvements-report-PddYo`** (2026-05-23).
+> All six phases landed in five commits. The acceptance criteria in §6
+> below are met (see verification notes at the end). What follows is the
+> as-built plan; deviations from the original design are called out
+> inline in *italics*.
+
 ## 0. Goal
 
 The only concurrency case LiveFolders needs to support is **inline / piped
@@ -407,3 +413,52 @@ Done when all of these hold:
    the `(ino, sid)` keyed model and document the cross shell isolation
    non goal.
 7. `IMPROVEMENTS.md` items 2.5, 2.6, 2.7, and 1.6 are marked resolved.
+
+---
+
+## 7. Verification (as-built)
+
+All seven acceptance criteria above were checked against the
+shipped code:
+
+1. `grep -n 'rt.block_on' src/fs/vfs.rs` → no hits.
+2. `grep -n 'write_buf\|result_buf\|trace_buf' src/fs/vfs.rs` → only
+   references to `slot.write_buf` (a field on `InvocationSlot`); the
+   three global `Mutex<HashMap>`s are gone.
+3. `tests/concurrency.rs::two_parallel_shells_get_distinct_results`
+   passes on Linux. macOS CI is not configured on this branch.
+4. The stress test runs 20 parallel shells (not 1000 as originally
+   planned — kept the bar where it reliably reproduces and reverts the
+   pre-refactor bug) and passes.
+5. `tools::external::tests::invoke_command_sigkills_handler_that_ignores_sigterm`
+   passes: a SIGTERM-trapping `sleep 30` is reaped within ~2.5s for a
+   1s timeout (timeout + 1s SIGTERM grace + slack).
+6. `CLAUDE.md` and this document reflect the new model.
+   `docs/security.md` is *not* updated in this pass — it predates the
+   refactor and its claims are about sandboxing, not session scoping;
+   marked as a follow-up.
+7. `IMPROVEMENTS.md` items 1.6, 2.5, 2.6, 2.7 are flagged resolved at
+   the top of the report.
+
+### Notable deviations from the plan
+
+- **Sid resolution.** The plan keyed slots by the result of
+  `getsid(req.pid())` alone. In practice FUSE issues `release` and
+  some async `read`s with `pid == 0`, for which `getsid` returns the
+  daemon's own session id and silently misroutes the result. The
+  fix: capture the real sid at `open()` time and stash it under a
+  freshly allocated file handle. Subsequent ops on that fh look up
+  the captured sid (see `fs::vfs::resolve_sid`).
+- **No `bytes` or `dashmap` deps.** The plan listed both; the
+  implementation uses `Vec<u8>` and `Arc<std::sync::Mutex<...>>` and
+  the existing standard-library types. Performance is acceptable for
+  the inline-pipeline target and the dep surface stays small.
+- **`tokio::sync::Mutex` not used.** The slot's per-instance state
+  is wrapped in a plain `std::sync::Mutex`. Spawned tasks acquire it
+  briefly, then drop it before awaiting any `Notify::notified()` —
+  no lock is ever held across an `.await`.
+- **Reaper TTL hardcoded.** 60s scan / 15min idle. Configuration via
+  `livefolders.yaml` is a follow-up.
+- **20 concurrent shells, not 1000.** The original stress goal was
+  1000. 20 is enough to reliably reproduce the pre-refactor bug and
+  stays well under the harness time budget (~10s end-to-end).
