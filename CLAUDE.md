@@ -31,21 +31,33 @@ LiveFolders is a FUSE filesystem that exposes tools as plain files. LLMs interac
 
 ### Data flow
 
-1. LLM writes to an endpoint file (e.g. `echo "London" > .livefolders/tools/weather/forecast`)
-2. FUSE `write()` accumulates bytes in `write_buf` (keyed by inode)
-3. FUSE `release()` fires when the file descriptor closes — this triggers handler invocation
-4. The handler runs as a shell command with input on stdin; output is stored in `result_buf`
-5. LLM reads the endpoint (`cat .livefolders/tools/weather/forecast`) — FUSE `read()` drains `result_buf`
-6. A `.log` companion file is written to `trace_buf` with `duration_ms`, `exit`, and `stderr`
+1. LLM writes to an endpoint file (e.g. `echo "London" > .livefolders/tools/weather/forecast`).
+2. FUSE `open()` captures the caller's session id (via `getsid(req.pid())`) and binds it to a fresh file handle.
+3. FUSE `write()` looks up the per-`(inode, sid)` invocation slot and appends bytes to its private `write_buf`.
+4. FUSE `release()` fires when the fd closes. For `write_invoke` it marks the slot `Pending` and spawns the handler onto the Tokio runtime, returning immediately so the FUSE thread is free for other ops.
+5. The handler runs as a shell command with input on stdin. On completion the spawned task stores the output in `slot.result`, transitions the slot to `Ready`, and wakes any awaiters via `Notify::notify_waiters()`.
+6. LLM reads the endpoint (`cat .livefolders/tools/weather/forecast`) — FUSE `read()` looks up the slot, awaits if `Pending`, slices `slot.result[offset..]` when `Ready`, and drops the slot once fully drained.
+7. The slot's `trace` (`duration_ms`, exit status, stderr) is exposed via the `<endpoint>.log` companion file.
 
-For `read_invoke` endpoints, invocation is triggered on `read()` instead of `release()`.
+For `read_invoke` endpoints the handler is kicked by the first `read()` instead of by `release()`; the state machine is otherwise the same.
+
+### Concurrency model
+
+- Invocation state is keyed by `(inode, session id)` so `echo` and `cat` from the same shell pipeline share a slot, while pipelines from different shells (different sids) run in parallel and never clobber each other.
+- FUSE issues some operations (notably `release` and async `read`) with `pid == 0`; for those we look up the sid captured at `open()` time via the file handle (see `fs::sid`).
+- Handlers run on the Tokio runtime, not on the FUSE dispatcher thread. Two slow handlers complete in `~max(t1, t2)`, not `t1 + t2`.
+- `state_file` flock (declared in `folder.yaml`) is the only cross-tool isolation primitive. Handlers that share external state (a database, an API rate limit, a file) must either be idempotent or declare a `state_file`.
+- Idle slots are reaped after 15 minutes by default (`vfs::spawn_reaper`) so abandoned opens cannot leak memory.
 
 ### Module map
 
 | Module | Role |
 |--------|------|
-| `src/fs/vfs.rs` | Core FUSE implementation (`LiveFolders` struct). Handles all VFS calls and dispatches to tools. |
+| `src/fs/vfs.rs` | Core FUSE implementation (`LiveFolders` struct). Handles all VFS calls and dispatches to tools via spawned Tokio tasks. |
 | `src/fs/inode.rs` | Inode number scheme: built-in tools use a static range (1000–100000), external tools use dynamically allocated inodes ≥ 100000. |
+| `src/fs/invocation.rs` | `InvocationSlot` (per-`(ino, sid)` state: write_buf, result, trace, state machine) and `EndpointSnapshot` (manifest data pinned at slot creation time). |
+| `src/fs/slot_table.rs` | `SlotTable` indexed by `(ino, sid)` with `get_or_create`, `remove`, `remove_all_for_ino`, `reap_idle`. |
+| `src/fs/sid.rs` | `caller_sid(req)` wraps `getsid(req.pid())` and returns `None` when FUSE gives us `pid == 0`. |
 | `src/registry/` | `ToolRegistry` (name → `Arc<dyn Tool>`) + `Tool` trait + `Session` (per-mount context). |
 | `src/tools/` | `EchoTool` (built-in smoke-test) and `ExternalTool` (loads `folder.yaml`, dispatches to shell handlers). |
 | `src/manifest.rs` | Parses `folder.yaml`. Defines `FileKind` (`write_invoke`, `read_invoke`, `passthrough`, `readonly`), `InputSchema`, and `FileSpec`. |
@@ -80,7 +92,11 @@ Each tool is a directory under `tools_dir` containing a `folder.yaml`. The manif
 
 ### Concurrency model
 
-The FUSE thread is synchronous. Handler invocations use `rt.block_on(...)` on a Tokio runtime created after any fork. When `state_file` is declared, an exclusive `flock` is acquired before the handler runs, serialising concurrent invocations of the same endpoint.
+The FUSE dispatcher thread is synchronous, but handler invocations are spawned onto a Tokio runtime (created after any fork) via `rt.spawn(...)`. The dispatcher returns immediately after spawning, so two concurrent handlers run in parallel and slow handlers do not block unrelated FUSE operations.
+
+Coordination uses a `(ino, sid)`-keyed `SlotTable` (see "Data flow" and "Concurrency model" above). Each slot owns its `write_buf` and `result`, plus a state machine (`Idle` / `Pending(Notify)` / `Ready`) that lets a concurrent `read()` await an in-flight invocation via `Notify::notified().await`.
+
+Timeouts use SIGTERM with a 1s grace, then escalate to SIGKILL via `libc::kill(pid, SIGKILL)`. When `state_file` is declared, an exclusive `flock` is acquired before the handler runs, serialising concurrent invocations of the same endpoint.
 
 ### Error format
 
