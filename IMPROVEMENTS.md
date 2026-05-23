@@ -8,6 +8,10 @@ security, UX/docs/ops) consolidated and de-duplicated, with each finding
 verified against the actual source. Findings are grouped by theme, with
 severity / effort labels so you can pick a slice and ship it.
 
+> **Status update (2026-05-23):** items 1.6, 2.5, 2.6, 2.7 are **resolved**
+> by the concurrency refactor — see `docs/concurrency-refactor.md` and the
+> Phase 0–5 commits on this branch.
+
 ---
 
 ## TL;DR — top 10 things to do next
