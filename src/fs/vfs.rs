@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, UNIX_EPOCH};
 
@@ -17,20 +18,19 @@ use crate::registry::{Session, ToolRegistry};
 use crate::tools::{invoke_command_validated, ExternalTool};
 
 use super::inode::*;
+use super::invocation::{EndpointSnapshot, InvocationState, SlotHandle};
 use super::root_doc::{ROOT_CREATE_TOOL, ROOT_HOW_TO};
+use super::sid::caller_sid;
+use super::slot_table::SlotTable;
 
 const TTL: Duration = Duration::from_secs(1);
 
-/// Pending write buffers keyed by inode.
-/// Written bytes accumulate here until flush/release triggers invocation.
-type WriteBuf = Arc<Mutex<HashMap<u64, Vec<u8>>>>;
-
-/// Last result keyed by inode — returned on the next read after invocation.
-type ResultBuf = Arc<Mutex<HashMap<u64, Vec<u8>>>>;
-
-/// Per-invocation trace keyed by endpoint inode.
-/// Content: structured text with duration_ms, exit status, and stderr.
-type TraceBuf = Arc<Mutex<HashMap<u64, Vec<u8>>>>;
+/// What the read state machine should do next.
+enum ReadAction {
+    Kick,
+    Wait(std::sync::Arc<tokio::sync::Notify>),
+    Slice,
+}
 
 /// Inode → disk path mapping for external tool files (inodes >= 100_000).
 type InodeTable = Arc<Mutex<HashMap<u64, PathBuf>>>;
@@ -43,15 +43,30 @@ pub struct LiveFolders {
     tools_dir: Option<PathBuf>,
     mount_path: PathBuf,
     session: Session,
-    write_buf: WriteBuf,
-    result_buf: ResultBuf,
-    trace_buf: TraceBuf,
+    /// Per-(ino, sid) invocation state. Routes echo and cat in the same
+    /// shell pipeline to the same slot; isolates pipelines from different
+    /// shells.
+    slots: Arc<SlotTable>,
+    /// Map from FUSE file handle to the caller's sid captured at
+    /// `open()` time. FUSE issues some later operations (notably
+    /// `release` and async `read`) with `pid == 0`, for which
+    /// `getsid` would return the daemon's own sid. By stashing the
+    /// real sid at open time and looking it up by fh, every op in the
+    /// open's lifecycle resolves to the same correct slot.
+    fh_to_sid: Arc<Mutex<HashMap<u64, i32>>>,
+    /// Monotonic file handle allocator.
+    next_fh: Arc<AtomicU64>,
     rt: Handle,
     inode_table: InodeTable,
     path_table: PathTable,
     next_ino: Arc<Mutex<u64>>,
     timeout_secs: u64,
     sandbox_mode: crate::sandbox::SandboxMode,
+    /// Bumped by the watcher on every tool registry change. The current
+    /// value is captured into a slot's EndpointSnapshot at slot creation
+    /// time, so an in-flight invocation always runs against a stable
+    /// snapshot even if the manifest is reloaded mid-flight.
+    manifest_version: Arc<AtomicU64>,
 }
 
 impl LiveFolders {
@@ -69,16 +84,173 @@ impl LiveFolders {
             tools_dir,
             mount_path,
             session,
-            write_buf: Arc::new(Mutex::new(HashMap::new())),
-            result_buf: Arc::new(Mutex::new(HashMap::new())),
-            trace_buf: Arc::new(Mutex::new(HashMap::new())),
+            slots: Arc::new(SlotTable::new()),
+            fh_to_sid: Arc::new(Mutex::new(HashMap::new())),
+            next_fh: Arc::new(AtomicU64::new(1)),
             rt,
             inode_table: Arc::new(Mutex::new(HashMap::new())),
             path_table: Arc::new(Mutex::new(HashMap::new())),
             next_ino: Arc::new(Mutex::new(100_000)),
             timeout_secs,
             sandbox_mode,
+            manifest_version: Arc::new(AtomicU64::new(0)),
         }
+    }
+
+    /// Returns a handle to the SlotTable so the watcher (or tests) can
+    /// observe live invocation state.
+    #[allow(dead_code)]
+    pub fn slots(&self) -> Arc<SlotTable> {
+        self.slots.clone()
+    }
+
+    /// Spawns a background task that periodically reaps slots whose
+    /// last touch is older than `max_idle`. Returns the JoinHandle so
+    /// callers can keep or detach it; the task lives for as long as the
+    /// SlotTable Arc is reachable.
+    pub fn spawn_reaper(&self, interval: Duration, max_idle: Duration) -> tokio::task::JoinHandle<()> {
+        let slots = self.slots.clone();
+        self.rt.spawn(async move {
+            loop {
+                tokio::time::sleep(interval).await;
+                let reaped = slots.reap_idle(max_idle);
+                if reaped > 0 {
+                    tracing::warn!(count = reaped, "reaped {} idle invocation slot(s)", reaped);
+                }
+            }
+        })
+    }
+
+    /// Bump the manifest version. The watcher calls this on every
+    /// reload; in-flight slots keep their snapshot, but the next slot
+    /// created after the bump sees the new version.
+    #[allow(dead_code)]
+    pub fn bump_manifest_version(&self) {
+        self.manifest_version.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Build an EndpointSnapshot for a manifest-declared endpoint inode.
+    /// Returns None when the inode has no manifest spec (built-in tools
+    /// and the executable-heuristic legacy path use `synth_snapshot`).
+    fn snapshot_for_ino(&self, ino: u64) -> Option<EndpointSnapshot> {
+        let (tool_name, file_name, spec) = self.file_spec_for_ino(ino)?;
+        let cwd = self
+            .tools_dir
+            .as_ref()
+            .map(|d| d.join(&tool_name))
+            .unwrap_or_else(|| PathBuf::from("."));
+        let state_file = spec.state_file.clone().map(|sf| cwd.join(sf));
+        Some(EndpointSnapshot {
+            tool_name,
+            file_name,
+            cwd,
+            kind: spec.kind,
+            handler: spec.handler.clone(),
+            input_schema: spec.input.clone(),
+            state_file,
+            pipe: spec.pipe.clone(),
+            timeout_secs: self.timeout_secs,
+            manifest_version: self.manifest_version.load(Ordering::Relaxed),
+        })
+    }
+
+    /// Build a placeholder snapshot for non-manifest invocation paths
+    /// (built-in tools, executable-heuristic legacy path). The kind is
+    /// WriteInvoke so the read state machine drains slot.result after
+    /// release. tool_name and file_name are populated for diagnostics.
+    fn synth_snapshot(&self, tool_name: &str, file_name: &str, cwd: PathBuf) -> EndpointSnapshot {
+        EndpointSnapshot {
+            tool_name: tool_name.to_string(),
+            file_name: file_name.to_string(),
+            cwd,
+            kind: FileKind::WriteInvoke,
+            handler: None,
+            input_schema: None,
+            state_file: None,
+            pipe: None,
+            timeout_secs: self.timeout_secs,
+            manifest_version: self.manifest_version.load(Ordering::Relaxed),
+        }
+    }
+
+    /// Look up or create the slot for a manifest endpoint. Returns None
+    /// if the inode has no manifest spec.
+    fn slot_for_manifest(&self, ino: u64, sid: i32) -> Option<SlotHandle> {
+        if let Some(h) = self.slots.get((ino, sid)) {
+            return Some(h);
+        }
+        let snap = self.snapshot_for_ino(ino)?;
+        Some(self.slots.get_or_create((ino, sid), move || snap))
+    }
+
+    /// Look up or create a slot using a caller-supplied synthetic
+    /// snapshot, for built-in tools and the executable-heuristic path.
+    fn slot_for_synth(&self, ino: u64, sid: i32, snap_fn: impl FnOnce() -> EndpointSnapshot) -> SlotHandle {
+        if let Some(h) = self.slots.get((ino, sid)) {
+            return h;
+        }
+        self.slots.get_or_create((ino, sid), snap_fn)
+    }
+
+    /// Resolves the sid for an op:
+    /// 1. if the op carries a non-zero fh and that fh was registered at
+    ///    open() time, return the captured sid (most reliable),
+    /// 2. else ask the kernel via `getsid(req.pid())`,
+    /// 3. else 0 (the shared default slot).
+    ///
+    /// FUSE sometimes issues `release` and async `read` with
+    /// `pid == 0`. For those, the fh-based path is the only reliable
+    /// route back to the caller's session.
+    fn resolve_sid(&self, req: &Request, fh: u64) -> i32 {
+        if fh != 0
+            && let Some(sid) = self.fh_to_sid.lock().unwrap().get(&fh).copied()
+        {
+            return sid;
+        }
+        caller_sid(req).unwrap_or(0)
+    }
+
+    /// Allocates a new file handle and binds it to the caller's sid.
+    fn alloc_fh_for(&self, req: &Request) -> u64 {
+        let fh = self.next_fh.fetch_add(1, Ordering::Relaxed);
+        if let Some(sid) = caller_sid(req) {
+            self.fh_to_sid.lock().unwrap().insert(fh, sid);
+        }
+        fh
+    }
+
+    /// Drops the fh→sid mapping. Called from `release`.
+    fn drop_fh(&self, fh: u64) {
+        if fh != 0 {
+            self.fh_to_sid.lock().unwrap().remove(&fh);
+        }
+    }
+
+    /// Look up or create a slot for any invocable endpoint, regardless of
+    /// whether it is manifest-declared or a built-in. Returns None when
+    /// the inode is not an endpoint at all.
+    fn slot_for_endpoint(&self, ino: u64, sid: i32) -> Option<SlotHandle> {
+        if let Some(h) = self.slot_for_manifest(ino, sid) {
+            return Some(h);
+        }
+        if let Some((tool_idx, ep_idx)) = self.ep_index_for_ino(ino) {
+            let (tool_name, file_name) = {
+                let reg = self.registry.read().unwrap();
+                let tool_name = reg.list()[tool_idx].to_string();
+                let tool = reg.get(&tool_name)?;
+                let file_name = tool.endpoints()[ep_idx].to_string();
+                (tool_name, file_name)
+            };
+            let cwd = self
+                .tools_dir
+                .as_ref()
+                .map(|d| d.join(&tool_name))
+                .unwrap_or_else(|| PathBuf::from("."));
+            return Some(self.slot_for_synth(ino, sid, || {
+                self.synth_snapshot(&tool_name, &file_name, cwd)
+            }));
+        }
+        None
     }
 
     fn system_prompt_content(&self) -> Vec<u8> {
@@ -229,11 +401,11 @@ impl LiveFolders {
                             return Some(Self::dir_attr(ino));
                         }
                         let is_exec = mode & 0o111 != 0;
-                        let size = if is_exec {
-                            self.result_buf.lock().unwrap().get(&ino).map(|r| r.len()).unwrap_or(0) as u64
-                        } else {
-                            meta.len()
-                        };
+                        // For executable tools (built-in invocation path)
+                        // and virtual endpoints we report size 0 and rely
+                        // on FOPEN_DIRECT_IO so read() drives EOF, not the
+                        // cached file size.
+                        let size = if is_exec { 0 } else { meta.len() };
                         return Some(Self::file_attr(ino, size, perm));
                     }
                     // Virtual file (no disk counterpart): check manifest for write_invoke / read_invoke.
@@ -241,9 +413,7 @@ impl LiveFolders {
                         use crate::manifest::FileKind;
                         match spec.kind {
                             FileKind::WriteInvoke | FileKind::ReadInvoke => {
-                                let result_size = self.result_buf.lock().unwrap()
-                                    .get(&ino).map(|r| r.len()).unwrap_or(0) as u64;
-                                return Some(Self::file_attr(ino, result_size, 0o644));
+                                return Some(Self::file_attr(ino, 0, 0o644));
                             }
                             _ => {}
                         }
@@ -265,9 +435,8 @@ impl LiveFolders {
                     }
                     // endpoint?
                     if let Some((_ti, _ei)) = self.ep_index_for_ino(ino) {
-                        let result = self.result_buf.lock().unwrap().get(&ino).cloned();
-                        let size = result.map(|r| r.len()).unwrap_or(0) as u64;
-                        return Some(Self::file_attr(ino, size, 0o644));
+                        // Size reported as 0: read() drives EOF via FOPEN_DIRECT_IO.
+                        return Some(Self::file_attr(ino, 0, 0o644));
                     }
                 }
                 None
@@ -322,9 +491,8 @@ impl LiveFolders {
 
         let ep_pos = tool.endpoints().iter().position(|&e| e == s)?;
         let ino = endpoint_ino(idx, ep_pos);
-        let result = self.result_buf.lock().unwrap().get(&ino).cloned();
-        let size = result.map(|r| r.len()).unwrap_or(0) as u64;
-        Some(Self::file_attr(ino, size, 0o644))
+        // Size reported as 0: read() drives EOF via FOPEN_DIRECT_IO.
+        Some(Self::file_attr(ino, 0, 0o644))
     }
 
     fn manifest_for_tool(&self, tool_name: &str) -> Option<crate::manifest::Manifest> {
@@ -356,15 +524,15 @@ impl LiveFolders {
         let tools_dir = self.tools_dir.as_ref()?;
         let disk_path = tools_dir.join(tool_name).join(name);
 
-        // .log file: synthesize attr from trace_buf (keyed by the corresponding endpoint ino).
+        // .log file: synthesize attr from the most recent trace for the endpoint inode.
         if let Some(ep_name) = name.strip_suffix(".log") {
             if let Some(manifest) = self.manifest_for_tool(tool_name)
                 && let Some(spec) = manifest.spec_for(ep_name)
                 && matches!(spec.kind, FileKind::WriteInvoke | FileKind::ReadInvoke) {
                     let ep_path = tools_dir.join(tool_name).join(ep_name);
                     let ep_ino = self.ino_for_path(&ep_path);
-                    let size = self.trace_buf.lock().unwrap()
-                        .get(&ep_ino).map(|t| t.len()).unwrap_or(0) as u64;
+                    let size = self.slots.latest_trace_for_ino(ep_ino)
+                        .map(|t| t.len()).unwrap_or(0) as u64;
                     let log_ino = self.ino_for_path(&disk_path);
                     return Some(Self::file_attr(log_ino, size, 0o444));
                 }
@@ -387,15 +555,14 @@ impl LiveFolders {
             }
 
         // For virtual files (write_invoke / read_invoke) declared in the manifest,
-        // synthesize an attr without requiring a disk file.
+        // synthesize an attr without requiring a disk file. Size is 0 — read()
+        // drives EOF via FOPEN_DIRECT_IO.
         if let Some(manifest) = self.manifest_for_tool(tool_name)
             && let Some(spec) = manifest.spec_for(name) {
                 match spec.kind {
                     FileKind::WriteInvoke | FileKind::ReadInvoke => {
                         let ino = self.ino_for_path(&disk_path);
-                        let result_size = self.result_buf.lock().unwrap()
-                            .get(&ino).map(|r| r.len()).unwrap_or(0) as u64;
-                        return Some(Self::file_attr(ino, result_size, 0o644));
+                        return Some(Self::file_attr(ino, 0, 0o644));
                     }
                     FileKind::Passthrough | FileKind::Readonly => {}
                 }
@@ -429,10 +596,85 @@ impl LiveFolders {
             .into_bytes()
     }
 
-    /// Stores a trace entry keyed by endpoint inode.
-    fn store_trace(&self, ep_ino: u64, duration_ms: u64, is_error: bool, stderr: &[u8]) {
-        let trace = Self::format_trace(duration_ms, is_error, stderr);
-        self.trace_buf.lock().unwrap().insert(ep_ino, trace);
+    /// Writes a finished ToolResult into a slot: stores the bytes,
+    /// trace, flips state to Ready, and notifies any awaiters. Standalone
+    /// fn so it can be called from spawned tasks without `&self`.
+    fn commit_result_into(handle: &SlotHandle, result: crate::registry::ToolResult) {
+        let trace = Self::format_trace(result.duration_ms, result.is_error(), &result.stderr);
+        let bytes = if result.is_error() {
+            format!("{}\n", result.error.unwrap()).into_bytes()
+        } else {
+            result.output
+        };
+        let notify_to_wake = {
+            let mut s = handle.lock().unwrap();
+            s.result = bytes;
+            s.trace = trace;
+            let prev = std::mem::replace(&mut s.state, InvocationState::Ready);
+            s.touch();
+            match prev {
+                InvocationState::Pending(n) => Some(n),
+                _ => None,
+            }
+        };
+        if let Some(n) = notify_to_wake {
+            n.notify_waiters();
+        }
+    }
+
+    /// Async invocation runner: takes input out of the slot's write_buf
+    /// and runs the handler (or pipe) against the slot's pinned
+    /// snapshot. Returns the ToolResult; the caller commits it via
+    /// `commit_result_into`.
+    async fn run_invocation_async(handle: SlotHandle) -> crate::registry::ToolResult {
+        let (snapshot, input) = {
+            let mut s = handle.lock().unwrap();
+            let snap = s.snapshot.clone();
+            let input = std::mem::take(&mut s.write_buf);
+            (snap, input)
+        };
+
+        if let Some(stages) = snapshot.pipe.as_ref() {
+            let stages = stages.clone();
+            let cwd = snapshot.cwd.clone();
+            let tool_name = snapshot.tool_name.clone();
+            let timeout = snapshot.timeout_secs;
+            match crate::manifest::Manifest::load(&cwd) {
+                Ok(Some(m)) => {
+                    let sandbox = crate::sandbox::build(
+                        m.sandbox.as_ref(),
+                        crate::sandbox::SandboxMode::Disabled,
+                    );
+                    crate::tools::invoke_pipe(
+                        &stages, &input, &m, &tool_name, &cwd, timeout, sandbox.as_ref(),
+                    ).await
+                }
+                _ => crate::registry::ToolResult::err("[ERROR:SPAWN] manifest not found"),
+            }
+        } else {
+            let handler = snapshot.handler.clone().unwrap_or_default();
+            invoke_command_validated(
+                &handler,
+                &input,
+                &snapshot.tool_name,
+                &snapshot.file_name,
+                &snapshot.cwd,
+                snapshot.timeout_secs,
+                snapshot.input_schema.as_ref(),
+                snapshot.state_file.as_deref(),
+            ).await
+        }
+    }
+
+    /// Marks the slot as Pending and returns the Notify that will be
+    /// signaled when the invocation completes. Called before spawning
+    /// the invocation task.
+    fn mark_pending(handle: &SlotHandle) -> std::sync::Arc<tokio::sync::Notify> {
+        let notify = std::sync::Arc::new(tokio::sync::Notify::new());
+        let mut s = handle.lock().unwrap();
+        s.state = InvocationState::Pending(notify.clone());
+        s.touch();
+        notify
     }
 }
 
@@ -520,7 +762,7 @@ impl Filesystem for LiveFolders {
 
     fn setattr(
         &mut self,
-        _req: &Request,
+        req: &Request,
         ino: u64,
         mode: Option<u32>,
         _uid: Option<u32>,
@@ -529,7 +771,7 @@ impl Filesystem for LiveFolders {
         _atime: Option<fuser::TimeOrNow>,
         _mtime: Option<fuser::TimeOrNow>,
         _ctime: Option<std::time::SystemTime>,
-        _fh: Option<u64>,
+        fh: Option<u64>,
         _crtime: Option<std::time::SystemTime>,
         _chgtime: Option<std::time::SystemTime>,
         _bkuptime: Option<std::time::SystemTime>,
@@ -544,15 +786,24 @@ impl Filesystem for LiveFolders {
                 let _ = std::fs::set_permissions(&disk_path, perms);
             }
 
-        // Handle truncation on O_TRUNC open (e.g. shell `>` redirect)
+        // Handle truncation on O_TRUNC open (e.g. shell `>` redirect).
+        // Scope the truncation to the caller's session id so two concurrent
+        // shells redirecting to the same endpoint do not clobber each other.
         if let Some(new_size) = size {
             let is_virtual_endpoint = self.ep_index_for_ino(ino).is_some()
                 || self.file_spec_for_ino(ino)
                     .map(|(_, _, s)| matches!(s.kind, FileKind::WriteInvoke | FileKind::ReadInvoke))
                     .unwrap_or(false);
             if is_virtual_endpoint {
-                self.write_buf.lock().unwrap().entry(ino).or_default().truncate(new_size as usize);
-                self.result_buf.lock().unwrap().remove(&ino);
+                let sid = self.resolve_sid(req, fh.unwrap_or(0));
+                if let Some(handle) = self.slot_for_endpoint(ino, sid) {
+                    let mut s = handle.lock().unwrap();
+                    s.write_buf.truncate(new_size as usize);
+                    s.result.clear();
+                    s.trace.clear();
+                    s.state = InvocationState::Idle;
+                    s.touch();
+                }
             } else if let Some(disk_path) = self.path_for_ino(ino)
                 && new_size == 0 {
                     let _ = std::fs::write(&disk_path, b"");
@@ -564,94 +815,127 @@ impl Filesystem for LiveFolders {
         }
     }
 
-    fn open(&mut self, _req: &Request, ino: u64, _flags: i32, reply: ReplyOpen) {
-        if let Some((_, _, spec)) = self.file_spec_for_ino(ino)
-            && matches!(spec.kind, FileKind::ReadInvoke) {
-                // Bypass kernel page cache so read() is always called even when reported size=0.
-                reply.opened(0, fuser::consts::FOPEN_DIRECT_IO);
-                return;
-            }
-        reply.opened(0, 0);
+    fn open(&mut self, req: &Request, ino: u64, _flags: i32, reply: ReplyOpen) {
+        // Bypass the kernel page cache for every invocable endpoint so:
+        //   (a) read() is always called even when getattr reports size 0; and
+        //   (b) two opens by different sessions never share a cached payload.
+        let is_endpoint = self.file_spec_for_ino(ino)
+            .map(|(_, _, s)| matches!(s.kind, FileKind::WriteInvoke | FileKind::ReadInvoke))
+            .unwrap_or(false)
+            || self.ep_index_for_ino(ino).is_some();
+        if is_endpoint {
+            let fh = self.alloc_fh_for(req);
+            reply.opened(fh, fuser::consts::FOPEN_DIRECT_IO);
+            return;
+        }
+        // For non-endpoint files (passthrough disk, readonly, etc) we also
+        // allocate an fh so writes get routed to the caller's session.
+        let fh = self.alloc_fh_for(req);
+        reply.opened(fh, 0);
     }
 
     fn read(
         &mut self,
-        _req: &Request,
+        req: &Request,
         ino: u64,
-        _fh: u64,
+        fh: u64,
         offset: i64,
         size: u32,
         _flags: i32,
         _lock: Option<u64>,
         reply: ReplyData,
     ) {
+        let sid = self.resolve_sid(req, fh);
         // External file on disk: dispatch on manifest FileSpec or fall back to disk read.
         if let Some(disk_path) = self.path_for_ino(ino) {
             // Manifest-declared file: dispatch on declared type.
-            if let Some((tool_name, file_name, spec)) = self.file_spec_for_ino(ino) {
+            if let Some((_, _, spec)) = self.file_spec_for_ino(ino) {
                 match spec.kind {
                     FileKind::ReadInvoke => {
-                        // Use cached result if available (supports multi-read from cat/readers).
-                        let cached = self.result_buf.lock().unwrap().get(&ino).cloned();
-                        let bytes = if let Some(b) = cached {
-                            b
-                        } else {
-                            // First read: invoke handler (or pipe) and cache the full result.
-                            let input = self.write_buf.lock().unwrap().remove(&ino).unwrap_or_default();
-                            let cwd = self.tools_dir.as_ref()
-                                .map(|d| d.join(&tool_name))
-                                .unwrap_or_else(|| {
-                                    disk_path.parent().unwrap_or(Path::new(".")).to_path_buf()
-                                });
-                            let timeout = self.timeout_secs;
-                            let result = if let Some(stages) = spec.pipe {
-                                // Pipe endpoint: load manifest and chain stages.
-                                // Use Disabled sandbox to match the non-pipe read_invoke path,
-                                // which also runs without sandbox via invoke_command_validated.
-                                let manifest_path = cwd.clone();
-                                let tn = tool_name.clone();
-                                self.rt.block_on(async move {
-                                    match crate::manifest::Manifest::load(&manifest_path) {
-                                        Ok(Some(m)) => {
-                                            let sandbox = crate::sandbox::build(m.sandbox.as_ref(), crate::sandbox::SandboxMode::Disabled);
-                                            crate::tools::invoke_pipe(&stages, &input, &m, &tn, &manifest_path, timeout, sandbox.as_ref()).await
-                                        }
-                                        _ => crate::registry::ToolResult::err("[ERROR:SPAWN] manifest not found"),
-                                    }
-                                })
-                            } else {
-                                let handler = spec.handler.clone().unwrap_or_default();
-                                let input_schema = spec.input.clone();
-                                let state_file = spec.state_file.clone().map(|sf| cwd.join(sf));
-                                self.rt.block_on(async move {
-                                    invoke_command_validated(&handler, &input, &tool_name, &file_name, &cwd, timeout, input_schema.as_ref(), state_file.as_deref()).await
-                                })
-                            };
-                            self.store_trace(ino, result.duration_ms, result.is_error(), &result.stderr);
-                            let b = if result.is_error() {
-                                format!("{}\n", result.error.unwrap()).into_bytes()
-                            } else {
-                                result.output
-                            };
-                            self.result_buf.lock().unwrap().insert(ino, b.clone());
-                            b
+                        let Some(handle) = self.slot_for_manifest(ino, sid) else {
+                            reply.error(ENOENT);
+                            return;
                         };
-                        let start = offset as usize;
-                        if start >= bytes.len() {
-                            // Past end: clear cache so the next invocation starts fresh.
-                            self.result_buf.lock().unwrap().remove(&ino);
-                            reply.data(&[]);
-                        } else {
-                            let end = (start + size as usize).min(bytes.len());
-                            reply.data(&bytes[start..end]);
-                        }
+                        let slots = self.slots.clone();
+                        // First-read kicks the handler; subsequent reads
+                        // (and reads from concurrent fhs on the same slot)
+                        // wait via the slot's Notify. Spawned task owns
+                        // the reply so the FUSE dispatcher returns now.
+                        let action = {
+                            let s = handle.lock().unwrap();
+                            match &s.state {
+                                InvocationState::Idle => ReadAction::Kick,
+                                InvocationState::Pending(n) => ReadAction::Wait(n.clone()),
+                                InvocationState::Ready => ReadAction::Slice,
+                            }
+                        };
+                        let (notify, needs_kick) = match action {
+                            ReadAction::Kick => (Some(Self::mark_pending(&handle)), true),
+                            ReadAction::Wait(n) => (Some(n), false),
+                            ReadAction::Slice => (None, false),
+                        };
+                        let handle_for_task = handle.clone();
+                        self.rt.spawn(async move {
+                            if needs_kick {
+                                let h2 = handle_for_task.clone();
+                                tokio::spawn(async move {
+                                    let result = Self::run_invocation_async(h2.clone()).await;
+                                    Self::commit_result_into(&h2, result);
+                                });
+                            }
+                            if let Some(n) = notify {
+                                n.notified().await;
+                            }
+                            let (bytes, past_end) = {
+                                let mut s = handle_for_task.lock().unwrap();
+                                s.touch();
+                                let bytes = s.slice(offset, size).to_vec();
+                                let past_end = (offset as usize) >= s.result.len();
+                                (bytes, past_end)
+                            };
+                            if past_end {
+                                slots.remove((ino, sid));
+                            }
+                            reply.data(&bytes);
+                        });
                         return;
                     }
                     FileKind::WriteInvoke => {
-                        // Return last invocation result.
-                        let result = self.result_buf.lock().unwrap().remove(&ino);
-                        let bytes = result.unwrap_or_default();
-                        reply_bytes(reply, &bytes, offset, size);
+                        // Result was set by release(). If release's
+                        // invocation is still in flight, wait for it.
+                        let Some(handle) = self.slot_for_manifest(ino, sid) else {
+                            reply.error(ENOENT);
+                            return;
+                        };
+                        let slots = self.slots.clone();
+                        let action = {
+                            let s = handle.lock().unwrap();
+                            match &s.state {
+                                InvocationState::Pending(n) => ReadAction::Wait(n.clone()),
+                                _ => ReadAction::Slice,
+                            }
+                        };
+                        let notify = match action {
+                            ReadAction::Wait(n) => Some(n),
+                            _ => None,
+                        };
+                        let handle_for_task = handle.clone();
+                        self.rt.spawn(async move {
+                            if let Some(n) = notify {
+                                n.notified().await;
+                            }
+                            let (bytes, past_end) = {
+                                let mut s = handle_for_task.lock().unwrap();
+                                s.touch();
+                                let bytes = s.slice(offset, size).to_vec();
+                                let past_end = (offset as usize) >= s.result.len();
+                                (bytes, past_end)
+                            };
+                            if past_end {
+                                slots.remove((ino, sid));
+                            }
+                            reply.data(&bytes);
+                        });
                         return;
                     }
                     FileKind::Passthrough | FileKind::Readonly => {
@@ -662,13 +946,14 @@ impl Filesystem for LiveFolders {
 
             // No manifest entry or passthrough/readonly: read from disk.
 
-            // .log virtual file: return trace for the corresponding endpoint.
+            // .log virtual file: return the most recent trace for the
+            // corresponding endpoint inode.
             if let Some(path_str) = disk_path.to_str()
                 && let Some(ep_str) = path_str.strip_suffix(".log") {
                     let ep_path = PathBuf::from(ep_str);
                     let trace = self.path_table.lock().unwrap()
                         .get(&ep_path).copied()
-                        .and_then(|ep_ino| self.trace_buf.lock().unwrap().get(&ep_ino).cloned())
+                        .and_then(|ep_ino| self.slots.latest_trace_for_ino(ep_ino))
                         .unwrap_or_default();
                     reply_bytes(reply, &trace, offset, size);
                     return;
@@ -731,9 +1016,26 @@ impl Filesystem for LiveFolders {
                         let name = registry.list()[idx];
                         registry.get(name).map(|t| t.how_to().as_bytes().to_vec())
                     } else if self.ep_index_for_ino(ino).is_some() {
-                        // reading an endpoint returns last result, then clears it
-                        let result = self.result_buf.lock().unwrap().remove(&ino);
-                        Some(result.unwrap_or_default())
+                        // Built-in endpoint: drain the per-sid slot.
+                        let handle = self.slot_for_endpoint(ino, sid);
+                        let bytes = if let Some(h) = handle {
+                            let mut s = h.lock().unwrap();
+                            s.touch();
+                            let b = s.slice(offset, size).to_vec();
+                            let past_end = (offset as usize) >= s.result.len();
+                            drop(s);
+                            if past_end {
+                                self.slots.remove((ino, sid));
+                            }
+                            b
+                        } else {
+                            Vec::new()
+                        };
+                        // Built-in path uses reply.data directly so we can
+                        // return the already-sliced bytes without going
+                        // through reply_bytes again.
+                        reply.data(&bytes);
+                        return;
                     } else {
                         None
                     }
@@ -753,9 +1055,9 @@ impl Filesystem for LiveFolders {
 
     fn write(
         &mut self,
-        _req: &Request,
+        req: &Request,
         ino: u64,
-        _fh: u64,
+        fh: u64,
         offset: i64,
         data: &[u8],
         _write_flags: u32,
@@ -773,72 +1075,106 @@ impl Filesystem for LiveFolders {
             return;
         }
 
-        let mut buf = self.write_buf.lock().unwrap();
-        let entry = buf.entry(ino).or_default();
-        let end = offset as usize + data.len();
-        if end > entry.len() {
-            entry.resize(end, 0);
+        let sid = self.resolve_sid(req, fh);
+
+        // Endpoint writes accumulate per (ino, sid). Two shells writing
+        // to the same endpoint never interleave because they have
+        // distinct sids.
+        if let Some(handle) = self.slot_for_endpoint(ino, sid) {
+            let mut s = handle.lock().unwrap();
+            let end = offset as usize + data.len();
+            if end > s.write_buf.len() {
+                s.write_buf.resize(end, 0);
+            }
+            s.write_buf[offset as usize..end].copy_from_slice(data);
+            s.touch();
+            reply.written(data.len() as u32);
+            return;
         }
-        entry[offset as usize..end].copy_from_slice(data);
-        reply.written(data.len() as u32);
+
+        // Passthrough disk file (no manifest spec, just a plain file).
+        // Use a sid-scoped slot to buffer the bytes until release().
+        if let Some(disk_path) = self.path_for_ino(ino) {
+            let cwd_path = disk_path
+                .parent()
+                .unwrap_or(Path::new("."))
+                .to_path_buf();
+            let handle = self.slot_for_synth(ino, sid, || {
+                self.synth_snapshot("", "", cwd_path)
+            });
+            let mut s = handle.lock().unwrap();
+            let end = offset as usize + data.len();
+            if end > s.write_buf.len() {
+                s.write_buf.resize(end, 0);
+            }
+            s.write_buf[offset as usize..end].copy_from_slice(data);
+            s.touch();
+            reply.written(data.len() as u32);
+            return;
+        }
+
+        reply.error(libc::EACCES);
     }
 
     fn release(
         &mut self,
-        _req: &Request,
+        req: &Request,
         ino: u64,
-        _fh: u64,
+        fh: u64,
         _flags: i32,
         _lock_owner: Option<u64>,
         _flush: bool,
         reply: fuser::ReplyEmpty,
     ) {
+        let sid = self.resolve_sid(req, fh);
+        // The fh→sid mapping is only needed for the duration of this op
+        // (release is always the last op on a given fh).
+        self.drop_fh(fh);
+
         // External file on disk: dispatch on manifest FileSpec or executable heuristic.
         if let Some(disk_path) = self.path_for_ino(ino) {
             // Manifest-declared file: dispatch on declared type.
-            if let Some((tool_name, file_name, spec)) = self.file_spec_for_ino(ino) {
-                let cwd = self.tools_dir.as_ref()
-                    .map(|d| d.join(&tool_name))
-                    .unwrap_or_else(|| {
-                        disk_path.parent().unwrap_or(Path::new(".")).to_path_buf()
-                    });
+            if let Some((_, _, spec)) = self.file_spec_for_ino(ino) {
                 match spec.kind {
                     FileKind::WriteInvoke => {
-                        let input = self.write_buf.lock().unwrap().remove(&ino).unwrap_or_default();
-                        if !input.is_empty() {
-                            let handler = spec.handler.clone().unwrap_or_default();
-                            let timeout = self.timeout_secs;
-                            let input_schema = spec.input.clone();
-                            let state_file = spec.state_file.clone()
-                                .map(|sf| cwd.join(sf));
-                            let output = self.rt.block_on(async move {
-                                invoke_command_validated(&handler, &input, &tool_name, &file_name, &cwd, timeout, input_schema.as_ref(), state_file.as_deref()).await
+                        let Some(handle) = self.slot_for_manifest(ino, sid) else {
+                            reply.ok();
+                            return;
+                        };
+                        // Async dispatch: mark the slot Pending now so a
+                        // racing read() waits on the Notify, spawn the
+                        // handler, and return immediately. The FUSE
+                        // thread is freed to handle other ops while the
+                        // handler runs.
+                        let has_input = !handle.lock().unwrap().write_buf.is_empty();
+                        if has_input {
+                            Self::mark_pending(&handle);
+                            let h = handle.clone();
+                            self.rt.spawn(async move {
+                                let result = Self::run_invocation_async(h.clone()).await;
+                                Self::commit_result_into(&h, result);
                             });
-                            self.store_trace(ino, output.duration_ms, output.is_error(), &output.stderr);
-                            let bytes = if output.is_error() {
-                                format!("{}\n", output.error.unwrap()).into_bytes()
-                            } else {
-                                output.output
-                            };
-                            self.result_buf.lock().unwrap().insert(ino, bytes);
                         }
                         reply.ok();
                         return;
                     }
                     FileKind::ReadInvoke => {
-                        // Write stores params in write_buf; read() triggers invocation. Nothing to do here.
+                        // write stores params in slot.write_buf; read() triggers invocation.
                         reply.ok();
                         return;
                     }
                     FileKind::Passthrough => {
-                        if let Some(data) = self.write_buf.lock().unwrap().remove(&ino) {
-                            let _ = std::fs::write(&disk_path, data);
+                        if let Some(handle) = self.slot_for_manifest(ino, sid) {
+                            let data = std::mem::take(&mut handle.lock().unwrap().write_buf);
+                            if !data.is_empty() {
+                                let _ = std::fs::write(&disk_path, data);
+                            }
+                            self.slots.remove((ino, sid));
                         }
                         reply.ok();
                         return;
                     }
                     FileKind::Readonly => {
-                        // Write is blocked in write(); release() for a read-only open is a no-op.
                         reply.ok();
                         return;
                     }
@@ -851,54 +1187,58 @@ impl Filesystem for LiveFolders {
                 .map(|m| m.permissions().mode() & 0o111 != 0)
                 .unwrap_or(false);
             if !is_exec {
-                if let Some(data) = self.write_buf.lock().unwrap().remove(&ino) {
-                    let _ = std::fs::write(&disk_path, data);
+                // Plain file: flush the per-sid buffer to disk.
+                if let Some(handle) = self.slots.get((ino, sid)) {
+                    let data = std::mem::take(&mut handle.lock().unwrap().write_buf);
+                    if !data.is_empty() {
+                        let _ = std::fs::write(&disk_path, data);
+                    }
+                    self.slots.remove((ino, sid));
                 }
                 reply.ok();
                 return;
             }
-            // Executable with no manifest: invoke via ExternalTool (existing behavior).
-            let input = self.write_buf.lock().unwrap().remove(&ino).unwrap_or_default();
-            if !input.is_empty()
-                && let Some(tools_dir) = self.tools_dir.clone()
-                    && let Ok(rel) = disk_path.strip_prefix(&tools_dir) {
-                        let parts: Vec<_> = rel.components().collect();
-                        if parts.len() >= 2 {
-                            let tool_name = parts[0].as_os_str().to_string_lossy().to_string();
-                            let ep_name = parts[1].as_os_str().to_string_lossy().to_string();
-                            let tool = self.registry.read().unwrap().get(&tool_name);
-                            if let Some(tool) = tool {
+
+            // Executable with no manifest: invoke via the registry.
+            if let Some(tools_dir) = self.tools_dir.clone()
+                && let Ok(rel) = disk_path.strip_prefix(&tools_dir) {
+                    let parts: Vec<_> = rel.components().collect();
+                    if parts.len() >= 2 {
+                        let tool_name = parts[0].as_os_str().to_string_lossy().to_string();
+                        let ep_name = parts[1].as_os_str().to_string_lossy().to_string();
+                        let tool = self.registry.read().unwrap().get(&tool_name);
+                        if let Some(tool) = tool {
+                            let cwd_path = disk_path
+                                .parent()
+                                .unwrap_or(Path::new("."))
+                                .to_path_buf();
+                            let handle = self.slot_for_synth(ino, sid, || {
+                                self.synth_snapshot(&tool_name, &ep_name, cwd_path)
+                            });
+                            let input = std::mem::take(&mut handle.lock().unwrap().write_buf);
+                            if !input.is_empty() {
+                                Self::mark_pending(&handle);
                                 let session = self.session.clone();
-                                let output = self.rt.block_on(async move {
+                                let h = handle.clone();
+                                let tool_name_dbg = tool_name.clone();
+                                let ep_name_dbg = ep_name.clone();
+                                self.rt.spawn(async move {
+                                    tracing::debug!("invoke start: tool={} endpoint={}", tool_name_dbg, ep_name_dbg);
                                     let result = tool.invoke(&ep_name, &input, &session).await;
-                                    if result.is_error() {
-                                        format!("{}\n", result.error.unwrap()).into_bytes()
-                                    } else {
-                                        result.output
-                                    }
+                                    Self::commit_result_into(&h, result);
                                 });
-                                self.result_buf.lock().unwrap().insert(ino, output);
                             }
                         }
                     }
+                }
             reply.ok();
             return;
         }
 
-        let input = match self.write_buf.lock().unwrap().remove(&ino) {
-            Some(b) if !b.is_empty() => b,
-            _ => {
-                reply.ok();
-                return;
-            }
-        };
-
-        let (tool_idx, ep_idx) = match self.ep_index_for_ino(ino) {
-            Some(pair) => pair,
-            None => {
-                reply.ok();
-                return;
-            }
+        // Built-in tool endpoint (inode in the 1000..100_000 range).
+        let Some((tool_idx, ep_idx)) = self.ep_index_for_ino(ino) else {
+            reply.ok();
+            return;
         };
 
         let (tool_name, endpoint, tool) = {
@@ -911,23 +1251,32 @@ impl Filesystem for LiveFolders {
             let endpoint = tool.endpoints()[ep_idx].to_string();
             (tool_name, endpoint, tool)
         };
-        let session = self.session.clone();
-        let result_buf = self.result_buf.clone();
 
-        tracing::debug!("invoking tool={} endpoint={} input_len={}", tool_name, endpoint, input.len());
-
-        let output = self.rt.block_on(async move {
-            tracing::debug!("invoke start: tool={} endpoint={}", tool_name, endpoint);
-            let result = tool.invoke(&endpoint, &input, &session).await;
-            tracing::debug!("invoke done: ino={}", ino);
-            if result.is_error() {
-                format!("{}\n", result.error.unwrap()).into_bytes()
-            } else {
-                result.output
-            }
+        let cwd_path = self
+            .tools_dir
+            .as_ref()
+            .map(|d| d.join(&tool_name))
+            .unwrap_or_else(|| PathBuf::from("."));
+        let handle = self.slot_for_synth(ino, sid, || {
+            self.synth_snapshot(&tool_name, &endpoint, cwd_path)
         });
-        result_buf.lock().unwrap().insert(ino, output);
+        let input = std::mem::take(&mut handle.lock().unwrap().write_buf);
+        if input.is_empty() {
+            reply.ok();
+            return;
+        }
 
+        Self::mark_pending(&handle);
+        let session = self.session.clone();
+        tracing::debug!("invoking tool={} endpoint={} input_len={}", tool_name, endpoint, input.len());
+        let h = handle.clone();
+        let tool_name_dbg = tool_name.clone();
+        let endpoint_dbg = endpoint.clone();
+        self.rt.spawn(async move {
+            tracing::debug!("invoke start: tool={} endpoint={}", tool_name_dbg, endpoint_dbg);
+            let result = tool.invoke(&endpoint, &input, &session).await;
+            Self::commit_result_into(&h, result);
+        });
         reply.ok();
     }
 
@@ -1047,9 +1396,8 @@ impl Filesystem for LiveFolders {
                                 if let Some(spec) = manifest.spec_for(name_str) {
                                     if matches!(spec.kind, FileKind::WriteInvoke | FileKind::ReadInvoke) {
                                         if let Some(&ino) = self.path_table.lock().unwrap().get(&path) {
-                                            self.result_buf.lock().unwrap().remove(&ino);
-                                            self.write_buf.lock().unwrap().remove(&ino);
-                                            self.trace_buf.lock().unwrap().remove(&ino);
+                                            // Drop slots for this inode across all sids.
+                                            self.slots.remove_all_for_ino(ino);
                                         }
                                         reply.ok();
                                         return;
