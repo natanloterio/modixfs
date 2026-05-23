@@ -99,8 +99,10 @@ impl McpClient {
             if trimmed.is_empty() {
                 continue;
             }
-            let v: Value = serde_json::from_str(trimmed)
-                .with_context(|| format!("invalid JSON from MCP server: {}", trimmed))?;
+            let v: Value = match serde_json::from_str(trimmed) {
+                Ok(v) => v,
+                Err(_) => continue, // skip non-JSON startup noise from the server
+            };
             if v.get("id").is_none() {
                 continue; // skip notifications
             }
@@ -140,9 +142,48 @@ for line in sys.stdin:
 "#
     }
 
+    fn fake_mcp_server_with_startup_noise_script() -> &'static str {
+        r#"#!/usr/bin/env python3
+import sys, json
+
+def send(obj):
+    sys.stdout.write(json.dumps(obj) + "\n")
+    sys.stdout.flush()
+
+# Simulate servers (like npx auto-browser) that print plain text to stdout on startup
+sys.stdout.write("Light abstraction onto puppeteer in order to simplify easy browser automation task\n")
+sys.stdout.flush()
+sys.stdout.write("Starting MCP server...\n")
+sys.stdout.flush()
+
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    req = json.loads(line)
+    method = req.get("method", "")
+    id_ = req.get("id")
+    if method == "initialize":
+        send({"jsonrpc":"2.0","id":id_,"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"noisy","version":"0.1"}}})
+    elif method == "notifications/initialized":
+        pass
+    elif method == "tools/call":
+        tool = req["params"]["name"]
+        args = req["params"].get("arguments", {})
+        send({"jsonrpc":"2.0","id":id_,"result":{"content":[{"type":"text","text":f"called:{tool}:{args}"}],"isError":False}})
+"#
+    }
+
     fn write_fake_server(tmp: &tempfile::TempDir) -> std::path::PathBuf {
         let path = tmp.path().join("fake_mcp.py");
         std::fs::write(&path, fake_mcp_server_script()).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        path
+    }
+
+    fn write_noisy_fake_server(tmp: &tempfile::TempDir) -> std::path::PathBuf {
+        let path = tmp.path().join("fake_mcp_noisy.py");
+        std::fs::write(&path, fake_mcp_server_with_startup_noise_script()).unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
         path
     }
@@ -175,5 +216,15 @@ for line in sys.stdin:
         // call_tool without explicit initialize — should auto-initialize
         let result = client.call_tool("ping", serde_json::json!({})).unwrap();
         assert!(result.contains("called:ping"), "got: {}", result);
+    }
+
+    #[test]
+    fn client_skips_non_json_startup_noise() {
+        let tmp = tempfile::tempdir().unwrap();
+        let script = write_noisy_fake_server(&tmp);
+        let mut client = McpClient::spawn("python3", &[script.to_string_lossy().to_string()], &[]).unwrap();
+        client.initialize().unwrap();
+        let result = client.call_tool("browser_navigate", serde_json::json!({"url": "https://example.com"})).unwrap();
+        assert!(result.contains("called:browser_navigate"), "got: {}", result);
     }
 }
