@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1000" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#fafbfc"/>
@@ -7,153 +7,198 @@
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#0d9488"/>
     </marker>
-    <marker id="arrow-back" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#f59e0b"/>
+    <marker id="arrow-slate" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
     </marker>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="3" stdDeviation="4" flood-opacity="0.08"/>
     </filter>
   </defs>
 
-  <rect width="1200" height="1000" fill="url(#bg)"/>
+  <rect width="1200" height="1200" fill="url(#bg)"/>
 
   <!-- Header -->
-  <text x="600" y="64" text-anchor="middle" font-size="42" font-weight="700" fill="#0f172a">LiveFolders</text>
-  <text x="600" y="98" text-anchor="middle" font-size="20" fill="#475569">Tools as files for LLMs</text>
-  <text x="600" y="128" text-anchor="middle" font-size="16" fill="#64748b" font-family="ui-monospace, 'SF Mono', Menlo, monospace">no protocol · no SDK · just <tspan font-weight="600" fill="#0d9488">cat</tspan> and <tspan font-weight="600" fill="#0d9488">echo</tspan></text>
+  <text x="600" y="58" text-anchor="middle" font-size="36" font-weight="700" fill="#0f172a">LiveFolders</text>
+  <text x="600" y="90" text-anchor="middle" font-size="16" fill="#475569">Per-session routing &amp; server-side composition</text>
 
-  <!-- Flow diagram -->
-  <g transform="translate(60, 180)">
-
-    <!-- LLM box -->
-    <rect x="0" y="0" width="300" height="240" rx="12" fill="white" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
-    <rect x="0" y="0" width="300" height="40" rx="12" fill="#0f172a"/>
-    <rect x="0" y="28" width="300" height="12" fill="#0f172a"/>
-    <text x="20" y="26" font-size="14" font-weight="600" fill="white">LLM / shell</text>
-    <circle cx="276" cy="20" r="4" fill="#22c55e"/>
-    <circle cx="262" cy="20" r="4" fill="#f59e0b"/>
-    <circle cx="248" cy="20" r="4" fill="#ef4444"/>
-
-    <text x="20" y="74" font-size="12" fill="#64748b" font-family="ui-monospace, monospace">$ echo "London" \</text>
-    <text x="20" y="92" font-size="12" fill="#64748b" font-family="ui-monospace, monospace">    &gt; weather/forecast</text>
-
-    <text x="20" y="128" font-size="12" fill="#64748b" font-family="ui-monospace, monospace">$ cat weather/forecast</text>
-    <text x="20" y="146" font-size="12" fill="#0f172a" font-family="ui-monospace, monospace">Weather report:</text>
-    <text x="20" y="164" font-size="12" fill="#0f172a" font-family="ui-monospace, monospace">  Overcast</text>
-    <text x="20" y="182" font-size="12" fill="#0f172a" font-family="ui-monospace, monospace">  15 °C</text>
-
-    <text x="150" y="220" text-anchor="middle" font-size="11" fill="#94a3b8">standard POSIX files</text>
-
-    <!-- Arrow 1: LLM -> FUSE -->
-    <line x1="320" y1="100" x2="430" y2="100" stroke="#0d9488" stroke-width="2.5" marker-end="url(#arrow)"/>
-    <text x="375" y="92" text-anchor="middle" font-size="11" font-weight="600" fill="#0d9488">write()</text>
-
-    <!-- Arrow 2: FUSE -> LLM (response) -->
-    <line x1="430" y1="140" x2="320" y2="140" stroke="#f59e0b" stroke-width="2.5" marker-end="url(#arrow-back)"/>
-    <text x="375" y="158" text-anchor="middle" font-size="11" font-weight="600" fill="#f59e0b">read()</text>
-
-    <!-- FUSE box -->
-    <rect x="450" y="0" width="320" height="240" rx="12" fill="white" stroke="#0d9488" stroke-width="2" filter="url(#shadow)"/>
-    <rect x="450" y="0" width="320" height="40" rx="12" fill="#0d9488"/>
-    <rect x="450" y="28" width="320" height="12" fill="#0d9488"/>
-    <text x="470" y="26" font-size="14" font-weight="600" fill="white">FUSE filesystem</text>
-    <text x="750" y="26" text-anchor="end" font-size="12" fill="#a7f3d0" font-family="ui-monospace, monospace">.livefolders/</text>
-
-    <text x="470" y="74" font-size="13" font-weight="600" fill="#0f172a">on write: buffer per (ino, sid)</text>
-    <text x="470" y="94" font-size="12" fill="#475569">capture caller's session id via</text>
-    <text x="470" y="110" font-size="12" font-family="ui-monospace, monospace" fill="#0d9488">getsid(req.pid())</text>
-
-    <text x="470" y="142" font-size="13" font-weight="600" fill="#0f172a">on close: spawn handler</text>
-    <text x="470" y="162" font-size="12" fill="#475569">async dispatch onto Tokio — the</text>
-    <text x="470" y="178" font-size="12" fill="#475569">FUSE thread stays responsive</text>
-
-    <text x="470" y="210" font-size="13" font-weight="600" fill="#0f172a">on read: drain or await</text>
-    <text x="470" y="222" font-size="11" fill="#94a3b8" font-family="ui-monospace, monospace" /><text x="610" y="222" text-anchor="middle" font-size="11" fill="#94a3b8">single-line routing</text>
-
-    <!-- Arrow 3: FUSE -> handler -->
-    <line x1="790" y1="100" x2="900" y2="100" stroke="#0d9488" stroke-width="2.5" marker-end="url(#arrow)"/>
-    <text x="845" y="92" text-anchor="middle" font-size="11" font-weight="600" fill="#0d9488">spawn</text>
-
-    <!-- Arrow 4: handler -> FUSE -->
-    <line x1="900" y1="140" x2="790" y2="140" stroke="#f59e0b" stroke-width="2.5" marker-end="url(#arrow-back)"/>
-    <text x="845" y="158" text-anchor="middle" font-size="11" font-weight="600" fill="#f59e0b">stdout</text>
-
-    <!-- Handler box -->
-    <rect x="920" y="0" width="220" height="240" rx="12" fill="white" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
-    <rect x="920" y="0" width="220" height="40" rx="12" fill="#1e293b"/>
-    <rect x="920" y="28" width="220" height="12" fill="#1e293b"/>
-    <text x="940" y="26" font-size="14" font-weight="600" fill="white">shell handler</text>
-
-    <text x="940" y="74" font-size="11" fill="#94a3b8" font-family="ui-monospace, monospace">folder.yaml</text>
-    <text x="940" y="92" font-size="12" font-family="ui-monospace, monospace" fill="#0f172a">handler:</text>
-    <text x="940" y="110" font-size="11" font-family="ui-monospace, monospace" fill="#0d9488">  curl -s wttr.in/$(cat)</text>
-
-    <text x="940" y="146" font-size="13" font-weight="600" fill="#0f172a">stdin → LLM input</text>
-    <text x="940" y="166" font-size="13" font-weight="600" fill="#0f172a">stdout → LLM result</text>
-
-    <text x="940" y="200" font-size="11" fill="#94a3b8">SIGTERM → 1s → SIGKILL</text>
-    <text x="940" y="216" font-size="11" fill="#94a3b8">on timeout (default 30s)</text>
-  </g>
-
-  <!-- Concurrency panel -->
-  <g transform="translate(60, 480)">
-    <text x="0" y="0" font-size="22" font-weight="700" fill="#0f172a">Concurrency</text>
-    <text x="0" y="24" font-size="13" fill="#64748b">Two shells calling the same endpoint don't clobber each other.</text>
+  <!-- PANEL 1: Concurrency -->
+  <g transform="translate(60, 130)">
+    <text x="0" y="0" font-size="22" font-weight="700" fill="#0f172a">1. Concurrency</text>
+    <text x="0" y="26" font-size="13" fill="#64748b">Two shells calling the same endpoint don't clobber each other — each session gets its own slot via <tspan font-family="ui-monospace, monospace" fill="#0d9488">getsid(req.pid())</tspan>.</text>
 
     <!-- Shell A -->
-    <rect x="0" y="44" width="540" height="170" rx="10" fill="white" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
-    <text x="20" y="68" font-size="12" font-weight="600" fill="#0f172a">Shell A</text>
-    <text x="180" y="68" font-size="11" fill="#94a3b8" font-family="ui-monospace, monospace">sid = 12345</text>
-    <line x1="20" y1="78" x2="520" y2="78" stroke="#f1f5f9"/>
-    <text x="20" y="100" font-size="12" font-family="ui-monospace, monospace" fill="#475569">$ echo "alpha" &gt; ep</text>
-    <text x="20" y="120" font-size="12" font-family="ui-monospace, monospace" fill="#475569">$ cat ep</text>
-    <text x="20" y="140" font-size="12" font-family="ui-monospace, monospace" fill="#0d9488">ALPHA</text>
-    <rect x="20" y="156" width="500" height="42" rx="6" fill="#f0fdfa"/>
-    <text x="30" y="174" font-size="11" fill="#0f766e">slot (ep_ino, 12345)</text>
-    <text x="30" y="190" font-size="11" font-family="ui-monospace, monospace" fill="#0f172a">write_buf: alpha → result: ALPHA</text>
+    <rect x="0" y="50" width="540" height="220" rx="10" fill="white" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
+    <rect x="0" y="50" width="540" height="36" rx="10" fill="#0f172a"/>
+    <rect x="0" y="76" width="540" height="10" fill="#0f172a"/>
+    <text x="20" y="74" font-size="13" font-weight="600" fill="white">Shell A</text>
+    <text x="520" y="74" text-anchor="end" font-size="11" fill="#94a3b8" font-family="ui-monospace, monospace">sid = 12345</text>
+
+    <text x="20" y="112" font-size="12" font-family="ui-monospace, monospace" fill="#475569">$ echo "alpha" &gt; ep</text>
+    <text x="20" y="132" font-size="12" font-family="ui-monospace, monospace" fill="#475569">$ cat ep</text>
+    <text x="20" y="152" font-size="13" font-family="ui-monospace, monospace" font-weight="600" fill="#0d9488">ALPHA</text>
+
+    <line x1="20" y1="172" x2="520" y2="172" stroke="#f1f5f9"/>
+
+    <rect x="20" y="186" width="500" height="68" rx="8" fill="#f0fdfa" stroke="#a7f3d0" stroke-width="1"/>
+    <text x="32" y="206" font-size="11" font-weight="600" fill="#0f766e">SlotTable[ (ep_ino, 12345) ]</text>
+    <text x="32" y="226" font-size="11" font-family="ui-monospace, monospace" fill="#0f172a">write_buf: "alpha\n"</text>
+    <text x="32" y="244" font-size="11" font-family="ui-monospace, monospace" fill="#0f172a">result:    "ALPHA\n"   state: Ready</text>
 
     <!-- Shell B -->
-    <rect x="560" y="44" width="540" height="170" rx="10" fill="white" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
-    <text x="580" y="68" font-size="12" font-weight="600" fill="#0f172a">Shell B (parallel)</text>
-    <text x="740" y="68" font-size="11" fill="#94a3b8" font-family="ui-monospace, monospace">sid = 67890</text>
-    <line x1="580" y1="78" x2="1080" y2="78" stroke="#f1f5f9"/>
-    <text x="580" y="100" font-size="12" font-family="ui-monospace, monospace" fill="#475569">$ echo "bravo" &gt; ep</text>
-    <text x="580" y="120" font-size="12" font-family="ui-monospace, monospace" fill="#475569">$ cat ep</text>
-    <text x="580" y="140" font-size="12" font-family="ui-monospace, monospace" fill="#f59e0b">BRAVO</text>
-    <rect x="580" y="156" width="500" height="42" rx="6" fill="#fffbeb"/>
-    <text x="590" y="174" font-size="11" fill="#92400e">slot (ep_ino, 67890)</text>
-    <text x="590" y="190" font-size="11" font-family="ui-monospace, monospace" fill="#0f172a">write_buf: bravo → result: BRAVO</text>
+    <rect x="560" y="50" width="540" height="220" rx="10" fill="white" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
+    <rect x="560" y="50" width="540" height="36" rx="10" fill="#0f172a"/>
+    <rect x="560" y="76" width="540" height="10" fill="#0f172a"/>
+    <text x="580" y="74" font-size="13" font-weight="600" fill="white">Shell B (in parallel)</text>
+    <text x="1080" y="74" text-anchor="end" font-size="11" fill="#94a3b8" font-family="ui-monospace, monospace">sid = 67890</text>
+
+    <text x="580" y="112" font-size="12" font-family="ui-monospace, monospace" fill="#475569">$ echo "bravo" &gt; ep</text>
+    <text x="580" y="132" font-size="12" font-family="ui-monospace, monospace" fill="#475569">$ cat ep</text>
+    <text x="580" y="152" font-size="13" font-family="ui-monospace, monospace" font-weight="600" fill="#f59e0b">BRAVO</text>
+
+    <line x1="580" y1="172" x2="1080" y2="172" stroke="#f1f5f9"/>
+
+    <rect x="580" y="186" width="500" height="68" rx="8" fill="#fffbeb" stroke="#fde68a" stroke-width="1"/>
+    <text x="592" y="206" font-size="11" font-weight="600" fill="#92400e">SlotTable[ (ep_ino, 67890) ]</text>
+    <text x="592" y="226" font-size="11" font-family="ui-monospace, monospace" fill="#0f172a">write_buf: "bravo\n"</text>
+    <text x="592" y="244" font-size="11" font-family="ui-monospace, monospace" fill="#0f172a">result:    "BRAVO\n"   state: Ready</text>
+
+    <text x="0" y="298" font-size="12" fill="#64748b">Same inode, distinct sids → distinct slots. Handlers run on the Tokio runtime, in parallel.</text>
   </g>
 
-  <!-- Bottom row: directory + footer -->
-  <g transform="translate(60, 740)">
-    <!-- Directory tree -->
-    <rect x="0" y="0" width="540" height="220" rx="10" fill="white" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
-    <text x="20" y="28" font-size="14" font-weight="600" fill="#0f172a">Directory layout</text>
-    <g font-family="ui-monospace, monospace" font-size="12" fill="#0f172a">
-      <text x="20" y="58">.livefolders/</text>
-      <text x="20" y="78">&#9500;&#9472;&#9472; tools/</text>
-      <text x="20" y="98">&#9474;   &#9500;&#9472;&#9472; index.md          <tspan fill="#94a3b8"># discover all tools</tspan></text>
-      <text x="20" y="118">&#9474;   &#9500;&#9472;&#9472; weather/</text>
-      <text x="20" y="138">&#9474;   &#9474;   &#9500;&#9472;&#9472; how_to.md     <tspan fill="#94a3b8"># auto-generated</tspan></text>
-      <text x="20" y="158">&#9474;   &#9474;   &#9500;&#9472;&#9472; schema.json   <tspan fill="#94a3b8"># MCP-compatible</tspan></text>
-      <text x="20" y="178">&#9474;   &#9474;   &#9500;&#9472;&#9472; forecast      <tspan fill="#0d9488">← endpoint</tspan></text>
-      <text x="20" y="198">&#9474;   &#9474;   &#9492;&#9472;&#9472; forecast.log  <tspan fill="#94a3b8"># last invocation</tspan></text>
+  <!-- PANEL 2: Tool composition -->
+  <g transform="translate(60, 510)">
+    <text x="0" y="0" font-size="22" font-weight="700" fill="#0f172a">2. Tool composition</text>
+    <text x="0" y="26" font-size="13" fill="#64748b">Chain stages server-side with <tspan font-family="ui-monospace, monospace" fill="#0d9488">pipe:</tspan> — the LLM does one read, the runtime does the work.</text>
+
+    <!-- folder.yaml -->
+    <rect x="0" y="50" width="540" height="340" rx="10" fill="white" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
+    <rect x="0" y="50" width="540" height="36" rx="10" fill="#1e293b"/>
+    <rect x="0" y="76" width="540" height="10" fill="#1e293b"/>
+    <text x="20" y="74" font-size="13" font-weight="600" fill="white">folder.yaml — incident-triage</text>
+
+    <g font-family="ui-monospace, 'SF Mono', monospace" font-size="12">
+      <text x="20" y="112" fill="#0f172a"><tspan fill="#64748b">name:</tspan> incident-triage</text>
+      <text x="20" y="132" fill="#0f172a"><tspan fill="#64748b">files:</tspan></text>
+      <text x="20" y="152" fill="#0f172a">  - <tspan fill="#64748b">name:</tspan> fetch-alerts</text>
+      <text x="20" y="170" fill="#0f172a">    <tspan fill="#64748b">handler:</tspan> <tspan fill="#0d9488">curl -s $DATADOG_URL/alerts</tspan></text>
+      <text x="20" y="194" fill="#0f172a">  - <tspan fill="#64748b">name:</tspan> dedupe</text>
+      <text x="20" y="212" fill="#0f172a">    <tspan fill="#64748b">handler:</tspan> <tspan fill="#0d9488">jq -s 'unique_by(.fingerprint)'</tspan></text>
+      <text x="20" y="236" fill="#0f172a">  - <tspan fill="#64748b">name:</tspan> rank-by-severity</text>
+      <text x="20" y="254" fill="#0f172a">    <tspan fill="#64748b">handler:</tspan> <tspan fill="#0d9488">./rank.py</tspan></text>
+      <text x="20" y="278" fill="#0f172a">  - <tspan fill="#64748b">name:</tspan> link-runbooks</text>
+      <text x="20" y="296" fill="#0f172a">    <tspan fill="#64748b">handler:</tspan> <tspan fill="#0d9488">./resolve-runbook-urls.sh</tspan></text>
+      <text x="20" y="320" fill="#0f172a">  - <tspan fill="#64748b">name:</tspan> report</text>
+      <text x="20" y="338" fill="#0f172a">    <tspan fill="#64748b">type:</tspan> read_invoke</text>
+      <text x="20" y="358" fill="#0f172a">    <tspan fill="#7c3aed" font-weight="600">pipe:</tspan> <tspan fill="#7c3aed">[fetch-alerts, dedupe,</tspan></text>
+      <text x="20" y="376" fill="#7c3aed" font-weight="600">           rank-by-severity, link-runbooks]</text>
     </g>
 
-    <!-- Comparison panel -->
-    <rect x="560" y="0" width="540" height="220" rx="10" fill="white" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
-    <text x="580" y="28" font-size="14" font-weight="600" fill="#0f172a">vs. MCP</text>
-    <g font-size="12" fill="#475569">
-      <text x="580" y="60"><tspan font-weight="600" fill="#0f172a">LiveFolders</tspan>: 6-line YAML, any shell-capable agent</text>
-      <text x="580" y="80"><tspan font-weight="600" fill="#0f172a">MCP</tspan>: SDK + JSON-RPC, host must speak the protocol</text>
-      <text x="580" y="112"><tspan font-weight="600" fill="#0f172a">LiveFolders</tspan>: install with one URL, hot-reload in ~1s</text>
-      <text x="580" y="132"><tspan font-weight="600" fill="#0f172a">MCP</tspan>: registry or manual config, server restart on change</text>
-      <text x="580" y="164"><tspan font-weight="600" fill="#0f172a">LiveFolders</tspan>: composes with Unix pipes natively</text>
-      <text x="580" y="184"><tspan font-weight="600" fill="#0f172a">MCP</tspan>: typed schemas, structured errors, in-process state</text>
+    <!-- LLM view + pipeline -->
+    <g transform="translate(560, 0)">
+      <text x="0" y="78" font-size="14" font-weight="600" fill="#0f172a">What the LLM does</text>
+
+      <rect x="0" y="92" width="540" height="92" rx="8" fill="#0f172a"/>
+      <text x="20" y="118" font-size="13" font-family="ui-monospace, monospace" fill="#94a3b8">$ cat .livefolders/tools/\</text>
+      <text x="20" y="136" font-size="13" font-family="ui-monospace, monospace" fill="#94a3b8">    incident-triage/report</text>
+      <text x="20" y="164" font-size="13" font-family="ui-monospace, monospace" fill="#0d9488"># P0 Database connection pool exhausted</text>
+
+      <text x="0" y="216" font-size="12" fill="#64748b">One read. One LLM turn. Final markdown enters context;</text>
+      <text x="0" y="234" font-size="12" fill="#64748b">no intermediate JSON ever does.</text>
+
+      <text x="0" y="278" font-size="14" font-weight="600" fill="#0f172a">What the runtime does</text>
+
+      <g transform="translate(0, 298)">
+        <rect x="0" y="0" width="92" height="48" rx="6" fill="white" stroke="#0d9488" stroke-width="1.5"/>
+        <text x="46" y="20" text-anchor="middle" font-size="11" font-weight="600" fill="#0f172a">fetch</text>
+        <text x="46" y="36" text-anchor="middle" font-size="10" fill="#64748b">curl</text>
+
+        <line x1="92" y1="24" x2="108" y2="24" stroke="#0d9488" stroke-width="2" marker-end="url(#arrow)"/>
+
+        <rect x="108" y="0" width="92" height="48" rx="6" fill="white" stroke="#0d9488" stroke-width="1.5"/>
+        <text x="154" y="20" text-anchor="middle" font-size="11" font-weight="600" fill="#0f172a">dedupe</text>
+        <text x="154" y="36" text-anchor="middle" font-size="10" fill="#64748b">jq</text>
+
+        <line x1="200" y1="24" x2="216" y2="24" stroke="#0d9488" stroke-width="2" marker-end="url(#arrow)"/>
+
+        <rect x="216" y="0" width="92" height="48" rx="6" fill="white" stroke="#0d9488" stroke-width="1.5"/>
+        <text x="262" y="20" text-anchor="middle" font-size="11" font-weight="600" fill="#0f172a">rank</text>
+        <text x="262" y="36" text-anchor="middle" font-size="10" fill="#64748b">python</text>
+
+        <line x1="308" y1="24" x2="324" y2="24" stroke="#0d9488" stroke-width="2" marker-end="url(#arrow)"/>
+
+        <rect x="324" y="0" width="100" height="48" rx="6" fill="white" stroke="#0d9488" stroke-width="1.5"/>
+        <text x="374" y="20" text-anchor="middle" font-size="11" font-weight="600" fill="#0f172a">link</text>
+        <text x="374" y="36" text-anchor="middle" font-size="10" fill="#64748b">shell</text>
+
+        <line x1="424" y1="24" x2="440" y2="24" stroke="#0d9488" stroke-width="2" marker-end="url(#arrow)"/>
+
+        <rect x="440" y="0" width="100" height="48" rx="6" fill="#0d9488"/>
+        <text x="490" y="20" text-anchor="middle" font-size="11" font-weight="600" fill="white">report</text>
+        <text x="490" y="36" text-anchor="middle" font-size="10" fill="#a7f3d0">stdout</text>
+      </g>
+
+      <text x="0" y="372" font-size="11" fill="#94a3b8">stdout → stdin between stages. Bytes never leave the daemon.</text>
+    </g>
+  </g>
+
+  <!-- vs MCP comparison -->
+  <g transform="translate(60, 920)">
+    <text x="0" y="0" font-size="14" font-weight="600" fill="#0f172a">vs. the same workflow over MCP</text>
+    <text x="0" y="22" font-size="12" fill="#64748b">The LLM orchestrates: 5 tool calls, each round-trips JSON-RPC; intermediate state has to live in the LLM's context.</text>
+
+    <g transform="translate(0, 44)">
+      <rect x="0" y="0" width="100" height="44" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1.5"/>
+      <text x="50" y="20" text-anchor="middle" font-size="11" font-weight="600" fill="#0f172a">LLM</text>
+      <text x="50" y="34" text-anchor="middle" font-size="9" fill="#64748b">turn 1</text>
+
+      <line x1="100" y1="22" x2="156" y2="22" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow-slate)"/>
+      <text x="128" y="16" text-anchor="middle" font-size="9" fill="#64748b">fetch</text>
+
+      <rect x="160" y="0" width="84" height="44" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1.5"/>
+      <text x="202" y="20" text-anchor="middle" font-size="11" font-weight="600" fill="#0f172a">MCP</text>
+      <text x="202" y="34" text-anchor="middle" font-size="9" fill="#64748b">datadog</text>
+
+      <line x1="244" y1="22" x2="300" y2="22" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow-slate)"/>
+      <text x="272" y="16" text-anchor="middle" font-size="9" fill="#64748b">JSON</text>
+
+      <rect x="304" y="0" width="100" height="44" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1.5"/>
+      <text x="354" y="20" text-anchor="middle" font-size="11" font-weight="600" fill="#0f172a">LLM</text>
+      <text x="354" y="34" text-anchor="middle" font-size="9" fill="#64748b">turn 2: dedupe</text>
+
+      <line x1="404" y1="22" x2="460" y2="22" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow-slate)"/>
+
+      <rect x="464" y="0" width="84" height="44" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1.5"/>
+      <text x="506" y="20" text-anchor="middle" font-size="11" font-weight="600" fill="#0f172a">MCP</text>
+      <text x="506" y="34" text-anchor="middle" font-size="9" fill="#64748b">jq</text>
+
+      <line x1="548" y1="22" x2="604" y2="22" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow-slate)"/>
+
+      <rect x="608" y="0" width="100" height="44" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1.5"/>
+      <text x="658" y="20" text-anchor="middle" font-size="11" font-weight="600" fill="#0f172a">LLM</text>
+      <text x="658" y="34" text-anchor="middle" font-size="9" fill="#64748b">turn 3: rank</text>
+
+      <text x="720" y="30" font-size="22" fill="#94a3b8">⋯</text>
+
+      <rect x="760" y="0" width="100" height="44" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1.5"/>
+      <text x="810" y="20" text-anchor="middle" font-size="11" font-weight="600" fill="#0f172a">LLM</text>
+      <text x="810" y="34" text-anchor="middle" font-size="9" fill="#64748b">turn 5: report</text>
+    </g>
+
+    <g transform="translate(0, 116)">
+      <rect x="0" y="0" width="1080" height="84" rx="10" fill="white" stroke="#e2e8f0" stroke-width="1.5"/>
+
+      <text x="20" y="26" font-size="12" font-weight="600" fill="#0d9488">LiveFolders pipe</text>
+      <text x="20" y="46" font-size="11" fill="#64748b">1 LLM turn  ·  ~600 final-output tokens  ·  intermediate JSON never enters context</text>
+      <text x="20" y="64" font-size="11" fill="#64748b">runtime executes stages back-to-back; one process spawn per stage on the host</text>
+
+      <line x1="540" y1="14" x2="540" y2="70" stroke="#f1f5f9"/>
+
+      <text x="560" y="26" font-size="12" font-weight="600" fill="#0f172a">MCP orchestration</text>
+      <text x="560" y="46" font-size="11" fill="#64748b">5 LLM turns  ·  every intermediate payload re-enters context  ·  5 RTT</text>
+      <text x="560" y="64" font-size="11" fill="#64748b">model has to remember what to call next; each turn pays the prefill cost</text>
     </g>
   </g>
 
   <!-- Footer -->
-  <text x="600" y="990" text-anchor="middle" font-size="11" fill="#94a3b8" font-family="ui-monospace, monospace">github.com/natanloterio/LiveFolders · Apache 2.0</text>
+  <text x="600" y="1175" text-anchor="middle" font-size="11" fill="#94a3b8" font-family="ui-monospace, monospace">github.com/natanloterio/LiveFolders  ·  Apache 2.0</text>
 </svg>
