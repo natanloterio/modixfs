@@ -1,15 +1,27 @@
 # 🗂️ LiveFoldersFS
 
-Expose any tool to an LLM as plain files. The LLM uses `cat` and `echo` — no JSON, no protocol, no SDK.
+**Chain tools into one call.** Declare a pipeline in `folder.yaml`, the agent triggers the whole thing with a single `echo` / `cat` — no per-step JSON, no per-step model turn.
+
+```yaml
+# tools/weather/folder.yaml
+files:
+  - name: report
+    type: write_invoke
+    pipe: [fetch_data, translate, format]   # 3 steps, 1 endpoint
+```
 
 ```bash
-cat .livefolders/tools/users/list
-# → # Users
-# →
-# → ## Mr. Rudolph Robel-Fay
-# → ID: 1
-# → ...
+echo "London" > .livefolders/tools/weather/report
+cat  .livefolders/tools/weather/report
+# → fetch → translate → format, all in one round trip
 ```
+
+### Why a folder beats JSON tool-calling
+
+- **1 round trip per workflow, not N.** A 5-step chain is one model turn, not five. The agent writes once and reads once; the kernel runs the pipeline.
+- **No schema chatter between stages.** Stages hand bytes to each other on stdin/stdout — no re-serializing through the model, no per-call validation overhead.
+- **Lazy discovery.** `ls`, `cat index.md`, `cat how_to.md`. Tool docs load only when the agent needs them, instead of every schema squatting in the context window.
+- **Shell composition for free.** Agents already know `|`, `xargs`, `tee`. Composing tools doesn't require a new protocol.
 
 ---
 
